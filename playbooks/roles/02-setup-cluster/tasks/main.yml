@@ -1,0 +1,91 @@
+- name: Kubelet ip
+  ansible.builtin.copy:
+    content: "KUBELET_EXTRA_ARGS=--node-ip={{ ansible_host }}"
+    dest: /etc/default/kubelet
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+- name: Check kubelet.conf
+  ansible.builtin.stat:
+    path: "/etc/kubernetes/kubelet.conf"
+  register: kubelet_conf
+  failed_when: kubelet_conf.stat.exists
+
+- name: Initialize Kubernetes Master Node # noqa: no-changed-when
+  ansible.builtin.command: |
+    kubeadm init \
+      --pod-network-cidr=10.244.0.0/16 \
+      --control-plane-endpoint={{ hostvars[groups['control-plane'][0]].ansible_host }}:6443 \
+      --apiserver-advertise-address={{ hostvars[groups['control-plane'][0]].ansible_host }} \
+      --upload-certs
+  register: kubeadm_init
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Create ~/.kube directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.kube/"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Copy admin.conf to home
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ ansible_env.HOME }}/.kube/config"
+    mode: "0600"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    remote_src: true
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Fetch admin.conf
+  ansible.builtin.fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: ./admin.conf
+    flat: true
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+# setup calico
+- name: Copy calico-custom-resources.yaml
+  ansible.builtin.copy:
+    src: calico-custom-resources.yaml
+    dest: "{{ ansible_env.HOME }}/calico-custom-resources.yaml"
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Setup calico # noqa: no-changed-when
+  ansible.builtin.command: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Setup calico 2 # noqa: no-changed-when
+  ansible.builtin.command: kubectl apply -f {{ ansible_env.HOME }}/calico-custom-resources.yaml
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+- name: Wait etcd
+  ansible.builtin.script: wait-etcd.sh
+  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+
+# join
+- name: Join Master Nodes # noqa: no-changed-when
+  ansible.builtin.command: |
+    bash -c "{{ item | regex_search('kubeadm join[\s\S]*--certificate-key [0-9a-z]*') }} --apiserver-advertise-address={{ ansible_host }}"
+  with_items: "{{ hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout }}"
+  when:
+    - hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout is defined
+    - not kubelet_conf.stat.exists
+    - inventory_hostname in groups["control-plane"]
+    - inventory_hostname != groups["control-plane"][0]
+
+- name: Join Worker Nodes # noqa: no-changed-when
+  ansible.builtin.command: bash -c "{{ item | regex_search('kubeadm join[\s\S]*?--discovery-token-ca-cert-hash sha256:[0-9a-z]*') }}"
+  with_items: "{{ hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout }}"
+  when:
+    - hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout is defined
+    - not kubelet_conf.stat.exists
+    - inventory_hostname in groups["node"]

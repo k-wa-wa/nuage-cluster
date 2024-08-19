@@ -1,0 +1,34 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-20.04"
+
+    # ssh key
+  config.vm.provision "shell" do |s|
+    ssh_pub_key = File.readlines("./.ssh/id_rsa.pub").first.strip
+    s.inline = <<-SHELL
+      mkdir /root/.ssh
+      echo #{ssh_pub_key} >> /home/vagrant/.ssh/authorized_keys
+      echo #{ssh_pub_key} >> /root/.ssh/authorized_keys
+    SHELL
+  end
+
+  config.vm.define "control-plane-3" do |server|
+    server.vm.hostname = "control-plane-3"
+    server.vm.network "public_network", bridge: "en0: Wi-Fi (AirPort)"
+    server.vm.provider "virtualbox" do |vb|
+      vb.cpus = 2
+      vb.memory = 4096
+    end
+  end
+
+  config.vm.define "node-3" do |server|
+    server.vm.hostname = "node-3"
+    server.vm.network "public_network", bridge: "en0: Wi-Fi (AirPort)"
+    server.vm.provider "virtualbox" do |vb|
+      vb.cpus = 4
+      vb.memory = 4096
+    end
+  end
+end

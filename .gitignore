@@ -1,0 +1,7 @@
+.DS_Store
+
+playbooks/admin.conf
+playbooks/hosts.yml
+
+.ssh/
+.ssh-host/

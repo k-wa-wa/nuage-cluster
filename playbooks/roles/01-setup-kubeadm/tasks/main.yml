@@ -1,0 +1,108 @@
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - apt-transport-https
+      - gpg
+    state: present
+    update_cache: true
+
+- name: Setup docker apt repo
+  ansible.builtin.script: setup-docker-apt-repo.sh
+
+- name: Install the Docker packages
+  ansible.builtin.apt:
+    name:
+      - containerd.io
+    state: present
+
+- name: Setup k8s libs
+  ansible.builtin.script: setup-k8s-apt-repo.sh
+
+- name: Install k8s libs
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+- name: Hold Kubernetes Packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Setting kernel module
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/kubernetes.conf
+    line: "{{ item }}"
+    create: true
+    mode: "0755"
+  with_items:
+    - overlay
+    - br_netfilter
+
+- name: Load kernel module
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Setting Sysctl
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.conf
+    regexp: "^{{ item.regexp }}.*"
+    line: "{{ item.line }}"
+  with_items:
+    - regexp: net.bridge.bridge-nf-call-iptables
+      line: net.bridge.bridge-nf-call-iptables=1
+    - regexp: net.bridge.bridge-nf-call-ip6table
+      line: net.bridge.bridge-nf-call-ip6table=1
+    - regexp: net.ipv4.ip_forward
+      line: net.ipv4.ip_forward=1
+    - regexp: fs.inotify.max_user_instances
+      line: fs.inotify.max_user_instances=100000
+    - regexp: fs.inotify.max_user_watches
+      line: fs.inotify.max_user_watches=100000
+
+- name: Create containerd config directory
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: Disable swap # noqa: no-changed-when
+  ansible.builtin.command: swapoff -a
+
+- name: Disable swap
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '\sswap\s'
+    state: absent
+
+- name: Create containerd config file # noqa: no-changed-when
+  ansible.builtin.shell: sudo containerd config default > /etc/containerd/config.toml
+
+- name: Setting crictl endpoint # noqa: no-changed-when
+  ansible.builtin.command: |
+    crictl config --set runtime-endpoint=unix:///run/containerd/containerd.sock --set image-endpoint=unix:///run/containerd/containerd.sock
+
+- name: Enable systemd cgroup
+  ansible.builtin.lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    insertafter: "{{ item.insertafter }}"
+  with_items:
+    - regexp: "SystemdCgroup = false"
+      line: "SystemdCgroup = true"
+      insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
+
+- name: Complete Setup
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: containerd

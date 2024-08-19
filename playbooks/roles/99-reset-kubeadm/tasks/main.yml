@@ -1,0 +1,25 @@
+- name: Reset Kubeadm
+  ansible.builtin.script: reset-kubeadm.sh
+
+- name: Enable systemd cgroup
+  ansible.builtin.lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    insertafter: "{{ item.insertafter }}"
+  with_items:
+    - regexp: "SystemdCgroup = false"
+      line: "SystemdCgroup = true"
+      insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
+
+- name: Restart containerd
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: containerd
+
+- name: Restart kubelet
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: kubelet

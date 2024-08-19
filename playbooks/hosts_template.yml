@@ -1,0 +1,36 @@
+all: # noqa: syntax-check[specific]
+  vars:
+    ansible_ssh_private_key_file: ./.ssh/id_rsa
+  hosts:
+    control-plane-1:
+      ansible_host: [[control-plane-1_host]]
+      ansible_user: [[control-plane-1_user]]
+    control-plane-2:
+      ansible_host: [[control-plane-2_host]]
+      ansible_user: [[control-plane-2_user]]
+    control-plane-3:
+      ansible_host: [[control-plane-3_host]]
+      ansible_user: [[control-plane-3_user]]
+    node-1:
+      ansible_host: [[node-1_host]]
+      ansible_user: [[node-1_user]]
+    node-2:
+      ansible_host: [[node-2_host]]
+      ansible_user: [[node-2_user]]
+    node-3:
+      ansible_host: [[node-3_host]]
+      ansible_user: [[node-3_user]]
+    loadbalancer:
+      ansible_host: [[loadbalancer_host]]
+      ansible_user: [[loadbalancer_user]]
+  children:
+    control-plane:
+      hosts:
+        control-plane-1:
+        control-plane-2:
+        control-plane-3:
+    node:
+      hosts:
+        node-1:
+        node-2:
+        node-3:
