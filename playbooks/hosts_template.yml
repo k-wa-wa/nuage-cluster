@@ -20,9 +20,6 @@ all: # noqa: syntax-check[specific]
     node-3:
       ansible_host: [[node-3_host]]
       ansible_user: [[node-3_user]]
-    loadbalancer:
-      ansible_host: [[loadbalancer_host]]
-      ansible_user: [[loadbalancer_user]]
   children:
     control-plane:
       hosts:
