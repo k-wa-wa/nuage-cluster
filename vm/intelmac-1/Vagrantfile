@@ -31,4 +31,13 @@ Vagrant.configure("2") do |config|
       vb.memory = 4096
     end
   end
+
+  config.vm.define "control-plane-2" do |server|
+    server.vm.hostname = "control-plane-2"
+    server.vm.network "public_network", bridge: "en0: Wi-Fi (AirPort)"
+    server.vm.provider "virtualbox" do |vb|
+      vb.cpus = 2
+      vb.memory = 4096
+    end
+  end
 end
