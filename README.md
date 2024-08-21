@@ -16,18 +16,24 @@
 
 ## 手順
 
-1. 各物理ホストで Vagrant, Multipass 等 VM を立てるためのセットアップを行う
+1. VM のノードの準備
+
+   1. 物理ホストに Vagrant(with VirtualBox) と ssh 可能な環境を整え、`.ssh-host`ディレクトリに鍵を配置、`config_template`に倣って`config`ファイルを作成する
+
+   1. VM の各ノードに配置する ssh key を作成する
+
+      ```sh
+      mkdir .ssh
+      ssh-keygen -f ./.ssh/id_rsa # その他のオプション
+      ```
+
+1. Raspberry Pi のノードの準備
+
+   1. Raspberry Pi Imager を利用して Ubuntu Server 24.04 LTS を書き込み
+
+   1. `./.ssh/id_rsa`を用いて ssh できるようにセットアップする
 
 1. `02-create-env.sh`内の`xxx`でマスクされたネットワークアドレスを埋める
-
-1. 各物理ホストに ssh 可能な環境を整え、`.ssh-host`ディレクトリに鍵を配置、`config_template`に倣って`config`ファイルを作成する
-
-1. 各ノードに配置する ssh key を作成する
-
-   ```sh
-   mkdir .ssh
-   ssh-keygen -f ./.ssh/id_rsa # その他のオプション
-   ```
 
 1. 以下を実行する
    ```sh
