@@ -2,19 +2,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-prototype
+  name: pechka-api-prototype
 spec:
   selector:
     matchLabels:
-      app: api-prototype
+      app: pechka-api-prototype
   template:
     metadata:
       labels:
-        app: api-prototype
+        app: pechka-api-prototype
     spec:
       containers:
-      - name: api-prototype
-        image: ghcr.io/k-wa-wa/pechka-api-prototype:ec2c0b5
+      - name: pechka-api-prototype
+        image: ghcr.io/k-wa-wa/pechka-api-prototype:60b36e9
         resources:
           limits:
             memory: 256Mi
@@ -32,10 +32,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: api-prototype
+  name: pechka-api-prototype
 spec:
   selector:
-    app: api-prototype
+    app: pechka-api-prototype
   type: NodePort
   ports:
   - port: 8000
