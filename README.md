@@ -4,15 +4,15 @@
 
 ## TODO :white_check_mark:
 
-- [ ] ラズパイの導入 & Intel NUC に Ubuntu Server を入れ、脱 VM
+- [x] ラズパイの導入 & Intel NUC に Ubuntu Server を入れ、脱 VM
 - [ ] Ingress or Ngrok 等の検討
 - [ ] Argo CD / Dashboard の導入 (自動化)
 - [ ] Ansible の実行をコンテナ内で行う (ホストマシンに依存せず実行可能にしたい)
 - [ ] kube-vip 導入を自動化
 
-## 構成図 (wip)
+## 構成図
 
-![](./docs/cluster-architecture.drawio.svg)
+wip
 
 ## 手順
 
@@ -39,6 +39,19 @@
    ```sh
    bash setup-nuage-cluster.sh
    ```
+
+## Tailscale で VPN 経由でアクセスする
+
+```sh
+# tailscaleのコンソールから以下のコマンドを発行し、nodeで実行する
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --auth-key=xxx
+sudo tailscale up --advertise-routes=192.168.xxx.xxx/xx # なぜかlinuxでは他デバイスから接続できず
+
+echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
+```
 
 ## トラブルシューティング (wip)
 
