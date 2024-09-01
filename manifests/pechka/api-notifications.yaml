@@ -1,0 +1,42 @@
+# api-prototype
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pechka-api-notifications
+spec:
+  selector:
+    matchLabels:
+      app: pechka-api-notifications
+  template:
+    metadata:
+      labels:
+        app: pechka-api-notifications
+    spec:
+      containers:
+      - name: pechka-api-notifications
+        image: ghcr.io/k-wa-wa/pechka-api-notifications:5fe3f78
+        resources:
+          limits:
+            memory: 256Mi
+            cpu: 1
+        ports:
+        - containerPort: 8002
+        env:
+          - name: API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: pechka-api-secret
+                key: NOTIFICATIONS_SERVER_API_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pechka-api-notifications
+spec:
+  selector:
+    app: pechka-api-notifications
+  type: NodePort
+  ports:
+  - port: 8002
+    targetPort: 8002
+    nodePort: 30002
