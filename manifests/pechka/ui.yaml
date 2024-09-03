@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: pechka-ui
-        image: ghcr.io/k-wa-wa/pechka-ui:5d9bb70
+        image: ghcr.io/k-wa-wa/pechka-ui:2c5d067
         resources:
           limits:
             memory: 256Mi

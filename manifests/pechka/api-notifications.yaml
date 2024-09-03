@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: pechka-api-notifications
-        image: ghcr.io/k-wa-wa/pechka-api-notifications:5fe3f78
+        image: ghcr.io/k-wa-wa/pechka-api-notifications:1fade13
         resources:
           limits:
             memory: 256Mi
