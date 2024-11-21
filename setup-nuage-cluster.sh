@@ -2,7 +2,7 @@
 
 set -e
 
-bash ./01-recreate-vm-intelmac-1.sh
+bash ./01-setup-nodes.sh
 
 bash ./02-create-env.sh
 
