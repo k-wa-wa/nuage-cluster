@@ -9,11 +9,3 @@
     - 01-setup-kubeadm
     # - 99-reset-kubeadm
     - 02-setup-cluster
-
-# - name: Setup Argo CD
-#   max_fail_percentage: 0
-#   hosts:
-#     - control-plane[0]
-#   become: true
-#   roles:
-#     - 04-setup-argocd
