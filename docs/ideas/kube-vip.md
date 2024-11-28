@@ -1,6 +1,4 @@
-# 採用しなかったが試したこと
-
-## kube-vip
+# kube-vip
 
 ```sh
 kubectl apply -f https://kube-vip.io/manifests/rbac.yaml

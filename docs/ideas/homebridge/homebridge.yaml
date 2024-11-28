@@ -1,0 +1,39 @@
+# homebridge
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pechka-homebridge
+spec:
+  containers:
+  - name: pechka-homebridge
+    image: homebridge/homebridge:latest
+    resources:
+      limits:
+        memory: 1024Mi
+        cpu: "2"
+    ports:
+    - containerPort: 8581
+    volumeMounts:
+    - mountPath: "/var/run/dbus"
+      name: dbus
+    securityContext:
+      privileged: true
+  nodeName: pi-2
+  hostNetwork: true
+  volumes:
+  - name: dbus
+    hostPath:
+      path: "/var/run/dbus"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pechka-homebridge
+spec:
+  selector:
+    app: pechka-homebridge
+  type: NodePort
+  ports:
+  - port: 8581
+    targetPort: 8581
+    nodePort: 30003

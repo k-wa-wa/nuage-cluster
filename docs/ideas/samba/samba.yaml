@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nufs-samba
+spec:
+  selector:
+    matchLabels:
+      app: nufs-samba
+  template:
+    metadata:
+      labels:
+        app: nufs-samba
+    spec:
+      containers:
+      - name: nufs-samba
+        image: dperson/samba
+        args: [
+          "-u", "myuser;mypassword", # UPDATE HERE
+          "-s", "data;/data;yes;no;no;myuser",
+          "-w", "WORKGROUP"
+        ]
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+        ports:
+          - containerPort: 139
+            protocol: TCP
+          - containerPort: 445
+            protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: 445
+        volumeMounts:
+          - name: nufs-pvc
+            mountPath: /data
+      volumes:
+        - name: nufs-pvc
+          persistentVolumeClaim:
+            claimName: nufs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nufs-samba
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.150.151
+  ports:
+    - name: netbios
+      port: 139
+      targetPort: 139
+    - name: smb
+      port: 445
+      targetPort: 445

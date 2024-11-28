@@ -1,0 +1,35 @@
+{
+  "bridge": {
+      "name": "Homebridge 8565",
+      "username": "0E:78:21:BD:85:65",
+      "port": 51454,
+      "pin": "335-23-406",
+      "advertiser": "bonjour-hap"
+  },
+  "accessories": [],
+  "platforms": [
+      {
+          "name": "Config",
+          "port": 8581,
+          "platform": "config"
+      },
+      {
+          "name": "SwitchBot",
+          "credentials": {
+              "notice": "Keep your Token & Secret a secret!"
+          },
+          "options": {
+              "devices": [
+                  {
+                      "deviceId": "3030F9CED832",
+                      "configDeviceName": "light",
+                      "hide_device": false,
+                      "configDeviceType": "Color Bulb",
+                      "connectionType": "BLE"
+                  }
+              ]
+          },
+          "platform": "SwitchBot"
+      }
+  ]
+}
