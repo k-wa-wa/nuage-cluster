@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nw-tools
+spec:
+  containers:
+  - name: nw-tools
+    image: ghcr.io/k-wa-wa/nw-tools:61a8309
+
+    securityContext:
+      privileged: true

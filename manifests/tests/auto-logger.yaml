@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auto-logger
+spec:
+  selector:
+    matchLabels:
+      app: auto-logger
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: auto-logger
+    spec:
+      containers:
+      - name: auto-logger
+        image: ghcr.io/k-wa-wa/auto-logger
+        command: ["/usr/local/bin/app", "-i", "60000", "-r", "0/10/2/1"]
