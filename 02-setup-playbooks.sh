@@ -1,4 +1,7 @@
 #!/bin/sh
+
+source .env
+
 ansible_hosts_yml=`cat playbooks/hosts_template.yml`
 
 # raspi
@@ -15,8 +18,7 @@ ansible_hosts_yml=${ansible_hosts_yml//\[\[node-3_host\]\]/$host}
 ansible_hosts_yml=${ansible_hosts_yml//\[\[node-3_user\]\]/nuage}
 
 # nuc
-host=192.168.xxx.xxx
-ansible_hosts_yml=${ansible_hosts_yml//\[\[node-1_host\]\]/$host}
+ansible_hosts_yml=${ansible_hosts_yml//\[\[node-1_host\]\]/$NUC_HOST_IP}
 ansible_hosts_yml=${ansible_hosts_yml//\[\[node-1_user\]\]/nuage}
 
 # done
