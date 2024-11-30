@@ -24,10 +24,10 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-helm upgrade --install prometheus-grafana prometheus-community/kube-prometheus-stack -f manifests/ops/grafana-custom.yml
-helm upgrade --install loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
-
-helm upgrade --install promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
+./k get namespace ops 2>/dev/null || ./k create namespace ops
+helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack -f manifests/ops/grafana-custom.yml
+helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
+helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
 # apps
 ./k apply -f manifests/pechka
