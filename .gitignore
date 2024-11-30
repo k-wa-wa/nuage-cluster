@@ -5,3 +5,5 @@ playbooks/hosts.yml
 
 .ssh/
 .ssh-host/
+
+.env
