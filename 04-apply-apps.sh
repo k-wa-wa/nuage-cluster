@@ -6,6 +6,9 @@ export KUBECONFIG=./playbooks/admin.conf
 #################### helm chat更新 ####################
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
+helm repo add postgres-operator-ui-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator-ui
+helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 helm repo update
 
 #################### metalLB ####################
@@ -23,6 +26,15 @@ helm repo update
 #   --selector=app.kubernetes.io/component=controller \
 #   --timeout=120s
 # ./k apply -f manifests/ingress.yaml
+
+#################### postgres operator ####################
+helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
+helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
+helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
+    --set nfs.server=$NFS_SERVER_IP \
+    --set nfs.path=/nfs
+./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
+./k apply -f manifests/postgres.yaml
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops

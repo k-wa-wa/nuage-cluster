@@ -1,0 +1,23 @@
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: nuage-postgres
+spec:
+  teamId: "nuage"
+  spiloRunAsUser: 101
+  spiloRunAsGroup: 103
+  spiloFSGroup: 103
+  volume:
+    size: 8Gi
+  numberOfInstances: 2
+  users:
+    nuage_pg_owner:  # database owner
+    - superuser
+    - createdb
+    pechka_user: []  # role for application foo
+  databases:
+    pechka: nuage_pg_owner  # dbname: owner
+  preparedDatabases:
+    pechka: {}
+  postgresql:
+    version: "16"
