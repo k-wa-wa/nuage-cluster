@@ -5,6 +5,7 @@
       - curl
       - apt-transport-https
       - gpg
+      - nfs-common
     state: present
     update_cache: true
 
