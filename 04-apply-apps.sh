@@ -19,14 +19,6 @@ helm repo update
   --all deployment
 ./k apply -f manifests/metallb.yaml
 
-#################### ingress ####################
-# ./k apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
-# ./k wait --namespace ingress-nginx \
-#   --for=condition=ready pod \
-#   --selector=app.kubernetes.io/component=controller \
-#   --timeout=120s
-# ./k apply -f manifests/ingress.yaml
-
 #################### postgres operator ####################
 helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
 helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
