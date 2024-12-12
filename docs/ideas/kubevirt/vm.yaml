@@ -1,0 +1,83 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm
+  labels:
+    vm: ubuntu
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        vm: ubuntu
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: volume0
+              disk:
+                bus: virtio
+            - disk:
+                bus: virtio
+              name: cloudinit
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 8Gi
+            cpu: "2"
+      volumes:
+        - name: volume0
+          dataVolume:
+            name: ubuntu-datavolume
+        - name: cloudinit
+          cloudInitNoCloud:
+            userData: |-
+              #cloud-config
+              password: ubuntu
+              chpasswd: { expire: False }
+              ssh_pwauth: True
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ubuntu-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: ubuntu-datavolume
+spec:
+  source:
+    http:
+      url: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 15Gi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ubuntu-svc
+spec:
+  type: LoadBalancer
+  ports:
+    - name: ssh
+      protocol: TCP
+      port: 22
+      targetPort: 22
+    - name: exo
+      protocol: TCP
+      port: 52415
+      targetPort: 52415
+  selector:
+    vm: ubuntu
