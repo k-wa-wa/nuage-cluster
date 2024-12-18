@@ -40,5 +40,5 @@ TODO
 1. 以下を実行する
    ```sh
    bash scripts/setup-cluster.sh
-   # bash scripts/apply-apps.sh
+   bash scripts/apply-apps.sh
    ```

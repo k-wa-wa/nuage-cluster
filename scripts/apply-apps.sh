@@ -20,13 +20,13 @@ helm repo update
 ./k apply -f manifests/metallb.yaml
 
 #################### postgres operator ####################
-helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
-helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
-helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
-    --set nfs.server=$NFS_SERVER_IP \
-    --set nfs.path=/nfs
-./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
-./k apply -f manifests/postgres.yaml
+# helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
+# helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
+# helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
+#     --set nfs.server=$NFS_SERVER_IP \
+#     --set nfs.path=/nfs
+# ./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
+# ./k apply -f manifests/postgres.yaml
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops
