@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: exo
+spec:
+  selector:
+    matchLabels:
+      app: exo
+  template:
+    metadata:
+      labels:
+        app: exo
+    spec:
+      hostNetwork: true
+      containers:
+        - name: exo
+          image: ghcr.io/k-wa-wa/pechka-exo
+          ports:
+            - containerPort: 52415
+          command:
+            - /bin/sh
+            - -c
+            - |
+              huggingface-cli download unsloth/Llama-3.2-1B-Instruct
+              DEBUG=2 exo --node-id $HOSTNAME
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exo-service
+  labels:
+    run: exo
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.5.100
+  ports:
+  - port: 52415
+    protocol: TCP
+  selector:
+    app: exo
