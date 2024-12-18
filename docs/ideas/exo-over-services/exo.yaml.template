@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exo-{node}
+spec:
+  selector:
+    matchLabels:
+      app: exo-{node}
+  template:
+    metadata:
+      labels:
+        app: exo-{node}
+    spec:
+      containers:
+        - name: exo-{node}
+          image: ghcr.io/k-wa-wa/pechka-exo
+          # resources:
+          #   limits:
+          #     memory: 28Gi
+          #     cpu: "4"
+          ports:
+            - containerPort: 52415
+            - containerPort: 52416
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo '{
+                "peers": {
+                  "nuage": {
+                    "address": "192.168.1.144",
+                    "port": 52416,
+                    "device_capabilities": {
+                      "model": "",
+                      "chip": "",
+                      "memory": 0,
+                      "flops": {
+                        "fp32": 0,
+                        "fp16": 0,
+                        "int8": 0
+                      }
+                    }
+                  },
+                  "pi-2": {
+                    "address": "192.168.1.145",
+                    "port": 52416,
+                    "device_capabilities": {
+                      "model": "",
+                      "chip": "",
+                      "memory": 0,
+                      "flops": {
+                        "fp32": 0,
+                        "fp16": 0,
+                        "int8": 0
+                      }
+                    }
+                  },
+                  "pi-3": {
+                    "address": "192.168.1.146",
+                    "port": 52416,
+                    "device_capabilities": {
+                      "model": "",
+                      "chip": "",
+                      "memory": 0,
+                      "flops": {
+                        "fp32": 0,
+                        "fp16": 0,
+                        "int8": 0
+                      }
+                    }
+                  }
+                }
+              }' > config.json
+              DEBUG=2 exo --node-id {node} --node-port 52416 --discovery-module manual --discovery-config-path config.json
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - {node}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: exo-svc-{node}
+spec:
+  type: LoadBalancer
+  loadBalancerIP: {xxx}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 52415
+      targetPort: 52415
+    - name: http2
+      protocol: TCP
+      port: 52416
+      targetPort: 52416
+  selector:
+    app: exo-{node}
