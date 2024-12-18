@@ -1,5 +1,0 @@
-
-Host intelmac-1
-    HostName 192.168.xxx.xxx
-    User xxx
-    IdentityFile .ssh-host/id_rsa

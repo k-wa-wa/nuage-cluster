@@ -35,4 +35,4 @@ helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/
 helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
 #################### apps ####################
-./k apply -f manifests/pechka
+# ./k apply -f manifests/pechka
