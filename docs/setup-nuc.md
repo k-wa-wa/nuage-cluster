@@ -6,13 +6,13 @@
 hdiutil convert -format UDRW -o ./ubuntu.img ~/Downloads/ubuntu-24.04.1-live-server-amd64.iso
 
 # usbメモリの確認
-mount
+diskutil list
 
 # アンマウント
 diskutil unmount /dev/xxx
 
-# 書き込み
-sudo dd if=./ubuntu.img.dmg of=/dev/disk4s1 bs=1m
+# 書き込み（パーティションは指定しない）
+sudo dd if=./ubuntu.img.dmg of=/dev/xxx bs=1m
 ```
 
 ## ブート
