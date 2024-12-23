@@ -18,7 +18,7 @@
 
 ### Kubernetes 構成
 
-TODO
+![k8s-arch.drawio.svg](./docs/k8s-arch.drawio.svg)
 
 ## 手順
 
@@ -33,9 +33,11 @@ TODO
 
    1. Raspberry Pi Imager を使用して Raspberry Pi ノードをセットアップする
 
-   1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)）
+   1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)は Ubuntu だが、Proxmox を入れる）
 
-1. `playbooks/hosts_template.yaml`から`playbooks/hosts.yaml`を作成する
+   1. ルーター側で物理ノードに固定 IP を振る（各ノードで設定するのが面倒なため、ルーターで一括設定する）
+
+1. `playbooks/{k8s,vm}/hosts_template.yaml`から`playbooks/{k8s,vm}/hosts.yaml`を作成する
 
 1. 以下を実行する
    ```sh
