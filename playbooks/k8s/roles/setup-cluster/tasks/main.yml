@@ -10,8 +10,8 @@
   ansible.builtin.stat:
     path: "/etc/kubernetes/kubelet.conf"
   register: kubelet_conf
-  failed_when: kubelet_conf.stat.exists
 
+############################## Setup Master Node 1 ##############################
 - name: Initialize Kubernetes Master Node # noqa: no-changed-when
   ansible.builtin.command: |
     kubeadm init \
@@ -19,7 +19,6 @@
       --control-plane-endpoint={{ hostvars[groups['control-plane'][0]].ansible_host }}:6443 \
       --apiserver-advertise-address={{ hostvars[groups['control-plane'][0]].ansible_host }} \
       --upload-certs
-  register: kubeadm_init
   when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
 
 - name: Create ~/.kube directory
@@ -71,21 +70,28 @@
   ansible.builtin.script: wait-etcd.sh
   when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
 
-# join
+- name: Get join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command
+  changed_when: false
+  when: inventory_hostname == groups["control-plane"][0]
+
+############################## Setup Other Master Nodes ##############################
 - name: Join Master Nodes # noqa: no-changed-when
   ansible.builtin.command: |
-    bash -c "{{ item | regex_search('kubeadm join[\s\S]*--certificate-key [0-9a-z]*') }} --apiserver-advertise-address={{ ansible_host }}"
-  with_items: "{{ hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout }}"
+    bash -c "{{ item }} --apiserver-advertise-address={{ ansible_host }}"
+  with_items: "{{ hostvars[groups['control-plane'][0]]['join_command'].stdout }}"
   when:
-    - hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout is defined
+    - hostvars[groups['control-plane'][0]]['join_command'].stdout is defined
     - not kubelet_conf.stat.exists
     - inventory_hostname in groups["control-plane"]
     - inventory_hostname != groups["control-plane"][0]
 
+############################## Worker Node Setup ##############################
 - name: Join Worker Nodes # noqa: no-changed-when
-  ansible.builtin.command: bash -c "{{ item | regex_search('kubeadm join[\s\S]*?--discovery-token-ca-cert-hash sha256:[0-9a-z]*') }}"
-  with_items: "{{ hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout }}"
+  ansible.builtin.command: bash -c "{{ item }}"
+  with_items: "{{ hostvars[groups['control-plane'][0]]['join_command'].stdout }}"
   when:
-    - hostvars[groups['control-plane'][0]]['kubeadm_init'].stdout is defined
+    - hostvars[groups['control-plane'][0]]['join_command'].stdout is defined
     - not kubelet_conf.stat.exists
     - inventory_hostname in groups["node"]

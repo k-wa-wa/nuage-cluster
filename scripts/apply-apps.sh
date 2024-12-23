@@ -1,7 +1,7 @@
 #!/bin/sh
 
 set -e
-source .env
+export KUBECONFIG=playbooks/k8s/admin.conf
 
 #################### helm chat更新 ####################
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts

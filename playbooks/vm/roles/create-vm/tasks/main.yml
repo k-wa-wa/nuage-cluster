@@ -1,0 +1,28 @@
+- name: Get iso
+  ansible.builtin.get_url:
+    dest: /root/noble-server-cloudimg-amd64.img
+    url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    mode: "0644"
+
+- name: Create VM
+  ansible.builtin.shell: |
+    qm create {{ item.vmid }} \
+      --net0 virtio,bridge=vmbr0 \
+      --scsihw virtio-scsi-pci \
+      --sockets 1 \
+      --scsi0 local-lvm:0,import-from=/root/noble-server-cloudimg-amd64.img \
+      --ide2 local-lvm:cloudinit \
+      --boot order=scsi0 \
+      --serial0 socket --vga serial0 \
+      --sshkey ~/.ssh/authorized_keys \
+      {{ item.options }}
+
+    qm resize {{ item.vmid }} scsi0 +40G
+
+    qm start {{ item.vmid }}
+  register: result
+  changed_when: result.rc == 0
+  when: inventory_hostname == item.target_host
+  loop:
+    - { target_host: oc1-nuc-1, vmid: 3001, options: "--memory 16384 --cores 2 --name oc1-vm-1 --ipconfig0 ip=192.168.5.31/24,gw=192.168.5.1" }
+    - { target_host: oc1-nuc-2, vmid: 3002, options: "--memory 4096 --cores 2 --name oc1-vm-2 --ipconfig0 ip=192.168.5.32/24,gw=192.168.5.1" }

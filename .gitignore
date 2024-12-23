@@ -1,9 +1,9 @@
 .DS_Store
 
-playbooks/admin.conf
-playbooks/hosts.yml
+playbooks/k8s/admin.conf
+playbooks/k8s/hosts.yml
+playbooks/vm/hosts.yml
 
 .ssh/
-.ssh-host/
 
 .env

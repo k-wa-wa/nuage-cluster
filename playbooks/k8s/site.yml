@@ -6,6 +6,6 @@
     - node
   become: true
   roles:
-    - 99-reset-kubeadm
-    - 01-setup-kubeadm
-    - 02-setup-cluster
+    - reset-kubeadm
+    - setup-kubeadm
+    - setup-cluster

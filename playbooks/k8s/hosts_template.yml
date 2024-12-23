@@ -14,12 +14,12 @@ all: # noqa: syntax-check[specific]
     oc1-pi-4:
       ansible_host: 192.168.5.14
       ansible_user: $OC1_PI_4_USER
-    oc1-nuc-1:
-      ansible_host: 192.168.5.21
-      ansible_user: $OC1_NUC_1_USER
-    oc1-nuc-2:
-      ansible_host: 192.168.5.22
-      ansible_user: $OC1_NUC_2_USER
+    oc1-vm-1:
+      ansible_host: 192.168.5.31
+      ansible_user: $OC1_VM_1_USER
+    oc1-vm-2:
+      ansible_host: 192.168.5.32
+      ansible_user: $OC1_VM_2_USER
   children:
     control-plane:
       hosts:
@@ -29,5 +29,5 @@ all: # noqa: syntax-check[specific]
         oc1-pi-2:
         oc1-pi-3:
         oc1-pi-4:
-        oc1-nuc-1:
-        oc1-nuc-2:
+        oc1-vm-1:
+        oc1-vm-2:
