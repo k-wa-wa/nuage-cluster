@@ -14,11 +14,11 @@
 
 ### ハードウェア・ネットワーク構成
 
-![hardware.drawio.svg](./docs/hardware.drawio.svg)
+<img src="./docs/hardware.drawio.svg" style="background-color: white; padding: 8px;">
 
 ### Kubernetes 構成
 
-![k8s-arch.drawio.svg](./docs/k8s-arch.drawio.svg)
+<img src="./docs/k8s-arch.drawio.svg" style="background-color: white; padding: 8px;">
 
 ## 手順
 
