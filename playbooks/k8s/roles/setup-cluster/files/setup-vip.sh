@@ -1,9 +1,10 @@
-# kube-vip
+#!/bin/sh
 
-```sh
+set -e
+
 kubectl apply -f https://kube-vip.io/manifests/rbac.yaml
 
-export VIP=192.168.xxx.xxx
+export VIP=192.168.5.50
 export KVVERSION=v0.8.2
 
 ctr image pull ghcr.io/kube-vip/kube-vip:$KVVERSION; ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:$KVVERSION vip /kube-vip manifest daemonset \
@@ -15,6 +16,9 @@ ctr image pull ghcr.io/kube-vip/kube-vip:$KVVERSION; ctr run --rm --net-host ghc
     --arp \
     --leaderElection >> kube-vip.yaml
 kubectl apply -f kube-vip.yaml
-```
 
-`--interface $INTERFACE`を指定しないことで、各ノードでインターフェース名が異なっていても自動で選択させる
+kubectl wait -n kube-system \
+  --for=condition=Ready \
+  --timeout=300s \
+  -l app.kubernetes.io/name=kube-vip-ds \
+  --all pod
