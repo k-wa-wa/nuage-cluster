@@ -1,32 +1,33 @@
-- name: Reset Kubeadm # noqa: ignore-errors
-  ansible.builtin.script: reset-kubeadm.sh
-  ignore_errors: true
+- name: Reset kubeadm
+  ansible.builtin.command: |
+    kubeadm reset --force
+  register: result
+  changed_when: result.rc == 0
+  failed_when: false
 
-- name: Enable systemd cgroup # noqa: ignore-errors
-  ansible.builtin.lineinfile:
-    path: /etc/containerd/config.toml
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    insertafter: "{{ item.insertafter }}"
-  with_items:
-    - regexp: "SystemdCgroup = false"
-      line: "SystemdCgroup = true"
-      insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
-  ignore_errors: true
-
-- name: Restart containerd # noqa: ignore-errors
+- name: Stop kubelet
   ansible.builtin.systemd:
-    state: restarted
-    daemon_reload: true
-    name: containerd
-  ignore_errors: true
-
-- name: Restart kubelet # noqa: ignore-errors
-  ansible.builtin.systemd:
-    state: restarted
-    daemon_reload: true
     name: kubelet
-  ignore_errors: true
+    state: stopped
+  failed_when: false
+
+- name: Remove directory if it exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/kubernetes/
+    - ~/.kube/
+    - /var/lib/kubelet/
+    - /var/lib/cni/
+    - /etc/cni/
+    - /var/lib/etcd/
+
+- name: Reset iptables
+  ansible.builtin.shell: |
+    iptables -F && iptables -X
+  register: result
+  changed_when: result.rc == 0
 
 - name: Reboot（network interfaceをリセットしてkube-vipの残骸を消したい）
   ansible.builtin.reboot:
