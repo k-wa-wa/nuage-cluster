@@ -19,13 +19,13 @@
   when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
 
 ############################## Setup Master Node 1 ##############################
-- name: Edit /etc/hosts on 1
+- name: Edit /etc/hosts
   ansible.builtin.lineinfile:
     path: /etc/hosts
     regexp: "\b.* nuage-cluster-endpoint\b"
-    line: "{{ ansible_host }} nuage-cluster-endpoint"
+    line: "{{ hostvars[groups['control-plane'][0]].ansible_host }} nuage-cluster-endpoint"
     state: present
-  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
+  when: not kubelet_conf.stat.exists
 
 - name: Initialize Kubernetes Master Node # noqa: no-changed-when
   ansible.builtin.command: |
@@ -86,22 +86,6 @@
   ansible.builtin.script: wait-etcd.sh
   when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
 
-- name: Setup kube-vip
-  ansible.builtin.script: setup-vip.sh
-  when: inventory_hostname == groups["control-plane"][0] and not kubelet_conf.stat.exists
-
-- name: Edit /etc/hosts
-  ansible.builtin.lineinfile:
-    path: /etc/hosts
-    regexp: ".* nuage-cluster-endpoint"
-    state: absent
-
-- name: Edit /etc/hosts
-  ansible.builtin.lineinfile:
-    path: /etc/hosts
-    line: "192.168.5.50 nuage-cluster-endpoint"
-    state: present
-
 - name: Get join command
   ansible.builtin.command: kubeadm token create --print-join-command
   register: join_command
@@ -132,3 +116,20 @@
   when:
     - not kubelet_conf.stat.exists
     - inventory_hostname in groups["node"]
+
+- name: Wait nodes become ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready --all nodes --timeout=300s
+  when: inventory_hostname == groups["control-plane"][0]
+  changed_when: false
+
+- name: Edit /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: ".* nuage-cluster-endpoint"
+    state: absent
+
+- name: Edit /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "192.168.5.50 nuage-cluster-endpoint"
+    state: present

@@ -28,7 +28,13 @@ all: # noqa: syntax-check[specific]
       ansible_user: $OC2_PI_2_USER
     oc2-pi-3:
       ansible_host: 192.168.6.13
-      ansible_user: $OC2_PI_3_USER
+      ansible_user: nuage
+    oc1-lb-1:
+      ansible_host: 192.168.5.91
+      ansible_user: ubuntu
+    oc1-lb-2:
+      ansible_host: 192.168.5.92
+      ansible_user: ubuntu
   children:
     control-plane:
       hosts:
@@ -43,3 +49,7 @@ all: # noqa: syntax-check[specific]
         oc1-vm-2:
         oc2-pi-2:
         oc2-pi-3:
+    lb:
+      hosts:
+        oc1-lb-1:
+        oc1-lb-2:

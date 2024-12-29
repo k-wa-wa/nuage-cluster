@@ -1,0 +1,43 @@
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - openssl
+      - haproxy
+      - keepalived
+    state: present
+    update_cache: true
+
+- name: Extract control-plane IPs
+  ansible.builtin.set_fact:
+    control_plane_ips: "{{ groups['control-plane'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+- name: Create HAProxy config
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+
+- name: Copy keepalived.conf
+  ansible.builtin.copy:
+    src: keepalived-{{ item.file_id }}.conf
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+  loop:
+    - { file_id: 1, target_host: oc1-lb-1 }
+    - { file_id: 2, target_host: oc1-lb-2 }
+  when: inventory_hostname == item.target_host
+
+- name: Start haproxy & keepalived
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: true
+  loop:
+    - haproxy
+    - keepalived

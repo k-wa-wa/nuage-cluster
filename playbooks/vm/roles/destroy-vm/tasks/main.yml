@@ -5,7 +5,5 @@
   register: result
   changed_when: result.rc == 0
   when: inventory_hostname == item.target_host
-  loop:
-    - { target_host: oc1-nuc-1, vmid: 3001 }
-    - { target_host: oc1-nuc-2, vmid: 3002 }
+  loop: "{{ vm }}"
   ignore_errors: true

@@ -1,8 +1,7 @@
 #!/bin/sh
 set -e
 
-# VMが起動し終わるまで待つ（aptのlockを外すのも待つ必要がある）
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -v -i playbooks/vm/hosts.yml playbooks/vm/site.yml && sleep 60
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -v -i playbooks/vm/hosts.yml playbooks/vm/site-k8s.yml
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -v -i playbooks/k8s/hosts.yml playbooks/k8s/site.yml
 

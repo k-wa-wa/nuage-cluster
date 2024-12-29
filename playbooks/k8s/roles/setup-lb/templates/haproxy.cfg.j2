@@ -1,0 +1,8 @@
+frontend http_front
+    bind *:6443
+    default_backend http_back
+
+backend http_back
+{% for ip in control_plane_ips %}
+    server server{{ loop.index }} {{ ip }}:6443 check
+{% endfor %}
