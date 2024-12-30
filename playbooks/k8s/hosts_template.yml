@@ -21,7 +21,7 @@ all: # noqa: syntax-check[specific]
       ansible_host: 192.168.5.32
       ansible_user: $OC1_VM_2_USER
     oc1-vm-3:
-      ansible_host: 192.168.5.32
+      ansible_host: 192.168.5.33
       ansible_user: $OC1_VM_3_USER
     oc2-pi-1:
       ansible_host: 192.168.6.11
