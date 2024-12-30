@@ -1,6 +1,6 @@
 - name: Install deps
   ansible.builtin.import_tasks:
-    - install_deps.yml
+    file: install_deps.yml
 
 - name: Setting kernel module
   ansible.builtin.lineinfile:
