@@ -28,8 +28,3 @@
     iptables -F && iptables -X
   register: result
   changed_when: result.rc == 0
-
-- name: Reboot
-  ansible.builtin.reboot:
-    reboot_timeout: 300
-    connect_timeout: 300

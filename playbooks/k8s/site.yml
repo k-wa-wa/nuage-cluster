@@ -1,11 +1,10 @@
-- name: Setup LB
+- name: Setup hosts
   any_errors_fatal: true
   max_fail_percentage: 0
-  hosts:
-    - lb
+  hosts: all
   become: true
   roles:
-    - setup-lb
+    - setup-hosts
 
 - name: Setup cluster
   any_errors_fatal: true
@@ -15,6 +14,5 @@
     - node
   become: true
   roles:
-    - reset-kubeadm
     - setup-kubeadm
     - setup-cluster
