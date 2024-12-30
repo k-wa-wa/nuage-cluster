@@ -1,0 +1,38 @@
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - apt-transport-https
+      - gpg
+      - nfs-common
+    state: present
+    update_cache: true
+
+- name: Setup docker apt repo
+  ansible.builtin.script: setup-docker-apt-repo.sh
+
+- name: Install the Docker packages
+  ansible.builtin.apt:
+    name:
+      - containerd.io
+    state: present
+
+- name: Setup k8s libs
+  ansible.builtin.script: setup-k8s-apt-repo.sh
+
+- name: Install k8s libs
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+- name: Hold Kubernetes Packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
