@@ -20,18 +20,25 @@
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
 
-- name: Copy keepalived.conf
+- name: Copy keepalived.conf (Master)
   ansible.builtin.copy:
-    src: keepalived-{{ item.file_id }}.conf
+    src: keepalived_master.conf
     dest: /etc/keepalived/keepalived.conf
     mode: "0640"
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
-  loop:
-    - { file_id: 1, target_host: oc1-lb-1 }
-    - { file_id: 2, target_host: oc1-lb-2 }
-  when: inventory_hostname == item.target_host
+  when: inventory_hostname == groups["lb"][0]
+
+- name: Copy keepalived.conf (Backup)
+  ansible.builtin.copy:
+    src: keepalived_backup.conf
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+  when: inventory_hostname != groups["lb"][0]
 
 - name: Start haproxy & keepalived
   ansible.builtin.systemd:
