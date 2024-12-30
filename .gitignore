@@ -7,3 +7,5 @@ playbooks/vm/hosts.yml
 .ssh/
 
 .env
+
+*.log
