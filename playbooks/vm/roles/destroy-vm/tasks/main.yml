@@ -4,6 +4,5 @@
     qm destroy {{ item.vmid }}
   register: result
   changed_when: result.rc == 0
-  when: inventory_hostname == item.target_host
   loop: "{{ vm }}"
   ignore_errors: true

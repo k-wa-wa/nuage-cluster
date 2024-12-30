@@ -32,19 +32,3 @@
     state: started
   when: inventory_hostname == item.target_host
   loop: "{{ vm }}"
-
-# aptが/var/lib/dpkg/lock-frontendのlockを外してくれない場合があるため再起動で対応
-- name: Reboot VM
-  ansible.builtin.shell: |
-    qm reboot {{ item.vmid }}
-  changed_when: false
-  when: inventory_hostname == item.target_host
-  loop: "{{ vm }}"
-
-- name: Wait for SSH service to be available
-  ansible.builtin.wait_for:
-    host: "{{ item.healthcheck_ip }}"
-    port: 22
-    state: started
-  when: inventory_hostname == item.target_host
-  loop: "{{ vm }}"
