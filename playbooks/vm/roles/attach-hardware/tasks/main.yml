@@ -1,0 +1,7 @@
+- name: Attach hardware to VM
+  ansible.builtin.shell: |
+    qm set {{ item.vmid }} -usb0 host={{ item.device_id }},usb3=1
+  register: result
+  changed_when: result.rc == 0
+  when: inventory_hostname == item.target_host
+  loop: "{{ vm }}"

@@ -1,0 +1,52 @@
+- name: Setup nfs
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait cloud-init
+      ansible.builtin.command:
+        cloud-init status
+      register: cloudinit_status
+      retries: 5
+      delay: 10
+      until: "'done' in cloudinit_status.stdout"
+      changed_when: false
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - nfs-kernel-server
+          - exfat-fuse
+        state: present
+        update_cache: true
+
+    - name: Create the shared NFS directory
+      ansible.builtin.file:
+        path: /srv/nfs
+        state: directory
+        mode: '0777'
+
+    - name: Mount the device
+      ansible.posix.mount:
+        path: /srv/nfs
+        src: /dev/sdb2
+        fstype: exfat-fuse
+        state: mounted
+
+    - name: Create /etc/exports
+      ansible.builtin.shell: echo "/srv/nfs 192.168.5.0/24(rw,sync,no_subtree_check)" > /etc/exports
+      changed_when: true
+
+    - name: Restart nfs
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: restarted
+        enabled: true
+
+    - name: Ensure RPC bind is started and enabled
+      ansible.builtin.service:
+        name: rpcbind
+        state: started
+        enabled: true
