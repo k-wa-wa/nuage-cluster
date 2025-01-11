@@ -20,3 +20,4 @@
   roles:
     - destroy-vm
     - create-vm
+    - start-vm

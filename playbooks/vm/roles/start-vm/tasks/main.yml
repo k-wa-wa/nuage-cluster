@@ -1,0 +1,15 @@
+- name: Start VM
+  ansible.builtin.shell: |
+    qm start {{ item.vmid }}
+  register: result
+  changed_when: result.rc == 0
+  when: inventory_hostname == item.target_host
+  loop: "{{ vm }}"
+
+- name: Wait for SSH service to be available
+  ansible.builtin.wait_for:
+    host: "{{ item.healthcheck_ip }}"
+    port: 22
+    state: started
+  when: inventory_hostname == item.target_host
+  loop: "{{ vm }}"
