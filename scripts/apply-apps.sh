@@ -34,5 +34,9 @@ helm upgrade --install --namespace ops prometheus-grafana prometheus-community/k
 helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
 helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
+#################### argo workflow ####################
+./k get namespace argo 2>/dev/null || ./k create namespace argo
+./k apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
+
 #################### apps ####################
 # ./k apply -f manifests/pechka
