@@ -11,6 +11,18 @@
   ansible.builtin.include_tasks:
     file: reset-kubeadm.yml
 
+- name: Disable haproxy / keepalived / kubelet / containerd
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - haproxy
+    - keepalived
+    - kubelet
+    - containerd
+  failed_when: false
+
 - name: Reboot
   ansible.builtin.reboot:
     reboot_timeout: 300

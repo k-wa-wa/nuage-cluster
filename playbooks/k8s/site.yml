@@ -6,6 +6,15 @@
   roles:
     - setup-hosts
 
+- name: Setup LB
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - load-balancer
+  become: true
+  roles:
+    - setup-lb
+
 - name: Setup cluster
   any_errors_fatal: true
   max_fail_percentage: 0
