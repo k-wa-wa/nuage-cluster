@@ -2,6 +2,6 @@
 
 set -e
 
-minikube start
+minikube start --driver=docker
 
 # minikube delete
