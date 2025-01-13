@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nuage-dashboard-deployment
+  labels:
+    app: nuage-dashboard
+spec:
+  selector:
+    matchLabels:
+      app: nuage-dashboard
+  template:
+    metadata:
+      labels:
+        app: nuage-dashboard
+    spec:
+      containers:
+        - name: nuage-dashboard
+          image: ghcr.io/k-wa-wa/nuage-dashboard
+          ports:
+            - containerPort: 80
+          # resources:
+          #   limits:
+          #     memory: 4Gi
+          #     cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nuage-dashboard-service
+spec:
+  selector:
+    app: nuage-dashboard
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+  loadBalancerIP: 192.168.5.100
