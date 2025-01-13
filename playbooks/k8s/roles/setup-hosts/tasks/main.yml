@@ -6,6 +6,7 @@
   delay: 10
   until: "'done' in cloudinit_status.stdout"
   changed_when: false
+  failed_when: false
 
 - name: Reset kubeadm
   ansible.builtin.include_tasks:
