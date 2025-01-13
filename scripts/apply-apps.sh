@@ -31,6 +31,11 @@ helm repo update
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops
 helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack -f manifests/ops/grafana-custom.yml
+./k wait -n ops \
+  --for=condition=Ready \
+  --timeout=300s \
+  -l "release=prometheus-grafana" \
+  --all pod
 helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
 helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
