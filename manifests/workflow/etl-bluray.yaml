@@ -1,0 +1,172 @@
+# コピーガードのあるblurayでは実施しないこと
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-bluray-pv
+spec:
+  capacity:
+    storage: 1Gi # 必須のため最小容量を設定
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  nfs:
+    path: /srv/nfs/bluray
+    server: 192.168.5.151
+  mountOptions:
+    - vers=4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-bluray-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi # 必須のため最小容量を設定
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-config
+data:
+  get_bluray_label.sh: |
+    #!/bin/sh
+    set -e
+
+    LABEL=$(blkid | grep /dev/sr1 | sed -n 's/.*LABEL="\([^"]*\)".*/\1/p')
+    echo $LABEL
+
+  bluray_to_mkv.sh: |
+    #!/bin/sh
+    set -e
+
+    if [ ! -d /mnt/bluray ]; then
+      echo "no target directory"
+      exit 1
+    fi
+
+    mkdir -p ~/.MakeMKV
+    echo 'app_Key="T-lp4bZXFohCJOKraCftH2Z@oExMkXXEcuqsd8wNs3qjNSYf2Y1BQqIkJpxOCbBo@KTV"' > ~/.MakeMKV/settings.conf
+
+    mkdir -p /mnt/bluray/mkv/$LABEL
+    /opt/makemkv/bin/makemkvcon --progress=-same mkv disc:1 all /mnt/bluray/mkv/$LABEL
+    eject /dev/sr1
+
+  mkv_to_hls.sh: |
+    #!/bin/sh
+    set -e
+
+    if [ ! -d /mnt/bluray ]; then
+      echo "no target directory"
+      exit 1
+    fi
+
+    mkdir -p /mnt/bluray/hls/$LABEL
+    for mkv_file in $(find /mnt/bluray/mkv/$LABEL -type f -name "title_*.mkv"); do
+      filename=$(basename "$mkv_file" .mkv)
+      ffmpeg -i $mkv_file \
+        -c:v libx264 \
+        -c:a aac \
+        -strict experimental \
+        -hls_list_size 0 \
+        -f hls \
+        /mnt/bluray/hls/$LABEL/"$filename".m3u8
+    done
+---
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: etl-bluray
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    entrypoint: main
+    templates:
+      - name: main
+        steps:
+          - - name: load-bluray
+              template: load-bluray
+          - - name: bluray-to-mkv
+              template: bluray-to-mkv
+              arguments:
+                parameters:
+                  - name: bluray-label
+                    value: "{{steps.load-bluray.outputs.parameters.bluray-label}}"
+              when: "'{{steps.load-bluray.outputs.parameters.bluray-label}}' != ''"
+          - - name: mkv-to-hls
+              template: mkv-to-hls
+              arguments:
+                parameters:
+                  - name: bluray-label
+                    value: "{{steps.load-bluray.outputs.parameters.bluray-label}}"
+              when: "'{{steps.load-bluray.outputs.parameters.bluray-label}}' != ''"
+          - - name: wait
+              template: wait
+
+      - name: load-bluray
+        container:
+          image: busybox
+          volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+          securityContext:
+            privileged: true
+          command: [ "/bin/sh", "-c", "/bin/sh /scripts/get_bluray_label.sh > /tmp/LABEL.txt" ]
+        outputs:
+          parameters:
+            - name: bluray-label
+              valueFrom:
+                path: /tmp/LABEL.txt
+        nodeSelector:
+          kubernetes.io/hostname: oc1-vm-3
+
+      - name: bluray-to-mkv
+        container:
+          image: jlesage/makemkv
+          volumeMounts:
+            - name: mnt-bluray
+              mountPath: "/mnt/bluray"
+            - name: script-volume
+              mountPath: /scripts
+          securityContext:
+            privileged: true
+          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/bluray_to_mkv.sh | tee /mnt/bluray/mkv/bluray-to-mkv.log" ]
+        inputs:
+          parameters:
+            - name: bluray-label
+        nodeSelector:
+          kubernetes.io/hostname: oc1-vm-3
+
+      - name: mkv-to-hls
+        container:
+          image: linuxserver/ffmpeg:version-7.1-cli
+          volumeMounts:
+            - name: mnt-bluray
+              mountPath: "/mnt/bluray"
+            - name: script-volume
+              mountPath: /scripts
+          securityContext:
+            privileged: true
+          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/mkv_to_hls.sh | tee /mnt/bluray/hls/mkv-to-hls.log" ]
+        inputs:
+          parameters:
+            - name: bluray-label
+        nodeSelector:
+          kubernetes.io/hostname: oc1-vm-3
+
+      - name: wait
+        container:
+          image: busybox
+          command: [sh, "-c", "sleep 5"]
+
+    volumes:
+      - name: mnt-bluray
+        persistentVolumeClaim:
+          claimName: nfs-bluray-pvc
+      - name: script-volume
+        configMap:
+          name: script-config
