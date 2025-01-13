@@ -45,4 +45,4 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 ./k apply -n argo -f manifests/workflow
 
 #################### apps ####################
-# ./k apply -f manifests/pechka
+./k apply -f manifests/pechka/file-server
