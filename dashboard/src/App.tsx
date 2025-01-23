@@ -16,18 +16,18 @@ const AllApps: AppGroupModel[] = [
       {
         title: "Grafana",
         description: "",
-        url: "http://192.168.5.101",
+        url: "http://192.168.5.100:81",
         links: [
           {
             text: "Dashboards",
-            url: "http://192.168.5.101/dashboards",
+            url: "http://192.168.5.100:81/dashboards",
           },
         ],
       },
       {
         title: "Argo Workflow",
         description: "",
-        url: "https://192.168.5.102",
+        url: "https://192.168.5.100:82",
       },
     ],
   },
@@ -37,7 +37,7 @@ const AllApps: AppGroupModel[] = [
       {
         title: "File server",
         description: "aaa",
-        url: "http://192.168.5.111",
+        url: "http://192.168.5.100:8001",
       },
     ],
   },
