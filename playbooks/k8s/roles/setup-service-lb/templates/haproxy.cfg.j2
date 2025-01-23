@@ -1,0 +1,45 @@
+frontend prometheus
+    bind :8405
+    mode http
+    http-request use-service prometheus-exporter
+    no log
+
+########## nuage dashboard ##########
+frontend nuage-dashboard
+    bind *:80
+    default_backend nuage-dashboard
+
+backend nuage-dashboard
+{% for ip in node_ips %}
+    server server{{ loop.index }} {{ ip }}:30000 check
+{% endfor %}
+
+########## grafana ##########
+frontend grafana
+    bind *:81
+    default_backend grafana
+
+backend grafana
+{% for ip in node_ips %}
+    server server{{ loop.index }} {{ ip }}:30001 check
+{% endfor %}
+
+########## argo-workflow ##########
+frontend argo-workflow
+    bind *:82
+    default_backend argo-workflow
+
+backend argo-workflow
+{% for ip in node_ips %}
+    server server{{ loop.index }} {{ ip }}:30002 check
+{% endfor %}
+
+########## file-server-ui ##########
+frontend file-server-ui
+    bind *:8001
+    default_backend file-server-ui
+
+backend file-server-ui
+{% for ip in node_ips %}
+    server server{{ loop.index }} {{ ip }}:30101 check
+{% endfor %}

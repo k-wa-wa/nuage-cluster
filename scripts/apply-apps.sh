@@ -11,14 +11,6 @@ helm repo add postgres-operator-ui-charts https://opensource.zalando.com/postgre
 helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 helm repo update
 
-#################### metalLB ####################
-./k apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml
-./k wait -n metallb-system \
-  --for=condition=available \
-  --timeout=300s \
-  --all deployment
-./k apply -f manifests/metallb.yaml
-
 #################### postgres operator ####################
 # helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
 # helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
@@ -30,7 +22,8 @@ helm repo update
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops
-helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack -f manifests/ops/grafana-custom.yml
+helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack
+./k apply -f manifests/ops/grafana-custom.yaml
 ./k wait -n ops \
   --for=condition=Ready \
   --timeout=300s \

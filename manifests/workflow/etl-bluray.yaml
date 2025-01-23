@@ -122,7 +122,7 @@ spec:
               valueFrom:
                 path: /tmp/LABEL.txt
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-3
+          kubernetes.io/hostname: oc1-vm-4
 
       - name: bluray-to-mkv
         container:
@@ -134,12 +134,12 @@ spec:
               mountPath: /scripts
           securityContext:
             privileged: true
-          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/bluray_to_mkv.sh | tee /mnt/bluray/mkv/bluray-to-mkv.log" ]
+          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/bluray_to_mkv.sh" ]
         inputs:
           parameters:
             - name: bluray-label
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-3
+          kubernetes.io/hostname: oc1-vm-4
 
       - name: mkv-to-hls
         container:
@@ -151,12 +151,12 @@ spec:
               mountPath: /scripts
           securityContext:
             privileged: true
-          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/mkv_to_hls.sh | tee /mnt/bluray/hls/mkv-to-hls.log" ]
+          command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/mkv_to_hls.sh" ]
         inputs:
           parameters:
             - name: bluray-label
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-3
+          kubernetes.io/hostname: oc1-vm-4
 
       - name: wait
         container:

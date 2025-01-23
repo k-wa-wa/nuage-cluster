@@ -6,14 +6,14 @@
   roles:
     - setup-hosts
 
-- name: Setup LB
+- name: Setup Cluster LB
   any_errors_fatal: true
   max_fail_percentage: 0
   hosts:
-    - load-balancer
+    - cluster-lb
   become: true
   roles:
-    - setup-lb
+    - setup-cluster-lb
 
 - name: Setup cluster
   any_errors_fatal: true
@@ -25,3 +25,12 @@
   roles:
     - setup-kubeadm
     - setup-cluster
+
+- name: Setup Service LB
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - service-lb
+  become: true
+  roles:
+    - setup-service-lb

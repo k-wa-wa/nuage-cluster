@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-grafana
+  namespace: ops
+spec:
+  ports:
+    - name: http-web
+      nodePort: 30001
+      port: 80
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    app.kubernetes.io/instance: prometheus-grafana
+    app.kubernetes.io/name: grafana
+  type: NodePort

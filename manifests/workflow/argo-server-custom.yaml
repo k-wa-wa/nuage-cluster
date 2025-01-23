@@ -4,13 +4,12 @@ metadata:
   name: argo-server
   namespace: argo
 spec:
-  type: LoadBalancer
-  loadBalancerIP: 192.168.5.102
+  type: NodePort
   ports:
     - name: web
       port: 443
       targetPort: 2746
       protocol: TCP
-      nodePort: 30000
+      nodePort: 30002
   selector:
     app: argo-server
