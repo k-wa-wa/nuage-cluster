@@ -22,7 +22,8 @@ helm repo update
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops
-helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack
+helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack \
+  -f manifests/ops/prometheus-values.yaml
 ./k apply -f manifests/ops/grafana-custom.yaml
 ./k wait -n ops \
   --for=condition=Ready \

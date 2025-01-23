@@ -1,0 +1,6 @@
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: 'load-balancer-metrics'
+        static_configs:
+          - targets: ['192.168.5.50:8405', '192.168.5.100:8405']
