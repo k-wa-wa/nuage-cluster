@@ -12,13 +12,21 @@ helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/
 helm repo update
 
 #################### postgres operator ####################
-# helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
-# helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
-# helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
-#     --set nfs.server=$NFS_SERVER_IP \
-#     --set nfs.path=/nfs
-# ./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
-# ./k apply -f manifests/postgres.yaml
+./k get namespace postgres 2>/dev/null || ./k create namespace postgres
+helm upgrade --install -n postgres postgres-operator postgres-operator-charts/postgres-operator
+helm upgrade --install -n postgres postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
+helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
+    --set nfs.server=192.168.5.151 \
+    --set nfs.path=/srv/nfs/pv
+./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
+./k apply -n postgres -f manifests/postgres.yaml
+
+# dbの初期化、secretを他namespaceにコピー
+./k cp ./db/postgres/init.sh nuage-postgres-0:/tmp/init.sh -n postgres
+./k exec -it nuage-postgres-0 -n postgres -- bash /tmp/init.sh
+./k delete secret postgres.nuage-postgres.credentials.postgresql.acid.zalan.do --ignore-not-found
+./k get secret postgres.nuage-postgres.credentials.postgresql.acid.zalan.do -n postgres -o yaml \
+  | sed "s/namespace: postgres/namespace: default/g" | ./k apply -f -
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops

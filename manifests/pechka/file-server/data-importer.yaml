@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: file-server-data-importer-cronjob
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: file-server-data-importer
+              image: ghcr.io/k-wa-wa/pechka-file-server-data-importer
+              volumeMounts:
+                - name: mnt-bluray
+                  mountPath: "/mnt/hls" # TODO: hlsディレクトリだけ読めるようにした方がいい
+              env:
+                - name: HLS_RESOURCE_DIR
+                  value: /mnt/hls
+                - name: DB_HOST
+                  value: nuage-postgres.postgres.svc.cluster.local
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres.nuage-postgres.credentials.postgresql.acid.zalan.do
+                      key: username
+                      optional: false
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres.nuage-postgres.credentials.postgresql.acid.zalan.do
+                      key: password
+                      optional: false
+                - name: DB_NAME
+                  value: pechka
+          restartPolicy: Never
+          volumes:
+            - name: mnt-bluray
+              persistentVolumeClaim:
+                claimName: nfs-bluray-hls-pvc

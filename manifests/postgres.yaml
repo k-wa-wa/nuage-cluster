@@ -8,16 +8,7 @@ spec:
   spiloRunAsGroup: 103
   spiloFSGroup: 103
   volume:
-    size: 8Gi
+    size: 16Gi
   numberOfInstances: 2
-  users:
-    nuage_pg_owner:  # database owner
-    - superuser
-    - createdb
-    pechka_user: []  # role for application foo
-  databases:
-    pechka: nuage_pg_owner  # dbname: owner
-  preparedDatabases:
-    pechka: {}
   postgresql:
     version: "16"
