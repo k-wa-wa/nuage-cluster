@@ -1,4 +1,4 @@
-import { Heading, Stack } from "@chakra-ui/react"
+import { Box, Heading, Stack } from "@chakra-ui/react"
 import AppCard from "./AppCard"
 import { AppGroupModel } from "@/types"
 
@@ -10,7 +10,9 @@ export default function AppGroup({ groupName, apps }: Props) {
 
       <Stack direction="row" align="flex-start" wrap="wrap">
         {apps.map((app) => (
-          <AppCard {...app} key={app.title} />
+          <Box key={app.title} w="240px" h="180px">
+            <AppCard {...app} />
+          </Box>
         ))}
       </Stack>
     </Stack>
