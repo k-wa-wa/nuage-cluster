@@ -23,6 +23,9 @@ all: # noqa: syntax-check[specific]
     oc1-vm-3:
       ansible_host: 192.168.5.33
       ansible_user: $OC1_VM_3_USER
+    oc1-vm-4:
+      ansible_host: 192.168.5.34
+      ansible_user: $OC1_VM_4_USER
     oc2-pi-1:
       ansible_host: 192.168.6.11
       ansible_user: $OC2_PI_1_USER
@@ -33,19 +36,22 @@ all: # noqa: syntax-check[specific]
       ansible_host: 192.168.6.13
       ansible_user: $OC2_PI_3_USER
   children:
-    load-balancer:
+    cluster-lb:
       hosts:
         oc1-pi-1:
         oc1-vm-1:
-        oc2-pi-1:
+    service-lb:
+      hosts:
+        oc1-vm-2:
+        oc1-pi-2:
     control-plane:
       hosts:
-        oc1-pi-2:
-        oc1-vm-2:
-        oc2-pi-2:
-    node:
-      hosts:
         oc1-pi-3:
-        oc1-pi-4:
         oc1-vm-3:
         oc2-pi-3:
+    node:
+      hosts:
+        oc2-pi-1:
+        oc2-pi-2:
+        oc1-pi-4:
+        oc1-vm-4:
