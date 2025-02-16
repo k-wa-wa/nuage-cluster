@@ -49,7 +49,7 @@ data:
     fi
 
     mkdir -p ~/.MakeMKV
-    echo 'app_Key="T-lp4bZXFohCJOKraCftH2Z@oExMkXXEcuqsd8wNs3qjNSYf2Y1BQqIkJpxOCbBo@KTV"' > ~/.MakeMKV/settings.conf
+    echo 'app_Key="T-h1LzyYnZ0QwBXDvKmzQOOOCyPbS30k2dlxINBG5jrCQ54b6uYXDJfbrhViFlcZ_TUk"' > ~/.MakeMKV/settings.conf
 
     mkdir -p /mnt/bluray/mkv/$LABEL
     /opt/makemkv/bin/makemkvcon --progress=-same mkv disc:1 all /mnt/bluray/mkv/$LABEL

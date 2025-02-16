@@ -22,6 +22,10 @@ helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provi
 ./k apply -n postgres -f manifests/postgres.yaml
 
 # dbの初期化、secretを他namespaceにコピー
+./k wait -n postgres \
+  --for=condition=Ready \
+  --timeout=300s \
+  pod/nuage-postgres-0
 ./k cp ./db/postgres/init.sh nuage-postgres-0:/tmp/init.sh -n postgres
 ./k exec -it nuage-postgres-0 -n postgres -- bash /tmp/init.sh
 ./k delete secret postgres.nuage-postgres.credentials.postgresql.acid.zalan.do --ignore-not-found
@@ -49,3 +53,4 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 #################### apps ####################
 ./k apply -f manifests/nuage-dashboard.yaml
 ./k apply -f manifests/pechka/file-server
+./k apply -n argo -f manifests/pechka/file-server-workflow
