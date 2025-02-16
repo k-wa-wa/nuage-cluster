@@ -28,15 +28,8 @@
         state: directory
         mode: '0777'
 
-    - name: Mount the device
-      ansible.posix.mount:
-        path: /srv/nfs
-        src: /dev/sdb2
-        fstype: exfat-fuse
-        state: mounted
-
     - name: Create /etc/exports
-      ansible.builtin.shell: echo "/srv/nfs 192.168.5.0/24(rw,sync,no_subtree_check)" > /etc/exports
+      ansible.builtin.shell: echo "/srv/nfs *(rw,sync,no_subtree_check)" > /etc/exports
       changed_when: true
 
     - name: Restart nfs
