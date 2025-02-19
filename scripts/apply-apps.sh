@@ -8,7 +8,7 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-#################### postgres operator ####################
+#################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0
 ./k cp ./db/postgres/init.sh postgres-0:/tmp/init.sh

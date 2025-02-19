@@ -9,7 +9,7 @@ hdiutil convert -format UDRW -o ./ubuntu.img ~/Downloads/ubuntu-24.04.1-live-ser
 diskutil list
 
 # アンマウント
-diskutil unmount /dev/xxx
+diskutil unmountDisk /dev/xxx
 
 # 書き込み（パーティションは指定しない）
 sudo dd if=./ubuntu.img.dmg of=/dev/xxx bs=1m
