@@ -23,8 +23,8 @@ spec:
           #     memory: 4Gi
           #     cpu: "1"
           volumeMounts:
-            - name: mnt-bluray
-              mountPath: "/mnt/hls" # TODO: hlsディレクトリだけ読めるようにした方がいい
+            - name: mnt-hls
+              mountPath: "/mnt/hls"
           env:
             - name: HLS_RESOURCE_DIR
               value: /mnt/hls
@@ -47,9 +47,9 @@ spec:
             - name: DB_NAME
               value: pechka
       volumes:
-        - name: mnt-bluray
+        - name: mnt-hls
           persistentVolumeClaim:
-            claimName: nfs-bluray-hls-pvc
+            claimName: nfs-hls-pvc
 ---
 apiVersion: v1
 kind: Service

@@ -36,7 +36,7 @@ data:
       exit 1
     fi
 
-    mkdir -p /mnt/bluray/hls/$LABEL
+    mkdir -p /mnt/hls/$LABEL
     for mkv_file in $(find /mnt/bluray/mkv/$LABEL -type f -name "title_*.mkv"); do
       filename=$(basename "$mkv_file" .mkv)
       ffmpeg -i $mkv_file \
@@ -45,7 +45,7 @@ data:
         -strict experimental \
         -hls_list_size 0 \
         -f hls \
-        /mnt/bluray/hls/$LABEL/"$filename".m3u8
+        /mnt/hls/$LABEL/"$filename".m3u8
     done
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -119,6 +119,8 @@ spec:
           volumeMounts:
             - name: mnt-bluray
               mountPath: "/mnt/bluray"
+            - name: mnt-hls
+              mountPath: "/mnt/hls"
             - name: script-volume
               mountPath: /scripts
           securityContext:
@@ -139,6 +141,9 @@ spec:
       - name: mnt-bluray
         persistentVolumeClaim:
           claimName: nfs-bluray-pvc
+      - name: mnt-hls
+        persistentVolumeClaim:
+          claimName: nfs-hls-pvc
       - name: script-volume
         configMap:
           name: script-config

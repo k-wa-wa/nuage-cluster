@@ -12,8 +12,8 @@ spec:
             - name: file-server-data-importer
               image: ghcr.io/k-wa-wa/pechka-file-server-data-importer
               volumeMounts:
-                - name: mnt-bluray
-                  mountPath: "/mnt/hls" # TODO: hlsディレクトリだけ読めるようにした方がいい
+                - name: mnt-hls
+                  mountPath: "/mnt/hls"
               env:
                 - name: HLS_RESOURCE_DIR
                   value: /mnt/hls
@@ -37,6 +37,6 @@ spec:
                   value: pechka
           restartPolicy: Never
           volumes:
-            - name: mnt-bluray
+            - name: mnt-hls
               persistentVolumeClaim:
-                claimName: nfs-bluray-hls-pvc
+                claimName: nfs-hls-pvc

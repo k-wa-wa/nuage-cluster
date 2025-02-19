@@ -14,6 +14,7 @@ spec:
     server: 192.168.5.151
   mountOptions:
     - vers=4
+  storageClassName: nfs-bluray-sc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -25,3 +26,34 @@ spec:
   resources:
     requests:
       storage: 1Gi # 必須のため最小容量を設定
+  storageClassName: nfs-bluray-sc
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-hls-pv
+spec:
+  capacity:
+    storage: 1Gi # 必須のため最小容量を設定
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  nfs:
+    path: /srv/nfs/hls
+    server: 192.168.5.151
+  mountOptions:
+    - vers=4
+  storageClassName: nfs-hls-sc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-hls-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi # 必須のため最小容量を設定
+  storageClassName: nfs-hls-sc
