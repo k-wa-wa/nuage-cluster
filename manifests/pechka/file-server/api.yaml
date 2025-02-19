@@ -29,19 +29,19 @@ spec:
             - name: HLS_RESOURCE_DIR
               value: /mnt/hls
             - name: DB_HOST
-              value: nuage-postgres.postgres.svc.cluster.local
+              value: postgres.default.svc.cluster.local
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: postgres.nuage-postgres.credentials.postgresql.acid.zalan.do
-                  key: username
+                  name: postgres-credentials
+                  key: user
                   optional: false
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgres.nuage-postgres.credentials.postgresql.acid.zalan.do
+                  name: postgres-credentials
                   key: password
                   optional: false
             - name: DB_NAME

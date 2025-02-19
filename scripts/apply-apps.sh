@@ -6,31 +6,13 @@ export KUBECONFIG=playbooks/k8s/admin.conf
 #################### helm chat更新 ####################
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
-helm repo add postgres-operator-ui-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator-ui
-helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 helm repo update
 
 #################### postgres operator ####################
-./k get namespace postgres 2>/dev/null || ./k create namespace postgres
-helm upgrade --install -n postgres postgres-operator postgres-operator-charts/postgres-operator
-helm upgrade --install -n postgres postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
-helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
-    --set nfs.server=192.168.5.151 \
-    --set nfs.path=/srv/nfs/pv
-./k patch storageclass nfs-client -p '{"metadata": {"annotations": {"storageclass.beta.kubernetes.io/is-default-class": "true"}}}'
-./k apply -n postgres -f manifests/postgres.yaml
-
-# dbの初期化、secretを他namespaceにコピー
-./k wait -n postgres \
-  --for=condition=Ready \
-  --timeout=300s \
-  pod/nuage-postgres-0
-./k cp ./db/postgres/init.sh nuage-postgres-0:/tmp/init.sh -n postgres
-./k exec -it nuage-postgres-0 -n postgres -- bash /tmp/init.sh
-./k delete secret postgres.nuage-postgres.credentials.postgresql.acid.zalan.do --ignore-not-found
-./k get secret postgres.nuage-postgres.credentials.postgresql.acid.zalan.do -n postgres -o yaml \
-  | sed "s/namespace: postgres/namespace: default/g" | ./k apply -f -
+./k apply -f manifests/postgres/
+./k wait --for=condition=Ready --timeout=300s pod/postgres-0
+./k cp ./db/postgres/init.sh postgres-0:/tmp/init.sh
+./k exec -it postgres-0 -- bash /tmp/init.sh
 
 #################### 監視 ####################
 ./k get namespace ops 2>/dev/null || ./k create namespace ops
