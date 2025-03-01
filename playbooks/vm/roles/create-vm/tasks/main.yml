@@ -13,7 +13,6 @@
       --scsi0 local-lvm:0,import-from=/root/noble-server-cloudimg-amd64.img \
       --ide2 local-lvm:cloudinit \
       --boot order=scsi0 \
-      --serial0 socket --vga serial0 \
       --sshkey ~/.ssh/authorized_keys \
       {{ item.options }}
 
