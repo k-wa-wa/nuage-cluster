@@ -14,11 +14,31 @@
       until: "'done' in cloudinit_status.stdout"
       changed_when: false
 
+    - name: Create a partition table on /dev/sdb
+      ansible.builtin.parted:
+        device: /dev/sdb
+        label: gpt
+        number: 1
+        state: present
+        part_type: primary
+
+    - name: Create a filesystem on /dev/sdb1
+      ansible.builtin.filesystem:
+        fstype: ext4
+        device: /dev/sdb1
+
+    - name: Mount /dev/sdb1 to /srv/nfs # noqa: syntax-check[unknown-module] なぜかエラーになるため抑止
+      ansible.posix.mount:
+        path: /srv/nfs
+        src: /dev/sdb1
+        fstype: ext4
+        state: mounted
+        opts: defaults
+
     - name: Install packages
       ansible.builtin.apt:
         name:
           - nfs-kernel-server
-          - exfat-fuse
         state: present
         update_cache: true
 
