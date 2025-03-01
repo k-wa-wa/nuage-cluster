@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: youtube-dl-statefulset
+  labels:
+    app: youtube-dl
+spec:
+  serviceName: youtube-dl
+  selector:
+    matchLabels:
+      app: youtube-dl
+  template:
+    metadata:
+      labels:
+        app: youtube-dl
+    spec:
+      containers:
+        - name: youtube-dl
+          image: python:3.12.9-bookworm
+          command: ["tail", "-f", "/dev/null"]
+          # resources:
+          #   limits:
+          #     memory: 4Gi
+          #     cpu: "1"
+          volumeMounts:
+            - name: mnt-youtube
+              mountPath: "/mnt/youtube"
+            - name: mnt-hls
+              mountPath: "/mnt/hls"
+      volumes:
+        - name: mnt-youtube
+          persistentVolumeClaim:
+            claimName: nfs-youtube-pvc
+        - name: mnt-hls
+          persistentVolumeClaim:
+            claimName: nfs-hls-pvc
+
+# apt update && apt install -y ffmpeg
+# pip install yt-dlp
+# yt-dlp https://www.youtube.com/watch?v=ajNatne7T8o

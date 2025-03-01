@@ -39,4 +39,4 @@ spec:
           volumes:
             - name: mnt-hls
               persistentVolumeClaim:
-                claimName: nfs-hls-pvc
+                claimName: nfs-hls-readonly-pvc
