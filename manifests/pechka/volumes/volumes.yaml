@@ -14,7 +14,6 @@ spec:
     server: 192.168.5.151
   mountOptions:
     - vers=4
-  storageClassName: nfs-youtube-sc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -26,4 +25,4 @@ spec:
   resources:
     requests:
       storage: 1Gi # 必須のため最小容量を設定
-  storageClassName: nfs-youtube-sc
+  volumeName: nfs-youtube-pv

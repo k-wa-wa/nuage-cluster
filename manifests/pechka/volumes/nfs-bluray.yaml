@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-hls-readonly-pv
+  name: nfs-bluray-pv
 spec:
   capacity:
     storage: 1Gi # 必須のため最小容量を設定
   volumeMode: Filesystem
   accessModes:
-    - ReadOnlyMany
+    - ReadWriteMany
   persistentVolumeReclaimPolicy: Delete
   nfs:
-    path: /srv/nfs/hls
+    path: /srv/nfs/bluray
     server: 192.168.5.151
   mountOptions:
     - vers=4
@@ -18,11 +18,11 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: nfs-hls-readonly-pvc
+  name: nfs-bluray-pvc
 spec:
   accessModes:
-    - ReadOnlyMany
+    - ReadWriteMany
   resources:
     requests:
       storage: 1Gi # 必須のため最小容量を設定
-  volumeName: nfs-hls-readonly-pv
+  volumeName: nfs-bluray-pv
