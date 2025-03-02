@@ -1,0 +1,34 @@
+- name: Setup proxy
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait cloud-init
+      ansible.builtin.command:
+        cloud-init status
+      register: cloudinit_status
+      retries: 5
+      delay: 10
+      until: "'done' in cloudinit_status.stdout"
+      changed_when: false
+
+    - name: Change Gateway
+      ansible.builtin.lineinfile:
+        path: /etc/netplan/50-cloud-init.yaml
+        regexp: "        - to: default"
+        line: "        - to: 192.168.5.100/32"
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - squid
+        state: present
+        update_cache: true
+
+    - name: Restart nfs
+      ansible.builtin.service:
+        name: squid
+        state: restarted
+        enabled: true

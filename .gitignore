@@ -3,6 +3,7 @@
 playbooks/k8s/admin.conf
 playbooks/k8s/hosts.yml
 playbooks/nfs/hosts.yml
+playbooks/proxy/hosts.yml
 playbooks/vm/hosts.yml
 
 .ssh/
