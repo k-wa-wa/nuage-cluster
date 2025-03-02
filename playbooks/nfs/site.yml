@@ -44,9 +44,16 @@
 
     - name: Create the shared NFS directory
       ansible.builtin.file:
-        path: /srv/nfs
+        path: "{{ item }}"
         state: directory
+        owner: nobody
+        group: nogroup
         mode: '0777'
+      with_items:
+        - /srv/nfs
+        - /srv/nfs/bluray
+        - /srv/nfs/nfs
+        - /srv/nfs/postgres
 
     - name: Create /etc/exports
       ansible.builtin.shell: echo "/srv/nfs *(rw,sync,no_subtree_check)" > /etc/exports
