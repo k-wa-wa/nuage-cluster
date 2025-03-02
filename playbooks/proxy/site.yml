@@ -27,7 +27,7 @@
         state: present
         update_cache: true
 
-    - name: Restart nfs
+    - name: Restart squid
       ansible.builtin.service:
         name: squid
         state: restarted
