@@ -1,15 +1,14 @@
 - name: Setup VM
   any_errors_fatal: true
   max_fail_percentage: 0
-  hosts: oc1-server1
+  hosts: oc1-nuc-1
   become: true
   vars:
     vm:
-      - target_host: oc1-server1
+      - target_host: oc1-nuc-1
         vmid: 5151
         options: "--memory 4096 --cores 2 --name oc1-nfs \
-          --ipconfig0 ip=192.168.5.151/24,gw=192.168.5.1 \
-          --scsi1 volume-for-nfs:1024"
+          --ipconfig0 ip=192.168.5.151/24,gw=192.168.5.1"
         healthcheck_ip: 192.168.5.151
   roles:
     # - destroy-vm 誤って削除しないようコメントアウト
