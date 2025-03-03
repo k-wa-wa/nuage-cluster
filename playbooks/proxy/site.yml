@@ -14,11 +14,23 @@
       until: "'done' in cloudinit_status.stdout"
       changed_when: false
 
-    - name: Change Gateway
-      ansible.builtin.lineinfile:
-        path: /etc/netplan/50-cloud-init.yaml
-        regexp: "        - to: default"
-        line: "        - to: 192.168.5.100/32"
+    - name: Slurp the netplan file
+      ansible.builtin.slurp:
+        src: /etc/netplan/50-cloud-init.yaml
+      register: netplan_file
+
+    - name: Decode and parse the YAML content
+      ansible.builtin.set_fact:
+        netplan_data: "{{ netplan_file.content | b64decode | from_yaml }}"
+
+    - name: Update Netplan
+      ansible.builtin.template:
+        src: netplan-cloud-init.yaml.j2
+        dest: /etc/netplan/50-cloud-init.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        backup: true
 
     - name: Install packages
       ansible.builtin.apt:

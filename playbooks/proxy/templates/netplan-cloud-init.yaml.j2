@@ -1,0 +1,28 @@
+network:
+  version: 2
+  ethernets:
+    eth0:
+      match:
+        macaddress: "{{ netplan_data.network.ethernets.eth0.match.macaddress }}"
+      addresses:
+      - "192.168.5.160/24"
+      nameservers:
+        addresses:
+        - 192.168.5.1
+        search:
+        - oc1
+      set-name: "eth0"
+      routes:
+      - to: 192.168.5.100/32
+        via: "192.168.5.1"
+    eth1:
+      match:
+        macaddress: "{{ netplan_data.network.ethernets.eth1.match.macaddress }}"
+      addresses:
+      - "192.168.1.70/24"
+      nameservers:
+        addresses:
+        - 192.168.1.1
+        search:
+        - oc1
+      set-name: "eth1"
