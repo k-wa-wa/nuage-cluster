@@ -8,4 +8,4 @@ spec:
   resources:
     requests:
       storage: 1Gi # 必須のため最小容量を設定
-  volumeName: nfs-hls-pv
+  volumeName: nfs-hls-readonly-pv
