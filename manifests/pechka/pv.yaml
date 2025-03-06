@@ -8,7 +8,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   nfs:
     path: /srv/nfs/bluray
     server: 192.168.5.151
@@ -25,7 +25,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   nfs:
     path: /srv/nfs/hls
     server: 192.168.5.151
@@ -42,7 +42,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
     - ReadOnlyMany
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   nfs:
     path: /srv/nfs/hls
     server: 192.168.5.151
@@ -59,7 +59,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   nfs:
     path: /srv/nfs/youtube
     server: 192.168.5.151
