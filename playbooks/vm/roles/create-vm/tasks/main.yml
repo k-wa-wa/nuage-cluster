@@ -22,3 +22,11 @@
   changed_when: result.rc == 0
   when: inventory_hostname == item.target_host
   loop: "{{ vm }}"
+
+- name: Shell command after create VM
+  ansible.builtin.shell: |
+    {{ item.shell_command }}
+  register: result
+  changed_when: result.rc == 0
+  when: inventory_hostname == item.target_host and item.shell_command is defined
+  loop: "{{ vm }}"

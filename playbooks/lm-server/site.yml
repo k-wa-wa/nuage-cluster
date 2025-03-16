@@ -1,0 +1,37 @@
+- name: Setup lm-server
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait cloud-init
+      ansible.builtin.command:
+        cloud-init status
+      register: cloudinit_status
+      retries: 5
+      delay: 10
+      until: "'done' in cloudinit_status.stdout"
+      changed_when: false
+
+    - name: Install ollama
+      ansible.builtin.script: install-ollama.sh
+
+    - name: Pull Models
+      ansible.builtin.command: ollama pull {{ item }}
+      changed_when: true
+      with_items:
+        - gemma3:12b
+
+    - name: Overwrite service file
+      ansible.builtin.copy:
+        src: ollama.service
+        dest: /etc/systemd/system/ollama.service
+        mode: "0644"
+        owner: "{{ ansible_env.SUDO_USER }}"
+        group: "{{ ansible_env.SUDO_USER }}"
+
+    - name: Reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        connect_timeout: 300
