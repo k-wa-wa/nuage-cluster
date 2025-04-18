@@ -1,0 +1,46 @@
+- name: Setup nfs
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait cloud-init
+      ansible.builtin.command:
+        cloud-init status
+      register: cloudinit_status
+      retries: 5
+      delay: 10
+      until: "'done' in cloudinit_status.stdout"
+      changed_when: false
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - samba
+        state: present
+        update_cache: true
+
+    - name: Create the shared SMB directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: nobody
+        group: nogroup
+        mode: '0777'
+      with_items:
+        - /srv/smb
+
+    - name: Smb.conf
+      ansible.builtin.copy:
+        src: smb.conf
+        dest: /etc/samba/smb.conf
+        mode: "0644"
+        owner: "{{ ansible_env.SUDO_USER }}"
+        group: "{{ ansible_env.SUDO_USER }}"
+
+    - name: Restart smb
+      ansible.builtin.service:
+        name: smb
+        state: restarted
+        enabled: true
