@@ -27,14 +27,25 @@ spec:
               mountPath: "/mnt/youtube"
             - name: mnt-hls
               mountPath: "/mnt/hls"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - general
       volumes:
         - name: mnt-youtube
           persistentVolumeClaim:
             claimName: nfs-youtube-pvc
         - name: mnt-hls
           persistentVolumeClaim:
-            claimName: nfs-hls-pvc
+            claimName: nfs-hls-pvc-for-youtube
 
 # apt update && apt install -y ffmpeg
 # pip install yt-dlp
 # yt-dlp https://www.youtube.com/watch?v=ajNatne7T8o
+# ffmpeg -i 'PEDRO ラブ&ピースツアー Final 「意地と光」 [Full Live Video at Zepp Haneda ｜ 2025.01.21] [ajNatne7T8o].webm' -c:v libx264 -c:a aac -strict experimental -hls_list_size 0 -f hls loveandpeace/output.m3u8

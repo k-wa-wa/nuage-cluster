@@ -33,6 +33,16 @@ spec:
             httpGet:
               path: /
               port: 3000
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - general
 ---
 apiVersion: v1
 kind: Service

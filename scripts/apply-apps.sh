@@ -8,6 +8,9 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
+#################### nodes ####################
+./k apply -f manifests/node-labels.yaml
+
 #################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0

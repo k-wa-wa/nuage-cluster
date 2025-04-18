@@ -50,6 +50,16 @@ spec:
         - name: mnt-hls
           persistentVolumeClaim:
             claimName: nfs-hls-readonly-pvc
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - general
 ---
 apiVersion: v1
 kind: Service
