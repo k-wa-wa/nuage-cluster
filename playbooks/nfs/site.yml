@@ -34,6 +34,7 @@
         - /srv/nfs/hls
         - /srv/nfs/nfs
         - /srv/nfs/postgres
+        - /srv/nfs/youtube
 
     - name: Create /etc/exports
       ansible.builtin.shell: echo "/srv/nfs *(rw,sync,no_subtree_check,no_root_squash)" > /etc/exports
