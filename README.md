@@ -37,12 +37,49 @@
 
    1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)は Ubuntu だが、Proxmox を入れる）
 
+   1. 自作 PC ノードをセットアップする(NUC と同様 Proxmox)
+
    1. ルーター側で物理ノードに固定 IP を振る（各ノードで設定するのが面倒なため、ルーターで一括設定する）
 
-1. `playbooks/{k8s,vm}/hosts_template.yaml`から`playbooks/{k8s,vm}/hosts.yaml`を作成する
+1. 各種スクリプトを実行する
 
-1. 以下を実行する
+   1. VM の定義
+
    ```sh
-   bash scripts/setup-cluster.sh
-   bash scripts/apply-apps.sh
+   bash scripts/infra/cluster.sh
+   bash scripts/infra/lm-server.sh
+   bash scripts/infra/nfs.sh
+   bash scripts/infra/proxy.sh
+   bash scripts/infra/smb.sh
    ```
+
+   1. Platform の定義
+
+   ```sh
+   bash scripts/platform/cluster.sh
+   ```
+
+   1. Application の定義
+
+   ```sh
+   bash scripts/apps/cluster.sh
+   bash scripts/apps/lm-server.sh
+   bash scripts/apps/nfs.sh
+   bash scripts/apps/proxy.sh
+   bash scripts/apps/smb.sh
+   ```
+
+### 各種スクリプトについて
+
+`script`配下の極力スクリプトは冪等性を持つように作成しているが、レイヤーによって保証する範囲が異なる。
+
+```
+├── scripts
+│   ├── apps
+│   ├── infra
+│   └── platform
+```
+
+- infra 層は前提となる VM の構築を担う。基本的に再作成となるため、`定義したVMが存在する状態`のみを保証しており、上位のレイヤーの構成やデータ状態については保証しない。
+- platform 層はミドルウェアの導入を担う。k8s クラスターは再作成となる。
+- apps 層はアプリケーションの導入を担う。冪等性のある定義を行う。

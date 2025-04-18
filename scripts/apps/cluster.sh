@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 export KUBECONFIG=playbooks/k8s/admin.conf
