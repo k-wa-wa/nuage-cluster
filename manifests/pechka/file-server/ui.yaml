@@ -18,6 +18,10 @@ spec:
           image: ghcr.io/k-wa-wa/pechka-file-server-ui
           ports:
             - containerPort: 3000
+          command: [
+            "/bin/bash", "-c",
+            "API_URL=http://file-server-api-service.default.svc.cluster.local:8000 ./node_modules/.bin/remix-serve ./build/server/index.js"
+          ]
           # resources:
           #   limits:
           #     memory: 4Gi
