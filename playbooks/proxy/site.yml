@@ -36,7 +36,6 @@
       ansible.builtin.apt:
         name:
           - squid
-          - nginx
         state: present
         update_cache: true
 
@@ -48,14 +47,6 @@
         owner: "{{ ansible_env.SUDO_USER }}"
         group: "{{ ansible_env.SUDO_USER }}"
 
-    - name: Proxy.pac
-      ansible.builtin.copy:
-        src: proxy.pac
-        dest: /var/www/html/proxy.pac
-        mode: "0644"
-        owner: "{{ ansible_env.SUDO_USER }}"
-        group: "{{ ansible_env.SUDO_USER }}"
-
     - name: Edit /etc/hosts
       ansible.builtin.lineinfile:
         path: /etc/hosts
@@ -63,11 +54,10 @@
         line: "192.168.5.100 nuage.com"
         state: present
 
-    - name: Restart squid, nginx
+    - name: Restart squid
       ansible.builtin.service:
         name: "{{ item }}"
         state: restarted
         enabled: true
       with_items:
         - squid
-        - nginx
