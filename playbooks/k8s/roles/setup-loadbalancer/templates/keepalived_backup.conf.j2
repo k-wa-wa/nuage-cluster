@@ -7,6 +7,7 @@ vrrp_instance VI_1 {
     virtual_router_id 51
     priority 99
     virtual_ipaddress {
-        192.168.5.50
+        {{ control_plane_loadbalancer_ip }}
+        {{ cluster_service_ip }}
     }
 }

@@ -5,12 +5,6 @@
   changed_when: result.rc == 0
   failed_when: false
 
-- name: Stop kubelet
-  ansible.builtin.systemd:
-    name: kubelet
-    state: stopped
-  failed_when: false
-
 - name: Remove directory if it exists
   ansible.builtin.file:
     path: "{{ item }}"

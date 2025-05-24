@@ -1,7 +1,5 @@
 .DS_Store
 
-playbooks/k8s/admin.conf
-
 .ssh/
 
 .env

@@ -2,11 +2,10 @@
   ansible.builtin.command: |
     kubeadm init \
       --pod-network-cidr=10.244.0.0/16 \
-      --control-plane-endpoint=nuage-cluster-endpoint:6443 \
-      --apiserver-advertise-address={{ hostvars[groups['control-plane'][0]].ansible_host }} \
+      --control-plane-endpoint={{ control_plane_loadbalancer_ip }}:6443 \
+      --apiserver-advertise-address={{ ansible_host }} \
       --upload-certs \
-      --apiserver-cert-extra-sans=192.168.5.50
-  when: inventory_hostname == groups["control-plane"][0]
+      --apiserver-cert-extra-sans={{ control_plane_loadbalancer_ip }}
 
 - name: Create ~/.kube directory
   ansible.builtin.file:
@@ -15,7 +14,6 @@
     mode: "0755"
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
-  when: inventory_hostname == groups["control-plane"][0]
 
 - name: Copy admin.conf to home
   ansible.builtin.copy:
@@ -25,14 +23,12 @@
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
     remote_src: true
-  when: inventory_hostname == groups["control-plane"][0]
 
 - name: Fetch admin.conf
   ansible.builtin.fetch:
     src: /etc/kubernetes/admin.conf
     dest: ./admin.conf
     flat: true
-  when: inventory_hostname == groups["control-plane"][0]
 
 # setup calico
 - name: Copy calico-custom-resources.yaml
@@ -43,16 +39,12 @@
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
-  when: inventory_hostname == groups["control-plane"][0]
 
 - name: Setup calico # noqa: no-changed-when
   ansible.builtin.command: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
-  when: inventory_hostname == groups["control-plane"][0]
 
 - name: Setup calico 2 # noqa: no-changed-when
   ansible.builtin.command: kubectl apply -f {{ ansible_env.HOME }}/calico-custom-resources.yaml
-  when: inventory_hostname == groups["control-plane"][0]
 
 - name: Wait etcd
   ansible.builtin.script: wait-etcd.sh
-  when: inventory_hostname == groups["control-plane"][0]

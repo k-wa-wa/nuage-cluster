@@ -1,18 +1,8 @@
-- name: Wait cloud-init
-  ansible.builtin.command:
-    cloud-init status
-  register: cloudinit_status
-  retries: 5
-  delay: 10
-  until: "'done' in cloudinit_status.stdout"
-  changed_when: false
-  failed_when: false
-
 - name: Reset kubeadm
   ansible.builtin.include_tasks:
     file: reset-kubeadm.yml
 
-- name: Disable haproxy / keepalived / kubelet / containerd
+- name: Disable services
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: stopped

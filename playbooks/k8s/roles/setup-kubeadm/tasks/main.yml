@@ -67,6 +67,20 @@
       line: "SystemdCgroup = true"
       insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
 
+- name: Kubelet ip
+  ansible.builtin.copy:
+    content: "KUBELET_EXTRA_ARGS=--node-ip={{ ansible_host }}"
+    dest: /etc/default/kubelet
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+- name: Check kubelet.conf
+  ansible.builtin.stat:
+    path: "/etc/kubernetes/kubelet.conf"
+  register: kubelet_conf
+  failed_when: kubelet_conf.stat.exists
+
 - name: Complete Setup
   ansible.builtin.systemd:
     state: restarted

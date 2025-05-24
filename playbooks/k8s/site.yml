@@ -1,36 +1,72 @@
-- name: Setup hosts
+- name: Reset hosts
   any_errors_fatal: true
   max_fail_percentage: 0
   hosts: all
   become: true
   roles:
-    - setup-hosts
+    - reset-hosts
 
-- name: Setup Cluster LB
+- name: Setup loadbalancer
   any_errors_fatal: true
   max_fail_percentage: 0
   hosts:
-    - cluster-lb
+    - loadbalancer
   become: true
   roles:
-    - setup-cluster-lb
+    - setup-loadbalancer
 
-- name: Setup cluster
+- name: Setup kubeadm
   any_errors_fatal: true
   max_fail_percentage: 0
   hosts:
     - control-plane
-    - node
+    - worker-node
   become: true
   roles:
     - setup-kubeadm
-    - setup-cluster
 
-- name: Setup Service LB
+- name: Init control plane
   any_errors_fatal: true
   max_fail_percentage: 0
   hosts:
-    - service-lb
+    - control-plane[0]
   become: true
   roles:
-    - setup-service-lb
+    - init-control-plane
+
+- name: Get Join Command
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - control-plane[0]
+  become: true
+  roles:
+    - get-join-command
+
+- name: Join control plane
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - control-plane
+  become: true
+  roles:
+    - role: join-control-plane
+      when: inventory_hostname in groups['control-plane'][1:]
+
+- name: Join worker node
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - worker-node
+  become: true
+  roles:
+    - join-worker-node
+
+- name: Wait cluster ready
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - control-plane[0]
+  become: true
+  roles:
+    - wait-cluster-ready

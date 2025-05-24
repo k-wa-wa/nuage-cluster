@@ -1,4 +1,4 @@
-- name: Install packages
+- name: Install deps
   ansible.builtin.apt:
     name:
       - openssl
@@ -7,9 +7,10 @@
     state: present
     update_cache: true
 
-- name: Extract node IPs
+- name: Extract control-plane IPs
   ansible.builtin.set_fact:
-    node_ips: "{{ groups['node'] | map('extract', hostvars, 'ansible_host') | list }}"
+    control_plane_ips: "{{ groups['control-plane'] | map('extract', hostvars, 'ansible_host') | list }}"
+    worker_node_ips: "{{ groups['worker-node'] | map('extract', hostvars, 'ansible_host') | list }}"
 
 - name: Create HAProxy config
   ansible.builtin.template:
@@ -20,25 +21,25 @@
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
 
-- name: Copy keepalived.conf (Master)
-  ansible.builtin.copy:
-    src: keepalived_master.conf
+- name: Create keepalived.conf (Master)
+  ansible.builtin.template:
+    src: keepalived_master.conf.j2
     dest: /etc/keepalived/keepalived.conf
     mode: "0640"
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
-  when: inventory_hostname == groups["service-lb"][0]
+  when: inventory_hostname == groups["loadbalancer"][0]
 
 - name: Copy keepalived.conf (Backup)
-  ansible.builtin.copy:
-    src: keepalived_backup.conf
+  ansible.builtin.template:
+    src: keepalived_backup.conf.j2
     dest: /etc/keepalived/keepalived.conf
     mode: "0640"
     owner: "{{ ansible_env.SUDO_USER }}"
     group: "{{ ansible_env.SUDO_USER }}"
     backup: true
-  when: inventory_hostname != groups["service-lb"][0]
+  when: inventory_hostname != groups["loadbalancer"][0]
 
 - name: Start haproxy & keepalived
   ansible.builtin.systemd:

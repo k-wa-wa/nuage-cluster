@@ -1,0 +1,14 @@
+- name: Find all regular files in /var/log
+  ansible.builtin.find:
+    paths: /var/log
+    file_type: file
+    recurse: true
+  register: log_files
+
+- name: Truncate each log file
+  community.general.filesize:
+    path: "{{ item.path }}"
+    size: 0
+    force: true
+  loop: "{{ log_files.files }}"
+  when: log_files.files is defined and log_files.files | length > 0

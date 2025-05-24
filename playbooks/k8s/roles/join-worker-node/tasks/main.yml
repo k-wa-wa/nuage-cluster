@@ -1,0 +1,8 @@
+- name: Read join info json
+  ansible.builtin.set_fact:
+    kubeadm_join_info: "{{ lookup('file', './kubeadm_join_info.json') | from_json }}"
+  delegate_to: localhost
+
+- name: Join worker node # noqa: no-changed-when
+  ansible.builtin.command: |
+    {{ kubeadm_join_info.join_command }}
