@@ -1,0 +1,55 @@
+- name: Setup cluster-manager
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait cloud-init
+      ansible.builtin.command:
+        cloud-init status
+      register: cloudinit_status
+      retries: 5
+      delay: 10
+      until: "'done' in cloudinit_status.stdout"
+      changed_when: false
+
+    - name: Install k3s
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | sh -
+        sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+      changed_when: true
+
+    - name: Install clusterctl
+      ansible.builtin.shell: |
+        curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.10.3/clusterctl-linux-amd64 -o clusterctl
+        sudo install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
+        rm clusterctl
+
+    - name: Init cluster
+      ansible.builtin.shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        export EXP_CLUSTER_RESOURCE_SET=true
+        export CLUSTER_TOPOLOGY=true
+
+        mkdir -p /root/.config/cluster-api
+        clusterctl init --infrastructure=proxmox:v0.4.3 --config https://raw.githubusercontent.com/k8s-proxmox/cluster-api-provider-proxmox/main/clusterctl.yaml
+
+    - name: Edit profile
+      ansible.builtin.lineinfile:
+        path: /etc/profile
+        line: "{{ item }}"
+        create: true
+        insertafter: EOF # ファイルの最後に追記する
+      with_items:
+        - "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
+        - "export EXP_CLUSTER_RESOURCE_SET=true"
+        - "export CLUSTER_TOPOLOGY=true"
+
+    - name: Copy files
+      ansible.builtin.copy:
+        src: cluster
+        dest: /home/ubuntu/
+        mode: "0755"
+        owner: "ubuntu"
+        group: "ubuntu"
