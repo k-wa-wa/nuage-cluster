@@ -9,7 +9,7 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
 #################### nodes ####################
-./k apply -f manifests/node-labels.yaml
+# ./k apply -f manifests/node-labels.yaml
 
 #################### postgres ####################
 ./k apply -f manifests/postgres/
