@@ -1,0 +1,11 @@
+- name: Init control plane
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - control-plane[0]
+  become: true
+  roles:
+    - wait-cloud-init
+    - reset-hosts
+    - setup-kubeadm
+    - init-control-plane

@@ -1,0 +1,27 @@
+- name: Setup node
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts: all
+  become: true
+  roles:
+    - wait-cloud-init
+    - reset-hosts
+    - setup-kubeadm
+
+- name: Join control plane
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - control-plane
+  become: true
+  roles:
+    - join-control-plane
+
+- name: Join worker node
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - worker-node
+  become: true
+  roles:
+    - join-worker-node

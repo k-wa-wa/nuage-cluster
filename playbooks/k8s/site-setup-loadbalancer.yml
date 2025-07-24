@@ -1,0 +1,10 @@
+- name: Setup loadbalancer
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  hosts:
+    - loadbalancer
+  become: true
+  roles:
+    - wait-cloud-init
+    - reset-hosts
+    - setup-loadbalancer
