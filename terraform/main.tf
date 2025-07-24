@@ -54,6 +54,14 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   network_device {
     bridge = "vmbr0"
   }
+
+  dynamic "usb" {
+    for_each = each.value.usb_host != null ? [true] : []
+    content {
+      usb3 = true
+      host = each.value.usb_host
+    }
+  }
 }
 
 resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
