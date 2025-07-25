@@ -1,3 +1,4 @@
+########## prometheus ##########
 frontend prometheus
     bind :8405
     mode http
@@ -17,42 +18,16 @@ backend http_back_control_plane
     server server{{ loop.index }} {{ ip }}:6443 check
 {% endfor %}
 
-########## nuage dashboard ##########
-frontend nuage-dashboard
-    bind :80
-    default_backend nuage-dashboard
+########## service ##########
+frontend https_passthrough
+    bind *:80
+    bind *:443            # 443番ポートでLISTEN
+    mode tcp              # TCPモードで動作 (TLSパススルーの必須設定)
+    option tcplog         # TCPログを有効にする
 
-backend nuage-dashboard
+    default_backend https_passthrough
+
+backend https_passthrough
 {% for ip in worker_node_ips %}
-    server server{{ loop.index }} {{ ip }}:30000 check
-{% endfor %}
-
-########## grafana ##########
-frontend grafana
-    bind :81
-    default_backend grafana
-
-backend grafana
-{% for ip in worker_node_ips %}
-    server server{{ loop.index }} {{ ip }}:30001 check
-{% endfor %}
-
-########## argo-workflow ##########
-frontend argo-workflow
-    bind :82
-    default_backend argo-workflow
-
-backend argo-workflow
-{% for ip in worker_node_ips %}
-    server server{{ loop.index }} {{ ip }}:30002 check
-{% endfor %}
-
-########## file-server-ui ##########
-frontend file-server-ui
-    bind :8001
-    default_backend file-server-ui
-
-backend file-server-ui
-{% for ip in worker_node_ips %}
-    server server{{ loop.index }} {{ ip }}:30101 check
+    server server{{ loop.index }} {{ ip }}:30433 check
 {% endfor %}

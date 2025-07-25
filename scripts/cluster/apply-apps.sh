@@ -14,9 +14,13 @@ helm repo update
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
   istioctl install -y -f istio-1.26.2/istio-custom.yaml
+  ./k create -n istio-system secret tls nuage-tls-credential \
+    --key=istio-1.26.2/tls.key \
+    --cert=istio-1.26.2/tls.crt
 fi
 ./k apply -f istio-1.26.2/samples/addons
 ./k label namespace default istio-injection=enabled --overwrite
+./k apply -f manifests/gateway.yaml
 
 #################### postgres ####################
 ./k apply -f manifests/postgres/
