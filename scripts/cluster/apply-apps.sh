@@ -11,6 +11,13 @@ helm repo update
 #################### nodes ####################
 # ./k apply -f manifests/node-labels.yaml
 
+#################### istio ####################
+if ! ./k get ns istio-system &> /dev/null; then
+  istioctl install -y -f istio-1.26.2/istio-custom.yaml
+fi
+./k apply -f istio-1.26.2/samples/addons
+./k label namespace default istio-injection=enabled --overwrite
+
 #################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0
