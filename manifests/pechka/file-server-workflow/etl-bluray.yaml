@@ -94,7 +94,7 @@ spec:
               valueFrom:
                 path: /tmp/LABEL.txt
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-4
+          bluray-disk-device: "true"
 
       - name: bluray-to-mkv
         container:
@@ -111,7 +111,7 @@ spec:
           parameters:
             - name: bluray-label
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-4
+          bluray-disk-device: "true"
 
       - name: mkv-to-hls
         container:
@@ -130,7 +130,7 @@ spec:
           parameters:
             - name: bluray-label
         nodeSelector:
-          kubernetes.io/hostname: oc1-vm-4
+          bluray-disk-device: "true"
 
       - name: wait
         container:
