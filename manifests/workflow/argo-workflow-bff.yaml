@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argo-workflow-bff-haproxy-config
+data:
+  haproxy.cfg: |
+    frontend http_in
+      bind *:8080
+      mode http
+      default_backend https_backend
+
+    backend https_backend
+      mode http
+      server app1 argo-server.argo.svc.cluster.local:2746 check ssl verify none
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argo-workflow-bff
+  labels:
+    app: argo-workflow-bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argo-workflow-bff
+  template:
+    metadata:
+      labels:
+        app: argo-workflow-bff
+    spec:
+      containers:
+      - name: argo-workflow-bff
+        image: haproxy
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: haproxy-config-volume
+          mountPath: /usr/local/etc/haproxy/haproxy.cfg
+          subPath: haproxy.cfg
+          readOnly: true
+      volumes:
+      - name: haproxy-config-volume
+        configMap:
+          name: argo-workflow-bff-haproxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-workflow-bff
+spec:
+  selector:
+    app: argo-workflow-bff
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP

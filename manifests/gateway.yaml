@@ -47,6 +47,26 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
+  name: argo-workflow-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "workflow.dev.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: argo-workflow-bff.argo.svc.cluster.local
+        port:
+          number: 8080
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
   name: dashboard-virtualservice
   namespace: default
 spec:
