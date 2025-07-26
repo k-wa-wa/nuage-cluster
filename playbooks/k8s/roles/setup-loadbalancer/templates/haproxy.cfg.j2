@@ -18,7 +18,18 @@ backend http_back_control_plane
     server server{{ loop.index }} {{ ip }}:6443 check
 {% endfor %}
 
-########## service ##########
+########## http service ##########
+frontend http_proxy
+    bind *:80
+
+    default_backend http_proxy
+
+backend http_proxy
+{% for ip in worker_node_ips %}
+    server server{{ loop.index }} {{ ip }}:30080 check
+{% endfor %}
+
+########## https service ##########
 frontend https_passthrough
     bind *:80
     bind *:443            # 443番ポートでLISTEN
