@@ -87,8 +87,8 @@ variable "vms_config" {
     "worker-node-device-host-01" = {
       vm_id      = 1073
       node_name  = "nuc2"
-      cores      = 2
-      memory     = 4096
+      cores      = 4
+      memory     = 16384
       ip_address = "192.168.5.83/24"
       gateway    = "192.168.5.1"
       ci_user    = "ubuntu"
