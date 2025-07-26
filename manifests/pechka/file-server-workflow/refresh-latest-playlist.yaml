@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: file-server-refresh-latest-playlist
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    entrypoint: main
+    templates:
+      - name: main
+        steps:
+          - - name: refresh-latest-playlist
+              template: refresh-latest-playlist
+
+      - name: refresh-latest-playlist
+        container:
+          image: ghcr.io/k-wa-wa/pechka-file-server-refresh-latest-playlist
+          env:
+            - name: DB_HOST
+              value: postgres.default.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: user
+                  optional: false
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+                  optional: false
+            - name: DB_NAME
+              value: pechka
