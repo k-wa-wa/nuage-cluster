@@ -85,4 +85,8 @@
   ansible.builtin.systemd:
     state: restarted
     daemon_reload: true
-    name: containerd
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - kubelet
+    - containerd
