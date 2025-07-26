@@ -32,9 +32,7 @@ export class AppsController {
       {
         name: 'App 2',
         description: 'Description for App 2',
-        transitions: [
-          { name: 'View App 2', url: '/app2' },
-        ],
+        transitions: [{ name: 'View App 2', url: '/app2' }],
       },
     ];
   }
