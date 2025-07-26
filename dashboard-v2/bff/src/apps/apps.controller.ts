@@ -1,14 +1,23 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppsService } from './apps.service';
+import { ApiProperty, ApiResponse } from '@nestjs/swagger';
 
-interface Transition {
+class Transition {
+  @ApiProperty()
   name: string;
+
+  @ApiProperty()
   url: string;
 }
 
-interface App {
+class App {
+  @ApiProperty()
   name: string;
+
+  @ApiProperty()
   description: string;
+
+  @ApiProperty({ type: [Transition] })
   transitions: Transition[];
 }
 
@@ -17,23 +26,13 @@ export class AppsController {
   constructor(private readonly appsService: AppsService) {}
 
   @Get()
+  @ApiResponse({
+    status: 200,
+    type: [App],
+  })
   getApps(): App[] {
     // In a real scenario, this would proxy to another API
     // For now, return dummy data
-    return [
-      {
-        name: 'App 1',
-        description: 'Description for App 1',
-        transitions: [
-          { name: 'View App 1', url: '/app1' },
-          { name: 'Settings App 1', url: '/app1/settings' },
-        ],
-      },
-      {
-        name: 'App 2',
-        description: 'Description for App 2',
-        transitions: [{ name: 'View App 2', url: '/app2' }],
-      },
-    ];
+    return [];
   }
 }
