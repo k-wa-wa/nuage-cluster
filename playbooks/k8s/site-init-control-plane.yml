@@ -5,7 +5,5 @@
     - control-plane[0]
   become: true
   roles:
-    - wait-cloud-init
-    - reset-hosts
     - setup-kubeadm
     - init-control-plane

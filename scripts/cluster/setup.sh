@@ -6,6 +6,11 @@ set -eu
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
     -v \
     -i playbooks/k8s/hosts.yml \
+    playbooks/k8s/site-init-nodes.yml
+
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
+    -v \
+    -i playbooks/k8s/hosts.yml \
     playbooks/k8s/site-setup-loadbalancer.yml
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \

@@ -4,8 +4,6 @@
   hosts: all
   become: true
   roles:
-    - wait-cloud-init
-    - reset-hosts
     - setup-kubeadm
 
 - name: Join control plane

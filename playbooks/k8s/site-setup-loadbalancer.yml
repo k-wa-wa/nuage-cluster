@@ -5,6 +5,4 @@
     - loadbalancer
   become: true
   roles:
-    - wait-cloud-init
-    - reset-hosts
     - setup-loadbalancer
