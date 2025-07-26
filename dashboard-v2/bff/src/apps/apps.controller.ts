@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Next, Req, Res } from '@nestjs/common';
 import { AppsService } from './apps.service';
 import { ApiProperty, ApiResponse } from '@nestjs/swagger';
+import { ProxyService } from 'libs/proxy';
 
 class Transition {
   @ApiProperty()
@@ -23,16 +24,21 @@ class App {
 
 @Controller('api/apps')
 export class AppsController {
-  constructor(private readonly appsService: AppsService) {}
+  constructor(
+    private readonly appsService: AppsService,
+    private readonly proxyService: ProxyService,
+  ) {}
 
   @Get()
   @ApiResponse({
     status: 200,
     type: [App],
   })
-  getApps(): App[] {
-    // In a real scenario, this would proxy to another API
-    // For now, return dummy data
-    return [];
+  async getApps(@Req() req, @Res() res, @Next() next) {
+    try {
+      return await this.proxyService.proxyToAppsApi(req, res, next);
+    } catch (e) {
+      console.log(e);
+    }
   }
 }
