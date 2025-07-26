@@ -48,7 +48,6 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 ./k apply -f manifests/pechka/namespace.yaml
 
 # argo workflow
-./k apply -n pechka -f https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
 curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml \
   | sed 's/namespace: argo/namespace: pechka/g' \
   | ./k apply -n pechka -f -
