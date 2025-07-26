@@ -9,10 +9,10 @@ export class ProxyService {
   proxyToAppsApi: RequestHandler;
 
   constructor() {
-    this.proxyToAppsApi = createProxyMiddleware({
-      target: process.env.BACKEND_API_URL_FOR_APPS,
-      changeOrigin: true,
-      ws: true,
-    });
+    //this.proxyToAppsApi = createProxyMiddleware({
+    //  target: process.env.BACKEND_API_URL_FOR_APPS,
+    //  changeOrigin: true,
+    //  ws: true,
+    //});
   }
 }
