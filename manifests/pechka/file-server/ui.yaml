@@ -20,7 +20,7 @@ spec:
             - containerPort: 3000
           command: [
             "/bin/bash", "-c",
-            "API_URL=http://file-server-api-service.default.svc.cluster.local:8000 ./node_modules/.bin/remix-serve ./build/server/index.js"
+            "API_URL=http://file-server-api-service.pechka.svc.cluster.local:8000 ./node_modules/.bin/remix-serve ./build/server/index.js"
           ]
           # resources:
           #   limits:
@@ -28,7 +28,7 @@ spec:
           #     cpu: "500m"
           env:
             - name: API_URL
-              value: http://file-server-api-service.default.svc.cluster.local:8000
+              value: http://file-server-api-service.pechka.svc.cluster.local:8000
           readinessProbe:
             httpGet:
               path: /

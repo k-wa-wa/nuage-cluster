@@ -41,7 +41,7 @@ spec:
         prefix: /
     route:
     - destination:
-        host: file-server-ui-service.default.svc.cluster.local
+        host: file-server-ui-service.pechka.svc.cluster.local
         port:
           number: 80
 ---
