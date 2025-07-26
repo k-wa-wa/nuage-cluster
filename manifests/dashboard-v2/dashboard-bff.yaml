@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-bff
+  labels:
+    app: dashboard-bff
+  namespace: dashboard-v2
+spec:
+  selector:
+    matchLabels:
+      app: dashboard-bff
+  template:
+    metadata:
+      labels:
+        app: dashboard-bff
+    spec:
+      containers:
+        - name: dashboard-bff
+          image: ghcr.io/k-wa-wa/nuage-dashboard-v2-bff
+          ports:
+            - containerPort: 3000
+          # resources:
+          #   limits:
+          #     memory: 4Gi
+          #     cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-bff
+  namespace: dashboard-v2
+spec:
+  selector:
+    app: dashboard-bff
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

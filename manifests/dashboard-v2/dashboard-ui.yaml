@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-ui
+  labels:
+    app: dashboard-ui
+  namespace: dashboard-v2
+spec:
+  selector:
+    matchLabels:
+      app: dashboard-ui
+  template:
+    metadata:
+      labels:
+        app: dashboard-ui
+    spec:
+      containers:
+        - name: dashboard-ui
+          image: ghcr.io/k-wa-wa/nuage-dashboard-v2-ui
+          ports:
+            - containerPort: 3000
+          # resources:
+          #   limits:
+          #     memory: 4Gi
+          #     cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-ui
+  namespace: dashboard-v2
+spec:
+  selector:
+    app: dashboard-ui
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

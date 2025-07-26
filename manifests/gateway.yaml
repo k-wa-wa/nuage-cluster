@@ -88,6 +88,34 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
+  name: dashboard-v2-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "dashboard-v2.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: dashboard-bff.dashboard-v2.svc.cluster.local
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: dashboard-ui.dashboard-v2.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
   name: dashboard-virtualservice
   namespace: default
 spec:

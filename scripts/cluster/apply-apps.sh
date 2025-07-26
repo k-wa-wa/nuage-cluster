@@ -44,6 +44,9 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 #################### apps: dashboard ####################
 ./k apply -f manifests/nuage-dashboard.yaml
 
+./k apply -f manifests/dashboard-v2/namespace.yaml
+./k apply -f manifests/dashboard-v2
+
 #################### apps: pechka ####################
 ./k apply -f manifests/pechka/namespace.yaml
 
