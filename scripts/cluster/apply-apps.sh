@@ -41,11 +41,6 @@ helm upgrade --install --namespace ops prometheus-grafana prometheus-community/k
 helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
 helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
-#################### argo workflow ####################
-./k get namespace argo 2>/dev/null || ./k create namespace argo
-./k apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
-./k apply -n argo -f manifests/workflow
-
 #################### apps ####################
 ./k apply -f manifests/nuage-dashboard.yaml
 ./k apply -f manifests/pechka/pv.yaml
@@ -53,3 +48,16 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 ./k scale deployment file-server-api-deployment --replicas=2
 ./k scale deployment file-server-ui-deployment --replicas=2
 ./k apply -n argo -f manifests/pechka/file-server-workflow
+
+
+# pechka
+./k apply -f manifests/pechka/namespace.yaml
+
+# argo workflow
+./k apply -n pechka -f https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
+curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml \
+  | sed 's/namespace: argo/namespace: pechka/g' \
+  | ./k apply -n pechka -f -
+./k apply -n pechka -f manifests/pechka
+./k apply -n pechka -f manifests/postgres/secrets.yaml
+./k apply -n pechka -f manifests/pechka/file-server-workflow/data-importer.yaml

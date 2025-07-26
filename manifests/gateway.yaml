@@ -61,7 +61,7 @@ spec:
         prefix: /
     route:
     - destination:
-        host: argo-workflow-bff.argo.svc.cluster.local
+        host: argo-workflow-bff.pechka.svc.cluster.local
         port:
           number: 8080
 ---

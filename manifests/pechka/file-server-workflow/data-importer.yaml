@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: file-server-data-importer
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    entrypoint: main
+    templates:
+      - name: main
+        steps:
+          - - name: import-hls-data
+              template: import-hls-data
+
+      - name: import-hls-data
+        container:
+          image: ghcr.io/k-wa-wa/pechka-file-server-data-importer
+          volumeMounts:
+            - name: mnt-hls
+              mountPath: /mnt/hls
+          env:
+            - name: HLS_RESOURCE_DIR
+              value: /mnt/hls
+            - name: DB_HOST
+              value: postgres.default.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: user
+                  optional: false
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+                  optional: false
+            - name: DB_NAME
+              value: pechka
+
+    volumes:
+      - name: mnt-hls
+        persistentVolumeClaim:
+          claimName: nfs-hls-readonly-pvc
+

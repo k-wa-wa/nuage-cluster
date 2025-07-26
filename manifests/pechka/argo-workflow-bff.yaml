@@ -11,7 +11,7 @@ data:
 
     backend https_backend
       mode http
-      server app1 argo-server.argo.svc.cluster.local:2746 check ssl verify none
+      server app1 argo-server.pechka.svc.cluster.local:2746 check ssl verify none
 ---
 apiVersion: apps/v1
 kind: Deployment
