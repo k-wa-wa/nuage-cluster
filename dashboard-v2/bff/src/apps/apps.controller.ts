@@ -2,8 +2,9 @@ import { Controller, Get, Next, Req, Res } from '@nestjs/common';
 import { AppsService } from './apps.service';
 import { ApiProperty, ApiResponse } from '@nestjs/swagger';
 import { ProxyService } from 'libs/proxy';
+import { NextFunction, Request, Response } from 'express';
 
-class Transition {
+class AppLink {
   @ApiProperty()
   name: string;
 
@@ -18,8 +19,11 @@ class App {
   @ApiProperty()
   description: string;
 
-  @ApiProperty({ type: [Transition] })
-  transitions: Transition[];
+  @ApiProperty()
+  groupName: string;
+
+  @ApiProperty({ type: [AppLink] })
+  appLinks: AppLink[];
 }
 
 @Controller('api/apps')
@@ -34,7 +38,11 @@ export class AppsController {
     status: 200,
     type: [App],
   })
-  async getApps(@Req() req, @Res() res, @Next() next) {
+  async getApps(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Next() next: NextFunction,
+  ) {
     try {
       return await this.proxyService.proxyToAppsApi(req, res, next);
     } catch (e) {
