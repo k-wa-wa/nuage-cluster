@@ -14,6 +14,9 @@ spec:
               template: import-hls-data
 
       - name: import-hls-data
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false" # TODO: side car 対応方法検討
         container:
           image: ghcr.io/k-wa-wa/pechka-file-server-data-importer
           volumeMounts:
