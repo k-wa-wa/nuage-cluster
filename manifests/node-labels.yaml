@@ -10,7 +10,7 @@ kind: Node
 metadata:
   name: worker-node-01
   labels:
-    node-type: pv1.small
+    node-type: pv1.medium
 ---
 apiVersion: v1
 kind: Node
@@ -24,5 +24,5 @@ kind: Node
 metadata:
   name: worker-node-device-host-01
   labels:
-    node-type: pv1.medium
+    node-type: pv1.large
     bluray-disk-device: "true"

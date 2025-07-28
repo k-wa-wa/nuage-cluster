@@ -7,7 +7,7 @@
     vm:
       - target_host: oc1-nuc-1
         vmid: 5151
-        options: "--memory 4096 --cores 2 --name oc1-nfs \
+        options: "--memory 10240 --cores 2 --name oc1-nfs \
           --ipconfig0 ip=192.168.5.151/24,gw=192.168.5.1"
         healthcheck_ip: 192.168.5.151
   roles:
