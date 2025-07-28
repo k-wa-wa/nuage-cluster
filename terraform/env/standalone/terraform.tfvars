@@ -1,3 +1,0 @@
-vms_config = {
-
-}

@@ -3,8 +3,7 @@ set -eu
 
 (
     cd terraform \
-    && tofu init -reconfigure -backend-config=env/cluster/backend.tfbackend \
-    && tofu apply --auto-approve -var-file=env/cluster/terraform.tfvars
+    && tofu apply --auto-approve
 )
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
