@@ -10,6 +10,7 @@ helm repo update
 
 #################### nodes ####################
 ./k apply -f manifests/node-labels.yaml
+./k apply -f manifests/namespaces.yaml
 
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
@@ -29,7 +30,6 @@ fi
 ./k exec -it postgres-0 -- bash /tmp/init.sh
 
 #################### 監視 ####################
-./k get namespace ops 2>/dev/null || ./k create namespace ops
 helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack \
   -f manifests/ops/prometheus-values.yaml
 ./k wait -n ops \
@@ -43,12 +43,9 @@ helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/op
 #################### apps: dashboard ####################
 ./k apply -f manifests/nuage-dashboard.yaml
 
-./k apply -f manifests/dashboard-v2/namespace.yaml
 ./k apply -f manifests/dashboard-v2
 
 #################### apps: pechka ####################
-./k apply -f manifests/pechka/namespace.yaml
-
 # argo workflow
 curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml \
   | sed 's/namespace: argo/namespace: pechka/g' \
