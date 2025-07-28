@@ -1,7 +1,11 @@
 #!/bin/bash
 set -eu
 
-(cd terraform && tofu apply --auto-approve)
+(
+    cd terraform \
+    && tofu init -reconfigure -backend-config=env/cluster/backend.tfbackend \
+    && tofu apply --auto-approve -var-file=env/cluster/terraform.tfvars
+)
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
     -v \

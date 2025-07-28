@@ -5,6 +5,10 @@ terraform {
       version = "0.80.0"
     }
   }
+
+  backend "local" {
+
+  }
 }
 
 provider "proxmox" {
