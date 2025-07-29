@@ -21,7 +21,7 @@ spec:
       name: http
       protocol: HTTP
     tls:
-      httpsRedirect: true
+      httpsRedirect: false
     hosts:
     - "*"
 ---
@@ -104,6 +104,28 @@ spec:
         host: prometheus-grafana.ops.svc.cluster.local
         port:
           number: 80
+    corsPolicy:
+      allowOrigins:
+      - exact: "*"
+
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+
+      allowHeaders:
+      - Content-Type
+      - Authorization
+
+      allowCredentials: true
+
+      maxAge: "24h"
+    headers:
+      response:
+        remove:
+        - X-Frame-Options
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
