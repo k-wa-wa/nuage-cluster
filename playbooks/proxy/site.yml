@@ -47,13 +47,6 @@
         owner: "{{ ansible_env.SUDO_USER }}"
         group: "{{ ansible_env.SUDO_USER }}"
 
-    - name: Edit /etc/hosts
-      ansible.builtin.lineinfile:
-        path: /etc/hosts
-        regexp: ".* nuage.com"
-        line: "192.168.5.100 nuage.com"
-        state: present
-
     - name: Restart squid
       ansible.builtin.service:
         name: "{{ item }}"
