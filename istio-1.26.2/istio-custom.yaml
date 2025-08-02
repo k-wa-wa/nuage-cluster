@@ -24,3 +24,6 @@ spec:
                 port: 443
                 targetPort: 8443
                 nodePort: 30433
+  meshConfig:
+    accessLogFile: "/dev/stdout"
+    accessLogEncoding: "JSON"
