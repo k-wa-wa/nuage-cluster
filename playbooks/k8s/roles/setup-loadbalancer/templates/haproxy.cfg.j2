@@ -1,3 +1,6 @@
+global
+    log  127.0.0.1 local2
+
 ########## prometheus ##########
 frontend prometheus
     bind :8405
@@ -23,6 +26,7 @@ frontend http_proxy
     bind *:80
 
     default_backend http_proxy
+    log global
 
 backend http_proxy
 {% for ip in worker_node_ips %}
@@ -37,6 +41,7 @@ frontend https_passthrough
     option tcplog         # TCPログを有効にする
 
     default_backend https_passthrough
+    log global
 
 backend https_passthrough
 {% for ip in worker_node_ips %}

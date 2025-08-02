@@ -4,6 +4,7 @@
       - openssl
       - haproxy
       - keepalived
+      - rsyslog
     state: present
     update_cache: true
 
@@ -41,11 +42,20 @@
     backup: true
   when: inventory_hostname != groups["loadbalancer"][0]
 
+- name: Create rsyslog conf
+  ansible.builtin.copy:
+    src: rsyslog-haproxy.conf
+    dest: "/etc/rsyslog.d/haproxy.conf"
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
 - name: Start haproxy & keepalived
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
     enabled: true
   loop:
-    - haproxy
+    - rsyslog
     - keepalived
+    - haproxy
