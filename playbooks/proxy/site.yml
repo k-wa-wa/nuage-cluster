@@ -5,15 +5,6 @@
   become: true
 
   tasks:
-    - name: Wait cloud-init
-      ansible.builtin.command:
-        cloud-init status
-      register: cloudinit_status
-      retries: 5
-      delay: 10
-      until: "'done' in cloudinit_status.stdout"
-      changed_when: false
-
     - name: Slurp the netplan file
       ansible.builtin.slurp:
         src: /etc/netplan/50-cloud-init.yaml
