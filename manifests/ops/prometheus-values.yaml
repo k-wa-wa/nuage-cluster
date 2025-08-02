@@ -3,7 +3,36 @@ prometheus:
     additionalScrapeConfigs:
       - job_name: 'load-balancer-metrics'
         static_configs:
-          - targets: ['192.168.5.50:8405', '192.168.5.100:8405']
+          - targets:
+              - 192.168.5.51:9100
+              - 192.168.5.51:8405
+              - 192.168.5.52:9100
+              - 192.168.5.52:8405
+              - 192.168.5.11:9100
+              - 192.168.5.11:8405
+        relabel_configs:
+          - source_labels: []
+            target_label: node_role
+            replacement: 'load-balancer'
+
+      - job_name: 'proxy-metrics'
+        static_configs:
+          - targets:
+              - 192.168.5.160:9100
+        relabel_configs:
+          - source_labels: []
+            target_label: node_role
+            replacement: 'proxy'
+
+
+prometheus-node-exporter:
+  prometheus:
+    monitor:
+      relabelings:
+        - sourceLabels: []
+          targetLabel: node_role
+          replacement: 'cluster-node'
+
 grafana:
   grafana.ini:
     server:
