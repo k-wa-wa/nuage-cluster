@@ -1,0 +1,19 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+clients:
+  - url: https://loki.internal.nuage/loki/api/v1/push
+    proxy_url: http://192.168.1.70:3128
+    tls_config:
+      insecure_skip_verify: true
+
+scrape_configs:
+{% for config in custom_promtail_scrape_configs %}
+  - job_name: {{ config.job_name }}
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          __path__: {{ config.path }}
+{% endfor %}

@@ -1,0 +1,27 @@
+all: # noqa: syntax-check[specific]
+  vars:
+    ansible_ssh_private_key_file: ./.ssh/id_rsa
+  hosts:
+    load-balancer-01:
+      ansible_host: 192.168.5.51
+      ansible_user: ubuntu
+    load-balancer-02:
+      ansible_host: 192.168.5.52
+      ansible_user: ubuntu
+    oc1-pi-1:
+      ansible_host: 192.168.5.11
+      ansible_user: nuage
+
+    oc1-proxy:
+      ansible_host: 192.168.5.160
+      ansible_user: ubuntu
+
+  children:
+    load-balancer:
+      hosts:
+        load-balancer-01:
+        load-balancer-02:
+        oc1-pi-1:
+    proxy:
+      hosts:
+        oc1-proxy:

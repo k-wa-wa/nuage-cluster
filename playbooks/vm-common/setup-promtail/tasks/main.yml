@@ -1,0 +1,22 @@
+- name: Write promtail config
+  ansible.builtin.template:
+    src: promtail-config.yaml.j2
+    dest: /etc/promtail/config.yaml
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+- name: Write promtail.service
+  ansible.builtin.copy:
+    src: promtail.service
+    dest: /etc/systemd/system/promtail.service
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+- name: Enable promtail
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: promtail
+    enabled: true
