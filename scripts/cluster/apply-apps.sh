@@ -3,11 +3,6 @@
 set -e
 export KUBECONFIG=playbooks/k8s/admin.conf
 
-#################### helm chat更新 ####################
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add grafana https://grafana.github.io/helm-charts
-helm repo update
-
 #################### nodes ####################
 ./k apply -f manifests/node-labels.yaml
 ./k apply -f manifests/namespaces.yaml
