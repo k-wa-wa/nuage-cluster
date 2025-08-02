@@ -2,7 +2,7 @@
 set -eu
 
 (
-    cd terraform \
+    cd terraform/environments/cluster \
     && tofu apply --auto-approve
 )
 
