@@ -5,17 +5,6 @@ terraform {
       version = "0.80.0"
     }
   }
-
-  backend "local" {
-    path = "terraform.tfstate"
-  }
-}
-
-provider "proxmox" {
-  insecure = true
-  endpoint = var.proxmox_endpoint
-  username = var.proxmox_username
-  password = var.proxmox_password
 }
 
 resource "proxmox_virtual_environment_vm" "proxmox_vms" {
@@ -35,13 +24,15 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   }
 
   initialization {
-    ip_config {
-      ipv4 {
-        address = each.value.ip_address
-        gateway = each.value.gateway
+    dynamic "ip_config" {
+      for_each = each.value.ip_config
+      content {
+        ipv4 {
+          address = ip_config.value.address
+          gateway = ip_config.value.gateway
+        }
       }
     }
-
     user_account {
       username = each.value.ci_user
       keys     = [trimspace(data.local_file.id_rsa_pub.content)]
@@ -50,13 +41,25 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
 
   disk {
     datastore_id = "local-lvm"
-    file_id      = proxmox_virtual_environment_download_file.ubuntu_cloud_image[each.value.node_name].id
+    file_id      = "local:iso/noble-server-cloudimg-amd64.img"
     interface    = "scsi0"
     size         = each.value.disk_size
   }
 
-  network_device {
-    bridge = "vmbr0"
+  dynamic "network_device" {
+    for_each = zipmap(
+      range(
+        length(distinct([
+          for config in each.value.ip_config : config.gateway
+        ]))
+      ),
+      distinct([
+        for config in each.value.ip_config : config.gateway
+      ])
+    )
+    content {
+      bridge = "vmbr${network_device.key}"
+    }
   }
 
   dynamic "usb" {
@@ -68,16 +71,6 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   }
 }
 
-resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
-  for_each = toset(distinct([for vm in values(var.vms_config) : vm.node_name]))
-
-  content_type = "iso"
-  datastore_id = "local"
-  node_name    = each.value
-
-  url = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-}
-
 data "local_file" "id_rsa_pub" {
-  filename = "../.ssh/id_rsa.pub"
+  filename = "../../../.ssh/id_rsa.pub"
 }
