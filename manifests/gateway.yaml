@@ -38,6 +38,14 @@ spec:
   http:
   - match:
     - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: file-server-api-service.pechka.svc.cluster.local
+        port:
+          number: 8000
+  - match:
+    - uri:
         prefix: /
     route:
     - destination:
