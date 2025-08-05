@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: file-server-api-deployment
+  name: file-server-api
+  namespace: pechka
   labels:
     app: file-server-api
 spec:
@@ -18,10 +19,13 @@ spec:
           image: ghcr.io/k-wa-wa/pechka-file-server-api
           ports:
             - containerPort: 8000
-          # resources:
-          #   limits:
-          #     memory: 4Gi
-          #     cpu: "1"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           volumeMounts:
             - name: mnt-hls
               mountPath: "/mnt/hls"
@@ -50,26 +54,17 @@ spec:
         - name: mnt-hls
           persistentVolumeClaim:
             claimName: nfs-hls-readonly-pvc
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 1
-              preference:
-                matchExpressions:
-                  - key: node-type
-                    operator: In
-                    values:
-                      - general
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: file-server-api-service
+  name: file-server-api
+  namespace: pechka
 spec:
   selector:
     app: file-server-api
+  type: ClusterIP
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-  type: ClusterIP

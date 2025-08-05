@@ -41,7 +41,7 @@ spec:
         prefix: /api
     route:
     - destination:
-        host: file-server-api-service.pechka.svc.cluster.local
+        host: file-server-api.pechka.svc.cluster.local
         port:
           number: 8000
   - match:
@@ -49,7 +49,7 @@ spec:
         prefix: /
     route:
     - destination:
-        host: file-server-ui-service.pechka.svc.cluster.local
+        host: file-server-ui.pechka.svc.cluster.local
         port:
           number: 80
 ---

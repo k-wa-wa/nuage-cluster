@@ -51,6 +51,6 @@ curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quic
 ./k apply -n pechka -f manifests/postgres/secrets.yaml
 ./k apply -n pechka -f manifests/pechka/file-server-workflow
 
-./k apply -n pechka -f manifests/pechka/file-server
+./k apply -f manifests/pechka/file-server
 ./k scale -n pechka deployment file-server-api-deployment --replicas=2
 ./k scale -n pechka deployment file-server-ui-deployment --replicas=2

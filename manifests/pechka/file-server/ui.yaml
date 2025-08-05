@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: file-server-ui-deployment
+  name: file-server-ui
+  namespace: pechka
   labels:
     app: file-server-ui
 spec:
@@ -20,41 +21,33 @@ spec:
             - containerPort: 3000
           command: [
             "/bin/bash", "-c",
-            "API_URL=http://file-server-api-service.pechka.svc.cluster.local:8000 node server.js"
+            "API_URL=http://file-server-api.pechka.svc.cluster.local:8000 node server.js"
           ]
-          # resources:
-          #   limits:
-          #     memory: 4Gi
-          #     cpu: "500m"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: API_URL
-              value: http://file-server-api-service.pechka.svc.cluster.local:8000
+              value: http://file-server-api.pechka.svc.cluster.local:8000
           readinessProbe:
             httpGet:
               path: /
               port: 3000
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 1
-              preference:
-                matchExpressions:
-                  - key: node-type
-                    operator: In
-                    values:
-                      - general
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: file-server-ui-service
+  name: file-server-ui
+  namespace: pechka
 spec:
   selector:
     app: file-server-ui
+  type: ClusterIP
   ports:
     - protocol: TCP
       port: 80
       targetPort: 3000
-      nodePort: 30101
-  type: NodePort
-
