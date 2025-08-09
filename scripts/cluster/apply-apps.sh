@@ -15,7 +15,6 @@ if ! ./k get ns istio-system &> /dev/null; then
     --cert=istio-1.26.2/tls.crt
 fi
 ./k apply -f istio-1.26.2/samples/addons
-./k label namespace default istio-injection=enabled --overwrite
 ./k apply -f manifests/gateway.yaml
 
 #################### postgres ####################
