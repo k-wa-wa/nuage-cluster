@@ -16,3 +16,10 @@ metadata:
   name: pechka
   labels:
     istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tests
+  labels:
+    istio-injection: enabled

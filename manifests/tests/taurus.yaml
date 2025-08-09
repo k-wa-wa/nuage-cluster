@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taurus-config
+  namespace: tests
+data:
+  config.yaml: |
+    reporting:
+    - module: final-stats
+    - module: console
+
+    settings:
+      check-interval: 5s
+      default-executor: jmeter
+
+    provisioning: local
+
+    modules:
+      jmeter:
+        system-properties:
+          http.proxyHost: 192.168.5.160
+          http.proxyPort: 3128
+          https.proxyHost: 192.168.5.160
+          https.proxyPort: 3128
+
+  scenarios.yaml: |
+    execution:
+    - concurrency: 600
+      hold-for: 5m
+      ramp-up: 1m
+      scenario: file_server_scenario_1
+
+    scenarios:
+      file_server_scenario_1:
+        requests:
+          - url: https://file-server.nuage/
+
+          # - url: https://file-server.nuage/api/playlists
+          #   extract-jsonpath:
+          #     video_id: $[0].videos[0].id
+
+          # - url: https://file-server.nuage/videos/${video_id}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: taurus
+  namespace: tests
+spec:
+  containers:
+  - name: taurus
+    image: blazemeter/taurus
+    command: ["tail", "-f", "/dev/null"]
+    resources:
+      requests:
+        cpu: "0.25"
+        memory: "512Mi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+    volumeMounts:
+    - name: taurus-config
+      mountPath: "/bzt-configs"
+  volumes:
+    - name: taurus-config
+      configMap:
+        name: taurus-config
