@@ -38,3 +38,5 @@ spec:
                   optional: false
             - name: DB_NAME
               value: pechka
+            - name: SSL_MODE
+              value: disable
