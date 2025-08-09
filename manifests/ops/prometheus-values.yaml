@@ -41,3 +41,8 @@ grafana:
       enabled: true
     security:
       allow_embedding: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      url: http://loki:3100
