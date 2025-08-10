@@ -23,7 +23,12 @@
     - name: Restart squid
       ansible.builtin.service:
         name: "{{ item }}"
-        state: restarted
+        state: started
         enabled: true
       with_items:
         - squid
+
+    - name: Reconfigure
+      ansible.builtin.command:
+        squid -k reconfigure
+      changed_when: true
