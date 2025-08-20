@@ -35,8 +35,6 @@ helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/
 helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
 
 #################### apps: dashboard ####################
-./k apply -f manifests/nuage-dashboard.yaml
-
 ./k apply -f manifests/dashboard-v2
 
 #################### apps: pechka ####################
