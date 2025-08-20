@@ -1,0 +1,15 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: prometheus-bff
+spec:
+  selector:
+    app.kubernetes.io/name: prometheus
+    operator.prometheus.io/name: prometheus-grafana-kube-pr-prometheus
+    # app: prometheus-grafana-kube-pr-prometheus
+  ports:
+    - protocol: TCP
+      port: 9091
+      targetPort: 9090
+      nodePort: 30091
+  type: NodePort
