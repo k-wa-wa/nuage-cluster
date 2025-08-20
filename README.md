@@ -4,10 +4,12 @@
 
 ## TODO :white_check_mark:
 
-- [ ] Ingress or Ngrok 等の検討
+- [x] Ingress or Ngrok 等の検討
+   - Istio IngressGateway で実装
 - [ ] Argo CD / Dashboard の導入 (自動化)
 - [ ] Ansible の実行をコンテナ内で行う (ホストマシンに依存せず実行可能にしたい)
 - [x] kube-vip を導入して HA Cluster にするか検討
+   - 一旦実装したものの、外部 haproxy によるロードバランスに変更
 - [x] AZ を追加して VPN で繋ぐ
 - [ ] リージョンを追加して VPN で繋ぐ
 - [ ] Ansible のリファクタ (結構ひどい・実行時間も短縮したい)
