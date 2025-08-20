@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: script-config
+  namespace: pechka
 data:
   get_bluray_label.sh: |
     #!/bin/sh
@@ -52,6 +53,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: CronWorkflow
 metadata:
   name: etl-bluray
+  namespace: pechka
 spec:
   schedule: "* * * * *"
   concurrencyPolicy: Forbid
