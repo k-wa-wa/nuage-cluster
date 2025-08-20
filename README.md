@@ -46,10 +46,16 @@
 1. 各種スクリプトを実行する
 
    ```bash
-   bash scripts/cluster/dns.sh
-   bash scripts/cluster/proxy.sh
-   bash scripts/cluster/nfs.sh
+   # 前提となるライブラリ等導入
+   bash scripts/prerequire.sh
 
+   # NFS作成
+   bash scripts/nfs.sh
+
+   # VMで動作するサービス作成
+   bash scripts/standalone/setup.sh
+
+   # クラスター作成
    bash scripts/cluster/setup.sh
    bash scripts/cluster/apply-apps.sh
    ```
