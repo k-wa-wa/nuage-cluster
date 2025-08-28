@@ -14,21 +14,37 @@
 
     - name: Squid.conf
       ansible.builtin.copy:
-        src: squid.conf
-        dest: /etc/squid/squid.conf
+        src: "{{ item }}"
+        dest: "/etc/squid/{{ item }}"
+        mode: "0644"
+        owner: "{{ ansible_env.SUDO_USER }}"
+        group: "{{ ansible_env.SUDO_USER }}"
+      with_items:
+        - squid.conf
+        - squid-to-external.conf
+
+    - name: Add service file
+      ansible.builtin.copy:
+        src: squid-to-external.service
+        dest: /etc/systemd/system/squid-to-external.service
         mode: "0644"
         owner: "{{ ansible_env.SUDO_USER }}"
         group: "{{ ansible_env.SUDO_USER }}"
 
-    - name: Restart squid
-      ansible.builtin.service:
-        name: "{{ item }}"
+    - name: Start daemon
+      ansible.builtin.systemd:
         state: started
+        daemon_reload: true
+        name: "{{ item }}"
         enabled: true
       with_items:
         - squid
+        - squid-to-external
 
     - name: Reconfigure
       ansible.builtin.command:
-        squid -k reconfigure
+        squid -k reconfigure -f {{ item }}
       changed_when: true
+      with_items:
+        - /etc/squid/squid.conf
+        - /etc/squid/squid-to-external.conf
