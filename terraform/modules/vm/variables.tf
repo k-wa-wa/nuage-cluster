@@ -11,5 +11,6 @@ variable "vms_config" {
     ci_user   = string
     disk_size = number // GB
     usb_host  = optional(string)
+    protection = optional(bool)
   }))
 }

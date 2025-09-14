@@ -19,7 +19,7 @@ module "pve_vm" {
   vms_config = {
     "oc1-proxy" = {
       vm_id     = 1160
-      node_name = "server1"
+      node_name = "server-1"
       cores     = 2
       memory    = 4096
       ip_config = [
@@ -37,7 +37,7 @@ module "pve_vm" {
     },
     "oc1-dns" = {
       vm_id     = 1161
-      node_name = "server1"
+      node_name = "server-1"
       cores     = 1
       memory    = 2048
       ip_config = [
@@ -48,6 +48,21 @@ module "pve_vm" {
       ]
       ci_user   = "ubuntu"
       disk_size = 20
-    }
+    },
+    "oc1-nfs" = {
+      vm_id     = 1151
+      node_name = "server-1"
+      cores     = 2
+      memory    = 10240
+      ip_config = [
+        {
+          address = "192.168.5.151/24"
+          gateway = "192.168.5.1"
+        },
+      ]
+      ci_user   = "ubuntu"
+      disk_size = 1024
+      //protection = true
+    },
   }
 }
