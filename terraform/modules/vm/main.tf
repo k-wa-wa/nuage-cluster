@@ -40,8 +40,7 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   }
 
   disk {
-    datastore_id = "local-lvm"
-    file_id      = "local:iso/noble-server-cloudimg-amd64.img"
+    file_id      = "cephfs-1:iso/noble-server-cloudimg-amd64.img"
     interface    = "scsi0"
     size         = each.value.disk_size
   }
@@ -69,6 +68,8 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
       host = each.value.usb_host
     }
   }
+
+  protection = each.value.protection
 }
 
 data "local_file" "id_rsa_pub" {
