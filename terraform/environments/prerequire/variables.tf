@@ -13,5 +13,5 @@ variable "proxmox_password" {
 
 variable "pve_nodes" {
   type = list(string)
-  default = [ "nuc1", "nuc2", "server1" ]
+  default = [ "nuc1", "nuc2", "server1", "server2" ]
 }

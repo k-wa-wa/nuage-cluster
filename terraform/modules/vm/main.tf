@@ -13,6 +13,7 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   vm_id     = each.value.vm_id
   name      = each.key
   node_name = each.value.node_name
+  machine   = each.value.machine
 
   cpu {
     cores = each.value.cores
@@ -67,6 +68,16 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
     content {
       usb3 = true
       host = each.value.usb_host
+    }
+  }
+
+  dynamic "hostpci" {
+    for_each = each.value.hostpci != null ? each.value.hostpci : []
+
+    content {
+      device = hostpci.value.device
+      id     = hostpci.value.id
+      pcie   = hostpci.value.pcie
     }
   }
 }

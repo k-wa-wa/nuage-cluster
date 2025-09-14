@@ -49,5 +49,27 @@ module "pve_vm" {
       ci_user   = "ubuntu"
       disk_size = 20
     }
+    "oc1-lm-server" = {
+      vm_id     = 1162
+      node_name = "server2"
+      cores     = 4
+      memory    = 16384
+      machine   = "q35"
+      ip_config = [
+        {
+          address = "192.168.5.162/24"
+          gateway = "192.168.5.1"
+        }
+      ]
+      ci_user   = "ubuntu"
+      disk_size = 100
+      hostpci = [
+        {
+          device = "hostpci0"
+          id     = "0000:05:00"
+          pcie   = true
+        }
+      ]
+    }
   }
 }
