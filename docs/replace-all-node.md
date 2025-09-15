@@ -56,12 +56,34 @@ WebUI から手動で実施。Proxmox 8 と 9 が同じクラスターにいる�
 
 Ceph のインストール・Monitor の追加・OSD の追加・プールの作成(ceph-pool-1) を実施。
 
-## そのほか試したこと
-
-### VM をバックアップ
+## データ移行
 
 ```bash
+##### 旧 NFS #####
+# ip アドレスの変更
+vi /etc/netplan/50-cloud-init.yaml
+netplan apply
+
+# 新 NFS の作成
+##### local #####
+cd terraform/environment/standalone
+tofu apply --auto-approve
+cd ../../..
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -v -i playbooks/nfs/hosts.yml playbooks/nfs/site.yml
+
+##### 旧 NFS から新 NFS にデータ転送 #####
+nohup rsync -avz --partial --info=progress2 /srv/nfs ubuntu@192.168.5.151:/srv/ &
+```
+
+## VM をバックアップして復元
+
+```bash
+##### 旧 proxmox #####
 # apt install -y nfs-common
 mount 192.168.5.151:/srv/nfs/backup /mnt
-vzdump <vmid> --dumpdir /mnt --compress zstd
+nohup vzdump <vmid> --dumpdir /mnt/backup --compress zstd &
+
+##### 新 proxmox #####
+mount 192.168.5.151:/srv/nfs/backup /mnt
+qmrestore /mnt/vzdump-qemu-<vmid>-*.vma.zst <vmid> --storage ceph-pool-1
 ```
