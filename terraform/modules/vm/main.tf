@@ -40,8 +40,8 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   }
 
   disk {
-    datastore_id = "ceph-pool-1"
-    file_id      = "cephfs-1:iso/noble-server-cloudimg-amd64.img"
+    datastore_id = "local-zfs"
+    file_id      = "local:iso/noble-server-cloudimg-amd64.img"
     interface    = "scsi0"
     size         = each.value.disk_size
   }
