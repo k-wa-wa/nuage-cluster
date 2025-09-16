@@ -23,7 +23,7 @@ module "pve_vm" {
   vms_config = {
     "load-balancer-01" = {
       vm_id      = 1051
-      node_name  = "server-1"
+      node_name  = "nuc-1"
       cores      = 2
       memory     = 4096
       ip_config = [
@@ -37,7 +37,7 @@ module "pve_vm" {
     },
     "load-balancer-02" = {
       vm_id      = 1052
-      node_name  = "nuc-1"
+      node_name  = "nuc-2"
       cores      = 2
       memory     = 4096
       ip_config = [
@@ -51,7 +51,7 @@ module "pve_vm" {
     },
     "control-plane-01" = {
       vm_id      = 1061
-      node_name  = "nuc-1"
+      node_name  = "server-1"
       cores      = 2
       memory     = 4096
       ip_config = [
@@ -65,7 +65,7 @@ module "pve_vm" {
     },
     "control-plane-02" = {
       vm_id      = 1062
-      node_name  = "nuc-2"
+      node_name  = "nuc-1"
       cores      = 2
       memory     = 4096
       ip_config = [
@@ -77,9 +77,23 @@ module "pve_vm" {
       ci_user    = "ubuntu"
       disk_size  = 30
     },
+    "control-plane-03" = {
+      vm_id      = 1063
+      node_name  = "nuc-2"
+      cores      = 2
+      memory     = 4096
+      ip_config = [
+        {
+          address = "192.168.5.63/24"
+          gateway    = "192.168.5.1"
+        }
+      ]
+      ci_user    = "ubuntu"
+      disk_size  = 30
+    },
     "worker-node-01" = {
       vm_id      = 1071
-      node_name  = "nuc-1"
+      node_name  = "server-1"
       cores      = 4
       memory     = 16384
       ip_config = [
@@ -93,7 +107,7 @@ module "pve_vm" {
     },
     "worker-node-02" = {
       vm_id      = 1072
-      node_name  = "server-1"
+      node_name  = "nuc-1"
       cores      = 4
       memory     = 16384
       ip_config = [
