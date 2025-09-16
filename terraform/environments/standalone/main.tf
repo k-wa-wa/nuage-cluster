@@ -53,7 +53,7 @@ module "pve_vm" {
       vm_id     = 1151
       node_name = "server-1"
       cores     = 2
-      memory    = 10240
+      memory    = 16384
       ip_config = [
         {
           address = "192.168.5.151/24"
@@ -62,7 +62,7 @@ module "pve_vm" {
       ]
       ci_user   = "ubuntu"
       disk_size = 1024
-      //protection = true
+      protection = true
     },
   }
 }
