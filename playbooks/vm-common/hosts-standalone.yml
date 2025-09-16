@@ -8,9 +8,6 @@ all: # noqa: syntax-check[specific]
     load-balancer-02:
       ansible_host: 192.168.5.52
       ansible_user: ubuntu
-    oc1-pi-1:
-      ansible_host: 192.168.5.11
-      ansible_user: nuage
 
     oc1-proxy:
       ansible_host: 192.168.5.160
@@ -21,7 +18,6 @@ all: # noqa: syntax-check[specific]
       hosts:
         load-balancer-01:
         load-balancer-02:
-        oc1-pi-1:
     proxy:
       hosts:
         oc1-proxy:
