@@ -6,5 +6,5 @@
   roles:
     - wait-cloud-init
     - setup-libs
-    - prometheus.prometheus.node_exporter # mac の場合、brew install gnu-tar が必要だった
+    - setup-node-exporter
     - setup-promtail

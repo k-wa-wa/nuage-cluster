@@ -27,11 +27,6 @@
     group: root
     remote_src: true
 
-- name: Cleanup /tmp
-  ansible.builtin.file:
-    path: "/tmp/promtail-{{ promtail_version }}.zip"
-    state: absent
-
 - name: Write promtail config
   ansible.builtin.template:
     src: promtail-config.yaml.j2
