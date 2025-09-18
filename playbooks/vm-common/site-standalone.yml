@@ -4,7 +4,7 @@
   hosts: all
   become: true
   roles:
-    - wait-cloud-init
+    - wait-for-ready
     - setup-libs
     - setup-node-exporter
     - setup-promtail
