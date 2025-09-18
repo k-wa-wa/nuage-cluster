@@ -1,3 +1,37 @@
+- name: PromtailのConfigディレクトリを作成
+  ansible.builtin.file:
+    path: "/etc/promtail"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Download binary zip
+  ansible.builtin.get_url:
+    url: "{{ promtail_url }}"
+    dest: "/tmp/promtail-{{ promtail_version }}.zip"
+    mode: '0644'
+
+- name: Unarchive zip
+  ansible.builtin.unarchive:
+    src: "/tmp/promtail-{{ promtail_version }}.zip"
+    dest: "/tmp"
+    remote_src: true
+
+- name: Copy binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: "/tmp/promtail-linux-amd64"
+    dest: "/usr/local/bin/promtail"
+    mode: '0755'
+    owner: root
+    group: root
+    remote_src: true
+
+- name: Cleanup /tmp
+  ansible.builtin.file:
+    path: "/tmp/promtail-{{ promtail_version }}.zip"
+    state: absent
+
 - name: Write promtail config
   ansible.builtin.template:
     src: promtail-config.yaml.j2
