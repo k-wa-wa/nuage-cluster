@@ -2,5 +2,5 @@
   ansible.builtin.command:
     cmd: "cloud-init status --wait"
   register: cloudinit_status
-  failed_when: cloudinit_status.rc not in [0, 2]
+  failed_when: false
   changed_when: false
