@@ -50,15 +50,15 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
     for_each = zipmap(
       range(
         length(distinct([
-          for config in each.value.ip_config : config.gateway
+          for config in each.value.ip_config : config.bridge
         ]))
       ),
       distinct([
-        for config in each.value.ip_config : config.gateway
+        for config in each.value.ip_config : config.bridge
       ])
     )
     content {
-      bridge = "vmbr${network_device.key}"
+      bridge = network_device.value
     }
   }
 
