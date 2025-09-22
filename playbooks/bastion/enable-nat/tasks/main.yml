@@ -1,0 +1,23 @@
+- name: Ensure packet forwarding is enabled
+  ansible.builtin.sysctl:
+    sysctl_file: /etc/sysctl.conf
+    name: net.ipv4.ip_forward
+    value: '1'
+
+- name: Install iptables-persistent
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+
+- name: Configure and save iptables rules
+  ansible.builtin.shell: |
+    iptables -F
+    iptables -X
+
+    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT ACCEPT
+
+    iptables-save > /etc/iptables/rules.v4

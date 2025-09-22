@@ -1,0 +1,13 @@
+- name: Build Go application
+  ansible.builtin.command: "go build -o {{ app_name }}"
+  args:
+    chdir: "{{ remote_deploy_dir }}"
+    creates: "{{ remote_deploy_dir }}/{{ app_name }}"
+  notify: Reload and enable service
+
+- name: Reload and enable service
+  ansible.builtin.systemd:
+    name: "{{ app_name }}"
+    daemon_reload: true
+    enabled: true
+    state: restarted

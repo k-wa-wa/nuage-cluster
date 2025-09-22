@@ -1,0 +1,19 @@
+- name: Configure Ubuntu as a Router
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command:
+        cmd: "cloud-init status --wait"
+      register: cloudinit_status
+      failed_when: false
+      changed_when: false
+
+- name: Setup bastion host
+  hosts: all
+  become: true
+  roles:
+    - enable-nat
+    - setup-dhcp
+    - setup-proxmox-answer-server
