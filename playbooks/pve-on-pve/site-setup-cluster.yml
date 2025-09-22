@@ -1,21 +1,12 @@
 - name: Create Cluster
   hosts: localhost
-  vars:
-    pve_nodes:
-      - api_host: 192.168.20.11
-        api_user: root@pam
-        api_password: 12345678
-      - api_host: 192.168.20.12
-        api_user: root@pam
-        api_password: 12345678
-      - api_host: 192.168.20.13
-        api_user: root@pam
-        api_password: 12345678
+  vars_files:
+    - vars/common.yml
   roles:
-    - setup-pve-cluster
+    - cluster-setup-pve-cluster
 
 - name: Setup Proxmox Ceph Cluster
-  hosts: all
+  hosts: pve-nodes
   become: true
   tasks:
     - name: Delete enterprise repo file
@@ -39,14 +30,14 @@
         state: present
 
 - name: Setup Proxmox Ceph
-  hosts: all
+  hosts: pve-nodes
   become: true
   serial: 1 # 並列だと pveceph の操作がうまくいかなかったため、直列化
   tasks:
     - name: Ceph init
       ansible.builtin.shell:
         pveceph init --network {{ ansible_host }}/24
-      when: inventory_hostname == groups['all'][0]
+      when: inventory_hostname == groups["pve-nodes"][0]
 
     - name: Ceph setup
       ansible.builtin.shell: |
@@ -58,4 +49,4 @@
     - name: Create pool
       ansible.builtin.shell:
         pveceph pool create ceph-pool --add_storages=1 --pg_autoscale_mode=on
-      when: inventory_hostname == groups['all'][0]
+      when: inventory_hostname == groups["pve-nodes"][0]

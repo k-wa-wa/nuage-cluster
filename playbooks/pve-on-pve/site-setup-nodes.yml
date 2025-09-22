@@ -1,96 +1,25 @@
-- name: Boot Nodes
+- name: Setup router nodes
   hosts: localhost
-  vars:
-    api_host: 192.168.5.25
-    pve_node: "server-1"
-    vms:
-      - vmid: 2011
-        name: "oc1-pve-1"
-        mac: "0A:00:00:00:00:01"
-      - vmid: 2012
-        name: "oc1-pve-2"
-        mac: "0A:00:00:00:00:02"
-      - vmid: 2013
-        name: "oc1-pve-3"
-        mac: "0A:00:00:00:00:03"
-  vars_prompt:
-    - name: "api_user"
-      prompt: "Enter Proxmox API username (@pam)"
-      private: false
-    - name: "api_password"
-      prompt: "Enter Proxmox API password"
-      private: true
+  vars_files:
+    - vars/common.yml
+  roles:
+    - router-setup-nodes
 
-  tasks:
-    - name: Delete VMs
-      community.general.proxmox_kvm:
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-        node: "{{ pve_node }}"
-        vmid: "{{ item.vmid }}"
-        state: absent
-        force: true
-      with_items: "{{ vms }}"
+- name: Setup router network
+  hosts: router
+  become: true
+  vars_files:
+    - vars/common.yml
+  roles:
+    - router-prepare
+    - router-enable-nat
+    - router-setup-dns
+    - router-setup-dhcp
+    - router-setup-proxmox-answer-server
 
-    - name: Create VMs on Proxmox node 'server-1'
-      community.general.proxmox_kvm:
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-        node: "{{ pve_node }}"
-        vmid: "{{ item.vmid }}"
-        name: "{{ item.name }}"
-        state: present
-        cores: 4
-        memory: 16384
-        ide:
-          ide2: "local:iso/proxmox-ve_9.0-1-auto-from-http.iso,media=cdrom"
-        scsi:
-          scsi0: "local-zfs:20"
-          scsi1: "local-zfs:80"
-          scsi2: "local-zfs:80"
-        net:
-          net0: 'bridge=vmbr2,virtio={{ item.mac }}'
-      with_items: "{{ vms }}"
-
-    - name: Start VM for installation
-      community.proxmox.proxmox_kvm:
-        vmid: "{{ item.vmid }}"
-        state: started
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-      with_items: "{{ vms }}"
-
-    - name: Wait for VM to power off (installation completed)
-      community.proxmox.proxmox_vm_info:
-        vmid: "{{ item.vmid }}"
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-      register: vm_status_check
-      until: vm_status_check.proxmox_vms[0].status == 'stopped'
-      retries: 20
-      delay: 15
-      with_items: "{{ vms }}"
-
-    - name: Set boot order to disk and network
-      community.proxmox.proxmox_kvm:
-        vmid: "{{ item.vmid }}"
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-        node: "{{ pve_node }}"
-        boot: "order=scsi0;net0"
-        update: true
-      with_items: "{{ vms }}"
-
-    - name: Start VM from new boot device
-      community.proxmox.proxmox_kvm:
-        vmid: "{{ item.vmid }}"
-        state: started
-        api_host: "{{ api_host }}"
-        api_user: "{{ api_user }}"
-        api_password: "{{ api_password }}"
-      with_items: "{{ vms }}"
+- name: Setup cluster nodes
+  hosts: localhost
+  vars_files:
+    - vars/common.yml
+  roles:
+    - cluster-setup-nodes

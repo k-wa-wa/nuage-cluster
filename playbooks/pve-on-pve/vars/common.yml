@@ -1,0 +1,34 @@
+ubuntu_vms:
+  - vmid: 20001
+    name: "pve-20-001"
+    node: "server-1"
+    ip: 192.168.5.164
+
+proxmox_vms:
+  - vmid: 20011
+    name: "pve-20-011"
+    node: "server-1"
+    mac: "0A:00:00:00:14:0B"
+    ip: 192.168.20.11
+    user: root@pam
+    password: 12345678
+  - vmid: 20012
+    name: "pve-20-012"
+    node: "server-1"
+    mac: "0A:00:00:00:14:0C"
+    ip: 192.168.20.12
+    user: root@pam
+    password: 12345678
+  - vmid: 20013
+    name: "pve-20-013"
+    node: "server-1"
+    mac: "0A:00:00:00:14:0D"
+    ip: 192.168.20.13
+    user: root@pam
+    password: 12345678
+
+subnet_third_octet: 20
+
+api_host: 192.168.5.25
+api_user: root@pam
+api_password: asdfjkl;
