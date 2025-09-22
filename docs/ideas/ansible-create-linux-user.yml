@@ -1,0 +1,47 @@
+- name: Create user and configure SSH for specific password authentication
+  hosts: all
+  become: true
+
+  vars_prompt:
+    - name: "new_user"
+      prompt: "作成するユーザー名を入力してください"
+      private: false
+    - name: "user_password"
+      prompt: "ユーザーのパスワードを入力してください"
+      private: true
+
+  tasks:
+    - name: Create the new user with a specified shell and home directory
+      ansible.builtin.user:
+        name: "{{ new_user }}"
+        state: present
+        shell: /bin/bash
+        create_home: true
+
+    - name: Set the user's password
+      ansible.builtin.user:
+        name: "{{ new_user }}"
+        password: "{{ user_password | password_hash('sha512') }}" # パスワードをハッシュ化して安全に設定
+        update_password: always
+
+    - name: Ensure PasswordAuthentication is disabled globally in sshd_config
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+
+    - name: Allow PasswordAuthentication for the specific user
+      ansible.builtin.blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          Match User {{ new_user }}
+              PasswordAuthentication yes
+        marker: "# ANSIBLE MANAGED BLOCK FOR {{ new_user }}"
+        state: present
+        insertafter: EOF
+
+    - name: Restart ssh service to apply changes
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
