@@ -1,0 +1,39 @@
+- name: Configure isc-dhcp-server interface
+  ansible.builtin.lineinfile:
+    path: /etc/default/isc-dhcp-server
+    regexp: '^INTERFACESv4=".*"'
+    line: 'INTERFACESv4="eth1"'
+    state: present
+  notify: Restart isc-dhcp-server
+
+- name: Configure isc-dhcp-server
+  ansible.builtin.blockinfile:
+    path: /etc/dhcp/dhcpd.conf
+    insertafter: '^#option definitions'
+    content: |
+      option url-pxe code 250 = text;
+
+      subnet 192.168.20.0 netmask 255.255.255.0 {
+        range 192.168.20.100 192.168.20.200;
+        option routers 192.168.20.1;
+        option url-pxe "http://192.168.20.1:5000/pve-answer.toml";
+        option domain-name "pve.oc1";
+        option domain-name-servers 192.168.20.1;
+      }
+
+      host pve-1 {
+        hardware ethernet 0A:00:00:00:00:01;
+        fixed-address 192.168.20.11;
+        option host-name "pve-1";
+      }
+      host pve-2 {
+        hardware ethernet 0A:00:00:00:00:02;
+        fixed-address 192.168.20.12;
+        option host-name "pve-2";
+      }
+      host pve-3 {
+        hardware ethernet 0A:00:00:00:00:03;
+        fixed-address 192.168.20.13;
+        option host-name "pve-3";
+      }
+  notify: Restart isc-dhcp-server

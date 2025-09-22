@@ -1,0 +1,49 @@
+- name: Create Node Exporter group
+  ansible.builtin.group:
+    name: "node_exporter"
+    state: present
+
+- name: Create Node Exporter user
+  ansible.builtin.user:
+    name: "node_exporter"
+    group: "node_exporter"
+    state: present
+    system: true
+    shell: "/bin/false"
+    home: "/nonexistent"
+
+- name: Download Node Exporter tar.gz file
+  ansible.builtin.get_url:
+    url: "{{ node_exporter_url }}"
+    dest: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    mode: "0644"
+
+- name: Extract Node Exporter binary
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/tmp"
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+
+- name: Place Node Exporter binary in install directory
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter"
+    dest: "/usr/local/bin/node_exporter"
+    owner: "node_exporter"
+    group: "node_exporter"
+    mode: "0755"
+    remote_src: true
+
+- name: Create Node Exporter systemd service file
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: "/etc/systemd/system/node_exporter.service"
+    mode: "0644"
+
+- name: Start and enable Node Exporter service
+  ansible.builtin.systemd:
+    name: "node_exporter"
+    state: started
+    enabled: true
+    daemon_reload: true

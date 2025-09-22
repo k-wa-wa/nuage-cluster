@@ -1,0 +1,24 @@
+- name: Create a Proxmox VE Cluster
+  community.proxmox.proxmox_cluster:
+    state: present
+    api_host: "{{ pve_nodes[0].api_host }}"
+    api_user: "{{ pve_nodes[0].api_user }}"
+    api_password: "{{ pve_nodes[0].api_password }}"
+    validate_certs: false
+    cluster_name: "dev-cluster"
+  run_once: true
+
+- name: List existing Proxmox VE cluster join information
+  community.proxmox.proxmox_cluster_join_info:
+    api_host: "{{ pve_nodes[0].api_host }}"
+    api_user: "{{ pve_nodes[0].api_user }}"
+    api_password: "{{ pve_nodes[0].api_password }}"
+  register: proxmox_cluster_join
+  until: proxmox_cluster_join is success
+  retries: 5
+  delay: 10
+  run_once: true
+
+- name: Join nodes
+  ansible.builtin.include_tasks: join-node.yml
+  loop: "{{ pve_nodes[1:] }}"

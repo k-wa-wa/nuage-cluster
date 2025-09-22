@@ -5,11 +5,13 @@ variable "vms_config" {
     cores     = number
     memory    = number
     ip_config = list(object({
+      bridge = optional(string)
       address = string // with mask
-      gateway = string
+      gateway = optional(string)
     }))
     ci_user   = string
     disk_size = number // GB
     usb_host  = optional(string)
+    protection = optional(bool)
   }))
 }

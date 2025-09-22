@@ -1,11 +1,6 @@
 #!/bin/bash
 set -eu
 
-(
-    cd terraform/environments/cluster \
-    && tofu apply --auto-approve
-)
-
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
     -v \
     -i playbooks/k8s/hosts.yml \

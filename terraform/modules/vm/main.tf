@@ -40,7 +40,7 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = "local-zfs"
     file_id      = "local:iso/noble-server-cloudimg-amd64.img"
     interface    = "scsi0"
     size         = each.value.disk_size
@@ -50,15 +50,15 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
     for_each = zipmap(
       range(
         length(distinct([
-          for config in each.value.ip_config : config.gateway
+          for config in each.value.ip_config : config.bridge
         ]))
       ),
       distinct([
-        for config in each.value.ip_config : config.gateway
+        for config in each.value.ip_config : config.bridge
       ])
     )
     content {
-      bridge = "vmbr${network_device.key}"
+      bridge = network_device.value
     }
   }
 
@@ -69,6 +69,8 @@ resource "proxmox_virtual_environment_vm" "proxmox_vms" {
       host = each.value.usb_host
     }
   }
+
+  protection = each.value.protection
 }
 
 data "local_file" "id_rsa_pub" {

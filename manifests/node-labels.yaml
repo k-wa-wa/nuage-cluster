@@ -1,9 +1,26 @@
 apiVersion: v1
 kind: Node
 metadata:
+  name: oc1-pi-1
+  labels:
+    node-type: pi5.medium
+spec:
+  taints:
+  - key: "dedicated"
+    value: "edge"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Node
+metadata:
   name: oc1-pi-2
   labels:
     node-type: pi5.medium
+spec:
+  taints:
+  - key: "dedicated"
+    value: "edge"
+    effect: "NoSchedule"
 ---
 apiVersion: v1
 kind: Node

@@ -1,0 +1,61 @@
+- name: Create Cluster
+  hosts: localhost
+  vars:
+    pve_nodes:
+      - api_host: 192.168.20.11
+        api_user: root@pam
+        api_password: 12345678
+      - api_host: 192.168.20.12
+        api_user: root@pam
+        api_password: 12345678
+      - api_host: 192.168.20.13
+        api_user: root@pam
+        api_password: 12345678
+  roles:
+    - setup-pve-cluster
+
+- name: Setup Proxmox Ceph Cluster
+  hosts: all
+  become: true
+  tasks:
+    - name: Delete enterprise repo file
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/apt/sources.list.d/ceph.sources
+        - /etc/apt/sources.list.d/pve-enterprise.sources
+
+    - name: Add ceph repo
+      ansible.builtin.apt_repository:
+        repo: 'deb http://download.proxmox.com/debian/ceph-squid trixie no-subscription'
+        state: present
+        filename: /etc/apt/sources.list.d/ceph.list
+        update_cache: true
+
+    - name: Ensure ceph is installed
+      ansible.builtin.apt:
+        name: ceph
+        state: present
+
+- name: Setup Proxmox Ceph
+  hosts: all
+  become: true
+  serial: 1 # 並列だと pveceph の操作がうまくいかなかったため、直列化
+  tasks:
+    - name: Ceph init
+      ansible.builtin.shell:
+        pveceph init --network {{ ansible_host }}/24
+      when: inventory_hostname == groups['all'][0]
+
+    - name: Ceph setup
+      ansible.builtin.shell: |
+        pveceph mon create --mon-address {{ ansible_host }}
+        pveceph mgr create
+        pveceph osd create /dev/sdb
+        pveceph osd create /dev/sdc
+
+    - name: Create pool
+      ansible.builtin.shell:
+        pveceph pool create ceph-pool --add_storages=1 --pg_autoscale_mode=on
+      when: inventory_hostname == groups['all'][0]

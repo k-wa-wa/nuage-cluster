@@ -1,0 +1,27 @@
+- name: Dnsmasq.conf
+  ansible.builtin.copy:
+    src: dnsmasq.conf
+    dest: /etc/dnsmasq.conf
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+### release port 53
+- name: Edit /etc/systemd/resolved.conf
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: "DNSStubListener=.*"
+    line: "DNSStubListener=no"
+- name: Start systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: restarted
+### release port 53
+
+- name: Restart dnsmasq
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: true
+  with_items:
+    - dnsmasq
