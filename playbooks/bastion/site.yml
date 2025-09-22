@@ -14,6 +14,7 @@
       ansible.builtin.apt:
         name:
           - isc-dhcp-server
+          - dnsmasq
           - golang
         state: present
         update_cache: true
@@ -23,5 +24,6 @@
   become: true
   roles:
     - enable-nat
+    - setup-dns
     - setup-dhcp
     - setup-proxmox-answer-server

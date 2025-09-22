@@ -17,7 +17,7 @@
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
     iptables -P INPUT ACCEPT
-    iptables -P FORWARD DROP
+    iptables -P FORWARD ACCEPT
     iptables -P OUTPUT ACCEPT
 
     iptables-save > /etc/iptables/rules.v4

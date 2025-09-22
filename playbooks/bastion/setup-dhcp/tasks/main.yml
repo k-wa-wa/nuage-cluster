@@ -18,6 +18,7 @@
         option routers 192.168.20.1;
         option url-pxe "http://192.168.20.1:5000/pve-answer.toml";
         option domain-name "pve.oc1";
+        option domain-name-servers 192.168.20.1;
       }
 
       host pve-1 {
@@ -29,5 +30,10 @@
         hardware ethernet 0A:00:00:00:00:02;
         fixed-address 192.168.20.12;
         option host-name "pve-2";
+      }
+      host pve-3 {
+        hardware ethernet 0A:00:00:00:00:03;
+        fixed-address 192.168.20.13;
+        option host-name "pve-3";
       }
   notify: Restart isc-dhcp-server
