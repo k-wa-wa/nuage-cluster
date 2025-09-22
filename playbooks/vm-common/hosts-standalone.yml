@@ -12,6 +12,9 @@ all: # noqa: syntax-check[specific]
     oc1-proxy:
       ansible_host: 192.168.5.160
       ansible_user: ubuntu
+    oc1-dns:
+      ansible_host: 192.168.5.161
+      ansible_user: ubuntu
 
   children:
     load-balancer:
@@ -21,3 +24,6 @@ all: # noqa: syntax-check[specific]
     proxy:
       hosts:
         oc1-proxy:
+    no-groups:
+      hosts:
+        oc1-dns:
