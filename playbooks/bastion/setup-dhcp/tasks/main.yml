@@ -1,9 +1,3 @@
-- name: Install isc-dhcp-server
-  ansible.builtin.apt:
-    name: isc-dhcp-server
-    state: present
-    update_cache: true
-
 - name: Configure isc-dhcp-server interface
   ansible.builtin.lineinfile:
     path: /etc/default/isc-dhcp-server

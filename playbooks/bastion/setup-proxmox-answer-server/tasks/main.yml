@@ -1,9 +1,3 @@
-- name: Install golang
-  ansible.builtin.apt:
-    name: golang-go
-    state: present
-    update_cache: true
-
 - name: Make application dir
   ansible.builtin.file:
     path: "{{ remote_deploy_dir }}"
