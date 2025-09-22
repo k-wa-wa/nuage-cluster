@@ -1,2 +1,0 @@
-app_name: "proxmox-answer-server"
-remote_deploy_dir: "/opt/{{ app_name }}"
