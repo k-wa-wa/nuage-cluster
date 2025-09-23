@@ -49,7 +49,7 @@ country = "jp"
 fqdn.source = "from-dhcp"
 mailto = "mail@example.com"
 timezone = "Asia/Tokyo"
-root-password = "12345678"
+root-password = "password"
 reboot-mode = "power-off"
 
 [network]
