@@ -38,6 +38,16 @@
             "name": "domain-name-servers",
             "data": "{{ gateway_ip }}"
           }
+        ],
+        "reservations": [
+{% for node in pve_nodes %}
+            {
+                "hw-address": "{{ node.mac }}",
+                "ip-address": "{{ node.ip }}",
+                "hostname": "{{ node.name }}"
+            }{% if not loop.last %},{% else %} 
+{% endif %}
+{%- endfor %}
         ]
       }
     ]

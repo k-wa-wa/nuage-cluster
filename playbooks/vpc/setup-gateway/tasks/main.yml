@@ -5,6 +5,10 @@
     state: present
     update_cache: true
 
+- name: Get subnet
+  ansible.builtin.set_fact:
+    subnet: "{{ subnets_config | selectattr('gateway.name', 'equalto', inventory_hostname) | list | first }}"
+
 - name: Configure kea-dhcp4-server
   ansible.builtin.template:
     src: kea-dhcp4.conf.j2
@@ -12,4 +16,8 @@
     owner: root
     group: root
     mode: '0644'
+  vars:
+    pve_nodes: "{{ subnet.pve_nodes }}"
+    gateway_ip: "{{ subnet.gateway.ip }}"
+    cidr: "{{ subnet.cidr }}"
   notify: Restart kea-dhcp4-server
