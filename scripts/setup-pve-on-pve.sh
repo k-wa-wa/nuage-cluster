@@ -13,6 +13,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
 echo "クラスタ内のネットワークに切り替えてね"
 read
 
+rm ~/.ssh/known_hosts # TODO: まともな方法検討
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
     -v \
     -i playbooks/pve-on-pve/hosts.yml playbooks/pve-on-pve/site-setup-cluster.yml \
