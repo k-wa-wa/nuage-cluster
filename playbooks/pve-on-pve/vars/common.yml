@@ -1,30 +1,18 @@
+subnet_third_octet: 20
+
 ubuntu_vms:
   - vmid: 20001
     name: "pve-20-001"
     node: "server-1"
     ip: 192.168.5.164
 
-proxmox_vms:
-  - vmid: 20011
-    name: "pve-20-011"
+proxmox_vms_template:
+  - seq_no: 1
     node: "server-1"
-    mac: "0A:00:00:00:14:0B"
-    ip: 192.168.20.11
-    user: root@pam
-    password: 12345678
-  - vmid: 20012
-    name: "pve-20-012"
+  - seq_no: 2
     node: "server-1"
-    mac: "0A:00:00:00:14:0C"
-    ip: 192.168.20.12
-    user: root@pam
-    password: 12345678
-  - vmid: 20013
-    name: "pve-20-013"
+  - seq_no: 3
     node: "server-1"
-    mac: "0A:00:00:00:14:0D"
-    ip: 192.168.20.13
-    user: root@pam
-    password: 12345678
 
-subnet_third_octet: 20
+proxmox_vm_default_user: root@pam
+proxmox_vm_default_password: password

@@ -2,6 +2,7 @@
   hosts: localhost
   vars_files:
     - vars/common.yml
+    - vars/secrets.yml
   roles:
     - router-setup-nodes
 
@@ -21,5 +22,6 @@
   hosts: localhost
   vars_files:
     - vars/common.yml
+    - vars/secrets.yml
   roles:
     - cluster-setup-nodes
