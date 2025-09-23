@@ -1,0 +1,16 @@
+[Unit]
+Description=proxmox-answer-server - Go Web Server
+After=network.target
+
+[Service]
+User=root
+Group=root
+
+WorkingDirectory=/opt/proxmox-answer-server
+
+ExecStart=/opt/proxmox-answer-server/proxmox-answer-server
+
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,14 +1,68 @@
+- name: Wait for cloud-init to finish
+  ansible.builtin.command:
+    cmd: "cloud-init status --wait"
+  register: cloudinit_status
+  failed_when: false
+  changed_when: false
+
 - name: Install deps
   ansible.builtin.apt:
     name:
       - kea-dhcp4-server
+      - dnsmasq
+      - iptables-persistent
+      - golang
     state: present
     update_cache: true
+
+##### Enable NAT
+- name: Ensure packet forwarding is enabled
+  ansible.builtin.sysctl:
+    sysctl_file: /etc/sysctl.conf
+    name: net.ipv4.ip_forward
+    value: '1'
+
+- name: Configure and save iptables rules
+  ansible.builtin.shell: |
+    iptables -F
+    iptables -X
+
+    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+
+    iptables-save > /etc/iptables/rules.v4
+  changed_when: true
+#####
 
 - name: Get subnet
   ansible.builtin.set_fact:
     subnet: "{{ subnets_config | selectattr('gateway.name', 'equalto', inventory_hostname) | list | first }}"
 
+##### Configure DNS
+# release port 53
+- name: Edit /etc/systemd/resolved.conf
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: "DNSStubListener=.*"
+    line: "DNSStubListener=no"
+  notify: Restart systemd-resolved
+
+- name: Dnsmasq.conf
+  ansible.builtin.template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.conf
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  vars:
+    gateway_ip: "{{ subnet.gateway.ip }}"
+  notify: Restart dnsmasq
+#####
+
+##### Configure DHCP
 - name: Configure kea-dhcp4-server
   ansible.builtin.template:
     src: kea-dhcp4.conf.j2
@@ -21,3 +75,30 @@
     gateway_ip: "{{ subnet.gateway.ip }}"
     cidr: "{{ subnet.cidr }}"
   notify: Restart kea-dhcp4-server
+#####
+
+##### Setup proxmox-answer-server
+- name: Make application dir
+  ansible.builtin.file:
+    path: "/opt/proxmox-answer-server"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy go files
+  ansible.builtin.copy:
+    src: proxmox-answer-server/
+    dest: "/opt/proxmox-answer-server/"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Build proxmox-answer-server
+
+- name: Deploy systemd file
+  ansible.builtin.copy:
+    src: proxmox-answer-server.service
+    dest: "/etc/systemd/system/proxmox-answer-server.service"
+    mode: '0644'
+  notify: Restart proxmox-answer-server
+#####

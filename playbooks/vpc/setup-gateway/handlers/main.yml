@@ -2,3 +2,29 @@
   ansible.builtin.service:
     name: kea-dhcp4-server
     state: restarted
+    enabled: true
+
+- name: Restart systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: restarted
+
+- name: Restart dnsmasq
+  ansible.builtin.service:
+    name: dnsmasq
+    state: restarted
+    enabled: true
+
+- name: Build proxmox-answer-server
+  ansible.builtin.command: "go build -o proxmox-answer-server"
+  args:
+    chdir: "/opt/proxmox-answer-server"
+    creates: "/opt/proxmox-answer-server/proxmox-answer-server"
+  notify: Restart proxmox-answer-server
+
+- name: Restart proxmox-answer-server
+  ansible.builtin.systemd:
+    name: "proxmox-answer-server"
+    daemon_reload: true
+    enabled: true
+    state: restarted
