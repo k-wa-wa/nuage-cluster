@@ -1,0 +1,2 @@
+- name: Setup VMs
+  ansible.builtin.include_tasks: setup-vm.yml

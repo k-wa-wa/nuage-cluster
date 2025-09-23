@@ -1,0 +1,10 @@
+- name: Setup gateway VM
+  hosts: localhost
+  vars_files:
+    - vars/secrets.yml
+    - vars/common.yml
+    - vars/input.yml
+  roles:
+    - prepare-variable
+    - setup-gateway-vm
+    - generate-hosts-file

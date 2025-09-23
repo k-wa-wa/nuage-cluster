@@ -1,0 +1,6 @@
+bridge_name: vmbr10
+
+host_proxmox:
+  api_host: 192.168.5.25
+  api_user: root@pam
+  api_password: asdfjkl;

@@ -1,0 +1,56 @@
+- name: Set subnets_config with all octets
+  ansible.builtin.set_fact:
+    subnets_config: |
+      {% set result = [] %}
+      {% for item in input.subnets %}
+      {%   set ip_parts = item.cidr.split('/') | first | split('.') %}
+      {%   set first_octet = ip_parts[0] %}
+      {%   set second_octet = ip_parts[1] %}
+      {%   set third_octet = ip_parts[2] %}
+      {%   set netmask = item.cidr.split('/')[1] %}
+      {%   set _ = result.append({
+              "name": item.name,
+              "node": item.node,
+              "cidr": item.cidr,
+              "vlan_id": item.vlan_id,
+              "bridge": bridge_name,
+              "first_octet": first_octet | int,
+              "second_octet": second_octet | int,
+              "third_octet": third_octet | int,
+              "gateway_ip": first_octet ~ '.' ~ second_octet ~ '.' ~ third_octet ~ '.1',
+              "start_ip": first_octet ~ '.' ~ second_octet ~ '.' ~ third_octet ~ '.10',
+              "end_ip": first_octet ~ '.' ~ second_octet ~ '.' ~ third_octet ~ '.250',
+              "netmask": netmask,
+              "public_ip": item.public_ip,
+            })
+      %}
+      {% endfor %}
+      {{ result }}
+
+- name: Debug config
+  ansible.builtin.debug:
+    msg: "{{ subnets_config }}"
+
+- name: Set gateway_vms_config
+  ansible.builtin.set_fact:
+    gateway_vms_config: |
+      {% set result = [] %}
+      {% for subnet in subnets_config %}
+      {%   set _ = result.append({
+              "vmid": (subnet.vlan_id * 100) + 1,
+              "name": subnet.name ~ '---' ~ (subnet.gateway_ip | replace('.', '-')),
+              "node": subnet.node,
+              "ip": subnet.gateway_ip,
+              "netmask": subnet.netmask,
+              "subnet_third_octet": subnet.third_octet,
+              "vlan_id": subnet.vlan_id,
+              "public_ip": subnet.public_ip,
+              "cidr": subnet.cidr,
+            })
+      %}
+      {% endfor %}
+      {{ result }}
+
+- name: Debug config
+  ansible.builtin.debug:
+    msg: "{{ gateway_vms_config }}"

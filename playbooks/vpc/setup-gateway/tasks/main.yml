@@ -1,0 +1,15 @@
+- name: Install deps
+  ansible.builtin.apt:
+    name:
+      - kea-dhcp4-server
+    state: present
+    update_cache: true
+
+- name: Configure kea-dhcp4-server
+  ansible.builtin.template:
+    src: kea-dhcp4.conf.j2
+    dest: /etc/kea/kea-dhcp4.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart kea-dhcp4-server

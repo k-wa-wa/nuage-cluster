@@ -1,0 +1,45 @@
+{
+  "Dhcp4": {
+    "option-def": [
+      {
+        "name": "url-pxe",
+        "code": 250,
+        "type": "string",
+        "array": false
+      }
+    ],
+    "interfaces-config": {
+      "interfaces": [ "eth1" ]
+    },
+    "option-data": [
+      {
+        "name": "url-pxe",
+        "data": "http://{{ gateway_ip }}:5000/pve-answer.toml"
+      }
+    ],
+    "subnet4": [
+      {
+        "subnet": "{{ cidr }}",
+        "pools": [
+          {
+            "pool": "{{ cidr.split('/')[0].split('.')[:3] | join('.') }}.100 - {{ cidr.split('/')[0].split('.')[:3] | join('.') }}.200"
+          }
+        ],
+        "option-data": [
+          {
+            "name": "routers",
+            "data": "{{ gateway_ip }}"
+          },
+          {
+            "name": "domain-name",
+            "data": "pve.oc1"
+          },
+          {
+            "name": "domain-name-servers",
+            "data": "{{ gateway_ip }}"
+          }
+        ]
+      }
+    ]
+  }
+}

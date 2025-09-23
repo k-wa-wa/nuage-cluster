@@ -1,0 +1,5 @@
+- name: Setup Gateway
+  hosts: gateway-nodes
+  become: true
+  roles:
+    - setup-gateway

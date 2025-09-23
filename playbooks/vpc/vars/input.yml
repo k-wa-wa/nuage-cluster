@@ -1,0 +1,15 @@
+input:
+  vpc:
+    vlan_id_range: 100-200
+
+  subnets:
+    - name: public
+      cidr: 192.168.10.0/24
+      vlan_id: 100
+      node: "server-1"
+      public_ip: 192.168.5.164 # Noneの場合を要考慮
+    - name: public2
+      cidr: 192.168.12.0/24
+      vlan_id: 101
+      node: "server-1"
+      public_ip: 192.168.5.166 # Noneの場合を要考慮
