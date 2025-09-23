@@ -4,6 +4,7 @@
     - vars/common.yml
     - vars/secrets.yml
   roles:
+    - prepare-variable
     - router-setup-nodes
 
 - name: Setup router network
@@ -12,6 +13,7 @@
   vars_files:
     - vars/common.yml
   roles:
+    - prepare-variable
     - router-prepare
     - router-enable-nat
     - router-setup-dns
@@ -24,4 +26,5 @@
     - vars/common.yml
     - vars/secrets.yml
   roles:
+    - prepare-variable
     - cluster-setup-nodes

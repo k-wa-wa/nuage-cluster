@@ -1,15 +1,3 @@
-- name: Dynamically create the router_vm
-  ansible.builtin.set_fact:
-    router_vm:
-      vmid: "{{ (subnet_third_octet * 1000) + 1 }}"
-      name: "pve-192.168.{{ subnet_third_octet }}.1-{{ router_vm_template.wan_ip }}"
-      node: "{{ router_vm_template.node }}"
-      ip: "{{ router_vm_template.wan_ip }}"
-
-- name: Debug router_vm
-  ansible.builtin.debug:
-    var: router_vm
-
 - name: Delete VMs
   community.general.proxmox_kvm:
     api_host: "{{ api_host }}"
