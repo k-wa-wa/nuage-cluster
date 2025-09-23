@@ -5,18 +5,16 @@
     content: |
       all: # noqa: syntax-check[specific]
         hosts:
-      {% for host in gateway_vms_config %}
-          {{ host.name }}:
-            ansible_host: {{ host.public_ip }}
+      {% for subnet in subnets_config %}
+          {{ subnet.gateway.name }}:
+            ansible_host: {{ subnet.gateway.public_ip }}
             ansible_user: ubuntu
             ansible_ssh_private_key_file: ./.ssh/id_rsa
-            gateway_ip: {{ host.ip }}
-            cidr: {{ host.cidr }}
       {% endfor %}
 
         children:
           gateway-nodes:
             hosts:
-      {% for host in gateway_vms_config %}
-              {{ host.name }}:
+      {% for subnet in subnets_config %}
+              {{ subnet.gateway.name }}:
       {% endfor %}

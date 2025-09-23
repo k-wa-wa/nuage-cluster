@@ -22,7 +22,7 @@
       ipconfig1: "ip={{ item.ip }}/{{ item.netmask }}"
     ciuser: ubuntu
     sshkeys: "{{ lookup('file', '../../.ssh/id_rsa.pub') }}"
-  loop: "{{ gateway_vms_config }}"
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
 
 - name: Resize disk
   community.proxmox.proxmox_disk:
@@ -33,7 +33,7 @@
     disk: scsi0
     size: +20G
     state: resized
-  loop: "{{ gateway_vms_config }}"
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
 
 - name: Start VMs
   community.proxmox.proxmox_kvm:
@@ -42,4 +42,4 @@
     api_password: "{{ host_proxmox.api_password }}"
     vmid: "{{ item.vmid }}"
     state: started
-  loop: "{{ gateway_vms_config }}"
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
