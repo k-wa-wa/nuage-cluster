@@ -3,6 +3,7 @@
   vars_files:
     - vars/common.yml
   roles:
+    - prepare-variable
     - cluster-setup-pve-cluster
 
 - name: Setup Proxmox Ceph Cluster
