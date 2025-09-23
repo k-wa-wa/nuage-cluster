@@ -1,10 +1,8 @@
 subnet_third_octet: 20
 
-ubuntu_vms:
-  - vmid: 20001
-    name: "pve-20-001"
-    node: "server-1"
-    ip: 192.168.5.164
+router_vm_template:
+  node: "server-1"
+  wan_ip: 192.168.5.164
 
 proxmox_vms_template:
   - seq_no: 1

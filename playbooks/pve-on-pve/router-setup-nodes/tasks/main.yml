@@ -1,22 +1,33 @@
+- name: Dynamically create the router_vm
+  ansible.builtin.set_fact:
+    router_vm:
+      vmid: "{{ (subnet_third_octet * 1000) + 1 }}"
+      name: "pve-192.168.{{ subnet_third_octet }}.1-{{ router_vm_template.wan_ip }}"
+      node: "{{ router_vm_template.node }}"
+      ip: "{{ router_vm_template.wan_ip }}"
+
+- name: Debug router_vm
+  ansible.builtin.debug:
+    var: router_vm
+
 - name: Delete VMs
   community.general.proxmox_kvm:
     api_host: "{{ api_host }}"
     api_user: "{{ api_user }}"
     api_password: "{{ api_password }}"
-    node: "{{ item.node }}"
-    vmid: "{{ item.vmid }}"
+    node: "{{ router_vm.node }}"
+    vmid: "{{ router_vm.vmid }}"
     state: absent
     force: true
-  with_items: "{{ ubuntu_vms }}"
 
 - name: Create Ubuntu VMs
   community.general.proxmox_kvm:
     api_host: "{{ api_host }}"
     api_user: "{{ api_user }}"
     api_password: "{{ api_password }}"
-    node: "{{ item.node }}"
-    vmid: "{{ item.vmid }}"
-    name: "{{ item.name }}"
+    node: "{{ router_vm.node }}"
+    vmid: "{{ router_vm.vmid }}"
+    name: "{{ router_vm.name }}"
     state: present
     cores: 2
     memory: 4096
@@ -29,28 +40,25 @@
       net0: "virtio,bridge=vmbr0"
       net1: "virtio,bridge=vmbr2"
     ipconfig:
-      ipconfig0: "ip={{ item.ip }}/24,gw=192.168.5.1"
+      ipconfig0: "ip={{ router_vm.ip }}/24,gw=192.168.5.1"
       ipconfig1: "ip=192.168.{{ subnet_third_octet }}.1/24"
     ciuser: ubuntu
     sshkeys: "{{ lookup('file', '../../.ssh/id_rsa.pub') }}"
-  with_items: "{{ ubuntu_vms }}"
 
 - name: Resize disk
   community.proxmox.proxmox_disk:
     api_host: "{{ api_host }}"
     api_user: "{{ api_user }}"
     api_password: "{{ api_password }}"
-    vmid: "{{ item.vmid }}"
+    vmid: "{{ router_vm.vmid }}"
     disk: scsi0
     size: +20G
     state: resized
-  with_items: "{{ ubuntu_vms }}"
 
 - name: Start VMs
   community.proxmox.proxmox_kvm:
     api_host: "{{ api_host }}"
     api_user: "{{ api_user }}"
     api_password: "{{ api_password }}"
-    vmid: "{{ item.vmid }}"
+    vmid: "{{ router_vm.vmid }}"
     state: started
-  with_items: "{{ ubuntu_vms }}"
