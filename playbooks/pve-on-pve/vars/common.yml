@@ -28,7 +28,3 @@ proxmox_vms:
     password: 12345678
 
 subnet_third_octet: 20
-
-api_host: 192.168.5.25
-api_user: root@pam
-api_password: asdfjkl;
