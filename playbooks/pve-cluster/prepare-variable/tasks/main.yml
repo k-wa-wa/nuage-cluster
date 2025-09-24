@@ -1,0 +1,14 @@
+- name: Set pve_nodes
+  ansible.builtin.set_fact:
+    pve_nodes: |
+      {% set result = [] %}
+      {% for pve_node in groups['pve-nodes'] %}
+      {%   set node_vars = hostvars[pve_node] %}
+      {%   set _ = result.append({
+              "ip": node_vars.ansible_host,
+              "user": node_vars.ansible_user ~ '@pam',
+              "password": node_vars.ansible_password,
+           })
+      %}
+      {% endfor %}
+      {{ result }}
