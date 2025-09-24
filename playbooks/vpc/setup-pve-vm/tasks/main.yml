@@ -8,7 +8,7 @@
     state: absent
     force: true
     timeout: 60
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"
 
 - name: Create Proxmox VMs
   community.general.proxmox_kvm:
@@ -29,7 +29,7 @@
       scsi2: "local-zfs:80"
     net:
       net0: 'bridge={{ bridge_name }},virtio={{ item.mac }},tag={{ item.vlan_id }}'
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"
 
 - name: Start VM for installation
   community.proxmox.proxmox_kvm:
@@ -38,7 +38,7 @@
     api_host: "{{ host_proxmox.api_host }}"
     api_user: "{{ host_proxmox.api_user }}"
     api_password: "{{ host_proxmox.api_password }}"
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"
 
 - name: Wait for VM to power off (installation completed)
   community.proxmox.proxmox_vm_info:
@@ -50,7 +50,7 @@
   until: vm_status_check.proxmox_vms[0].status == 'stopped'
   retries: 20
   delay: 15
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"
 
 - name: Set boot order to disk and network
   community.proxmox.proxmox_kvm:
@@ -61,7 +61,7 @@
     node: "{{ item.node }}"
     boot: "order=scsi0;net0"
     update: true
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"
 
 - name: Start VM from new boot device
   community.proxmox.proxmox_kvm:
@@ -70,4 +70,4 @@
     api_host: "{{ host_proxmox.api_host }}"
     api_user: "{{ host_proxmox.api_user }}"
     api_password: "{{ host_proxmox.api_password }}"
-  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+  loop: "{{ pve_nodes }}"

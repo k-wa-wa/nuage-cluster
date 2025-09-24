@@ -1,9 +1,0 @@
-- name: Setup Proxmox VMs
-  hosts: localhost
-  vars_files:
-    - vars/secrets.yml
-    - vars/common.yml
-    - vars/input.yml
-  roles:
-    - prepare-variable
-    - setup-pve-vm

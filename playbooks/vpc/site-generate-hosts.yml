@@ -1,9 +1,8 @@
-- name: Setup Gateway
-  hosts: gateway-nodes
-  become: true
+- name: Generate hosts files
+  hosts: localhost
   vars_files:
     - vars/common.yml
     - vars/input.yml
   roles:
     - prepare-variable
-    - setup-gateway
+    - generate-hosts-file

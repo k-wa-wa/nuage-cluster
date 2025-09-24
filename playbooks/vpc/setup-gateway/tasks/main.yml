@@ -71,7 +71,7 @@
     group: root
     mode: '0644'
   vars:
-    pve_nodes: "{{ subnet.pve_nodes }}"
+    subnet_pve_nodes: "{{ subnet.pve_nodes }}"
     gateway_ip: "{{ subnet.gateway.ip }}"
     cidr: "{{ subnet.cidr }}"
   notify: Restart kea-dhcp4-server

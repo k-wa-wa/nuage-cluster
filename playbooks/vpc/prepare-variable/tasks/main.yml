@@ -58,6 +58,10 @@
       {% endfor %}
       {{ result }}
 
+- name: Set pve_nodes
+  ansible.builtin.set_fact:
+    pve_nodes: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
 - name: Debug config
   ansible.builtin.debug:
     msg: "{{ subnets_config }}"

@@ -18,3 +18,18 @@
       {% for subnet in subnets_config %}
               {{ subnet.gateway.name }}:
       {% endfor %}
+
+- name: Generate hosts-pve-nodes.yml
+  ansible.builtin.copy:
+    dest: "../pve-cluster/hosts-pve-{{ item.cidr | replace('/', '_') }}.yml"
+    mode: "0644"
+    content: |
+      all: # noqa: syntax-check[specific]
+        hosts:
+      {% for pve_node in item.pve_nodes %}
+          {{ pve_node.name }}:
+            ansible_host: {{ pve_node.ip }}
+            ansible_user: {{ pve_node.user | replace('@pam', '') }}
+            ansible_password: {{ pve_node.password }}
+      {% endfor %}
+  loop: "{{ subnets_config }}"
