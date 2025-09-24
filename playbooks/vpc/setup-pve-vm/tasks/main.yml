@@ -1,0 +1,73 @@
+- name: Delete VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    node: "{{ item.node }}"
+    vmid: "{{ item.vmid }}"
+    state: absent
+    force: true
+    timeout: 60
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
+- name: Create Proxmox VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    node: "{{ item.node }}"
+    vmid: "{{ item.vmid }}"
+    name: "{{ item.name }}"
+    state: present
+    cores: 4
+    memory: 16384
+    ide:
+      ide2: "local:iso/proxmox-ve_9.0-1-auto-from-http.iso,media=cdrom"
+    scsi:
+      scsi0: "local-zfs:20"
+      scsi1: "local-zfs:80"
+      scsi2: "local-zfs:80"
+    net:
+      net0: 'bridge={{ bridge_name }},virtio={{ item.mac }},tag={{ item.vlan_id }}'
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
+- name: Start VM for installation
+  community.proxmox.proxmox_kvm:
+    vmid: "{{ item.vmid }}"
+    state: started
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
+- name: Wait for VM to power off (installation completed)
+  community.proxmox.proxmox_vm_info:
+    vmid: "{{ item.vmid }}"
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+  register: vm_status_check
+  until: vm_status_check.proxmox_vms[0].status == 'stopped'
+  retries: 20
+  delay: 15
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
+- name: Set boot order to disk and network
+  community.proxmox.proxmox_kvm:
+    vmid: "{{ item.vmid }}"
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    node: "{{ item.node }}"
+    boot: "order=scsi0;net0"
+    update: true
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"
+
+- name: Start VM from new boot device
+  community.proxmox.proxmox_kvm:
+    vmid: "{{ item.vmid }}"
+    state: started
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+  loop: "{{ subnets_config | map(attribute='pve_nodes') | list | flatten }}"

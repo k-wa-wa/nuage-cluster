@@ -1,2 +1,57 @@
-- name: Setup VMs
-  ansible.builtin.include_tasks: setup-vm.yml
+- name: Delete VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    node: "{{ item.node }}"
+    vmid: "{{ item.vmid }}"
+    state: absent
+    force: true
+    timeout: 60
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
+
+- name: Setup Ubuntu VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    node: "{{ item.node }}"
+    vmid: "{{ item.vmid }}"
+    name: "{{ item.name }}"
+    state: present
+    cores: 2
+    memory: 4096
+    scsihw: virtio-scsi-pci
+    ide:
+      ide2: "local-lvm:cloudinit"
+    scsi:
+      scsi0: "local-zfs:0,import-from=/var/lib/vz/template/iso/noble-server-cloudimg-amd64.img"
+    net:
+      net0: "virtio,bridge=vmbr0"
+      net1: "virtio,bridge={{ bridge_name }},tag={{ item.vlan_id }}"
+    ipconfig:
+      ipconfig0: "ip={{ item.public_ip }}/24,gw=192.168.5.1"
+      ipconfig1: "ip={{ item.ip }}/{{ item.netmask }}"
+    ciuser: ubuntu
+    sshkeys: "{{ lookup('file', '../../.ssh/id_rsa.pub') }}"
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
+
+- name: Resize disk
+  community.proxmox.proxmox_disk:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    vmid: "{{ item.vmid }}"
+    disk: scsi0
+    size: +20G
+    state: resized
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"
+
+- name: Start VMs
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ host_proxmox.api_host }}"
+    api_user: "{{ host_proxmox.api_user }}"
+    api_password: "{{ host_proxmox.api_password }}"
+    vmid: "{{ item.vmid }}"
+    state: started
+  loop: "{{ subnets_config | map(attribute='gateway') | list }}"

@@ -25,6 +25,7 @@
                 "ip": ip,
                 "user": proxmox_vm_default_user,
                 "password": proxmox_vm_default_password,
+                "vlan_id": subnet.vlan_id,
              })
       %}
       {%   endfor %}
