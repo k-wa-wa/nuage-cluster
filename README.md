@@ -19,15 +19,19 @@
 
 ## Architecture
 
-### ハードウェア・ネットワーク構成
+### Overview
+
+<img src="./docs/overview.drawio.svg" style="background-color: white; padding: 8px;">
+
+### ハードウェア・ネットワーク構成 (deprecated)
 
 <img src="./docs/hardware.drawio.svg" style="background-color: white; padding: 8px;">
 
-### Kubernetes 構成
+### Kubernetes 構成 (deprecated)
 
 <img src="./docs/k8s-arch.drawio.svg" style="background-color: white; padding: 8px;">
 
-### PVE on PVE 構成
+### PVE on PVE 構成 (deprecated)
 
 PVE (Proxmox Virtual Environment) をネストさせ、いつでも作成・削除・検証可能な環境を用意している。
 
