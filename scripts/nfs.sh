@@ -2,7 +2,7 @@
 set -eu
 
 (
-    cd terraform/environments/persistent \
+    cd terraform/targets/persistent \
     && tofu apply --auto-approve
 )
 

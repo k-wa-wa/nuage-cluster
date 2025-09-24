@@ -2,11 +2,11 @@
 set -eu
 
 (
-    cd terraform/environments/standalone \
+    cd terraform/targets/standalone \
     && tofu apply --auto-approve
 )
 (
-    cd terraform/environments/cluster \
+    cd terraform/targets/cluster \
     && tofu apply --auto-approve
 )
 

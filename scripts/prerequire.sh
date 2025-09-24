@@ -13,6 +13,6 @@ helm repo update
 
 #################### proxmox ve ####################
 (
-    cd terraform/environments/prerequire \
+    cd terraform/targets/prerequire \
     && tofu apply --auto-approve
 )
