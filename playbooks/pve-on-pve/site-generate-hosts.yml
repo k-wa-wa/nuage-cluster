@@ -1,7 +1,0 @@
-- name: Generate hosts.yml
-  hosts: localhost
-  vars_files:
-    - vars/common.yml
-  roles:
-    - prepare-variable
-    - generate-hosts-file
