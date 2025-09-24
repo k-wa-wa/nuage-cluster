@@ -12,12 +12,12 @@
    - 一旦実装したものの、外部 haproxy によるロードバランスに変更
 - [x] AZ を追加して VPN で繋ぐ
 - [ ] リージョンを追加して VPN で繋ぐ
-- [ ] Ansible のリファクタ (結構ひどい・実行時間も短縮したい)
+- [ ] Ansible のリファクタ (突貫実装を整理・実行時間も短縮したい)
 - [ ] DB を外出し (VM 化) するか、Operator を使用するか検討する
 - [ ] LMServer の再構築
 - [ ] 監視・バックアップなど運用の効率化
 
-## Infrastructure
+## Architecture
 
 ### ハードウェア・ネットワーク構成
 
@@ -26,6 +26,14 @@
 ### Kubernetes 構成
 
 <img src="./docs/k8s-arch.drawio.svg" style="background-color: white; padding: 8px;">
+
+### PVE on PVE 構成
+
+PVE (Proxmox Virtual Environment) をネストさせ、いつでも作成・削除・検証可能な環境を用意している。
+
+IPアドレスの範囲等は任意に変更可能。
+
+<img src="./docs/pve-on-pve.drawio.svg" style="background-color: white; padding: 8px;">
 
 ## 手順
 
@@ -55,10 +63,10 @@
    # NFS作成
    bash scripts/nfs.sh
 
-   # VMで動作するサービス作成
-   bash scripts/standalone/setup.sh
+   # VM と VM 上で動作するサービス等作成
+   bash scripts/setup-infra.sh
 
    # クラスター作成
-   bash scripts/cluster/setup.sh
-   bash scripts/cluster/apply-apps.sh
+   bash scripts/setup-cluster.sh
+   bash scripts/apply-apps.sh
    ```
