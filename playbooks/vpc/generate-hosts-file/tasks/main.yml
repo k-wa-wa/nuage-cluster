@@ -32,4 +32,11 @@
             ansible_user: {{ pve_node.user | replace('@pam', '') }}
             ansible_password: {{ pve_node.password }}
       {% endfor %}
+
+        children:
+          pve-nodes:
+            hosts:
+      {% for pve_node in item.pve_nodes %}
+              {{ pve_node.name }}:
+      {% endfor %}
   loop: "{{ subnets_config }}"
