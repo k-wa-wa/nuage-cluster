@@ -17,6 +17,10 @@ fi
 ./k apply -f istio-1.26.2/samples/addons
 ./k apply -f manifests/gateway.yaml
 
+#################### argocd ####################
+./k apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+./k apply -f manifests/argocd-apps/
+
 #################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0
@@ -48,6 +52,5 @@ curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quic
 ./k apply -n pechka -f manifests/postgres/secrets.yaml
 ./k apply -f manifests/pechka/file-server-workflow
 
-./k apply -f manifests/pechka/file-server
-./k scale -n pechka deployment file-server-api --replicas=2
-./k scale -n pechka deployment file-server-ui --replicas=2
+# ./k scale -n pechka deployment file-server-api --replicas=2
+# ./k scale -n pechka deployment file-server-ui --replicas=2
