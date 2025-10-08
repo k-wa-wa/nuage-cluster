@@ -1,0 +1,49 @@
+global
+    log  127.0.0.1 local2
+
+########## prometheus ##########
+frontend prometheus
+    bind :8405
+    mode http
+    http-request use-service prometheus-exporter
+    no log
+
+########## cluster control plane ##########
+frontend http_front_control_plane
+    bind :6443
+    default_backend http_back_control_plane
+
+    acl allowed_ip src 192.168.4.0/22
+    http-request deny if !allowed_ip
+
+backend http_back_control_plane
+{% for ip in control_plane_ips %}
+    server server{{ loop.index }} {{ ip }}:6443 check
+{% endfor %}
+
+########## http service ##########
+frontend http_proxy
+    bind *:80
+
+    default_backend http_proxy
+    log global
+
+backend http_proxy
+{% for ip in worker_node_ips %}
+    server server{{ loop.index }} {{ ip }}:30080 check
+{% endfor %}
+
+########## https service ##########
+frontend https_passthrough
+    bind *:80
+    bind *:443            # 443番ポートでLISTEN
+    mode tcp              # TCPモードで動作 (TLSパススルーの必須設定)
+    option tcplog         # TCPログを有効にする
+
+    default_backend https_passthrough
+    log global
+
+backend https_passthrough
+{% for ip in worker_node_ips %}
+    server server{{ loop.index }} {{ ip }}:30433 check
+{% endfor %}

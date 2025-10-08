@@ -1,5 +1,5 @@
 - name: Setup proxy servers
-  hosts: proxy_servers
+  hosts: proxy-servers
   become: true
   roles:
     - proxy-server

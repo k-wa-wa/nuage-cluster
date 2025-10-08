@@ -1,0 +1,57 @@
+- name: Install deps
+  ansible.builtin.apt:
+    name:
+      - openssl
+      - haproxy
+      - keepalived
+      - rsyslog
+    state: present
+
+- name: Extract control-plane IPs
+  ansible.builtin.set_fact:
+    control_plane_ips: "{{ groups['k8s-control-planes'] | map('extract', hostvars, 'ansible_host') | list }}"
+    worker_node_ips: "{{ groups['k8s-worker-nodes'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+- name: Create HAProxy config
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  notify:
+    - Restart haproxy
+
+- name: Create keepalived.conf (Master)
+  ansible.builtin.template:
+    src: keepalived_master.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+  when: inventory_hostname == groups["k8s-loadbalancers"][0]
+  notify:
+    - Restart keepalived
+
+- name: Copy keepalived.conf (Backup)
+  ansible.builtin.template:
+    src: keepalived_backup.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+  when: inventory_hostname != groups["k8s-loadbalancers"][0]
+  notify:
+    - Restart keepalived
+
+- name: Create rsyslog conf
+  ansible.builtin.copy:
+    src: rsyslog-haproxy.conf
+    dest: "/etc/rsyslog.d/haproxy.conf"
+    mode: "0640"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  notify:
+    - Restart rsyslog
