@@ -55,7 +55,7 @@
   changed_when: false # This command is not idempotent, but we want to run it if swap is active
 
 - name: Generate default containerd config if not exists
-  ansible.builtin.command: containerd config default > /etc/containerd/config.toml
+  ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
   args:
     creates: /etc/containerd/config.toml # Idempotency check
   notify: Restart containerd
@@ -66,13 +66,16 @@
     --set image-endpoint=unix:///run/containerd/containerd.sock
   changed_when: false # This command is not idempotent, but we want to ensure it's set
 
-- name: Enable systemd cgroup in containerd config
+- name: Enable systemd cgroup
   ansible.builtin.lineinfile:
     path: /etc/containerd/config.toml
-    regexp: '^\s*SystemdCgroup = false'
-    line: '            SystemdCgroup = true'
-    insertafter: '^\s*\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options\]'
-    backup: true # Add backup for safety
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    insertafter: "{{ item.insertafter }}"
+  with_items:
+    - regexp: "SystemdCgroup = false"
+      line: "SystemdCgroup = true"
+      insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
   notify: Restart containerd
 
 - name: Configure Kubelet node IP
@@ -83,3 +86,12 @@
     owner: root # Kubelet config should be owned by root
     group: root # Kubelet config should be owned by root
   notify: Restart kubelet
+
+- name: Ensure service started
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - containerd
+    - kubelet
