@@ -1,0 +1,67 @@
+- name: Initialize Kubernetes Master Node
+  ansible.builtin.command: |
+    kubeadm init \
+      --pod-network-cidr=10.244.0.0/16 \
+      --control-plane-endpoint={{ control_plane_loadbalancer_ip }}:6443 \
+      --apiserver-advertise-address={{ ansible_host }} \
+      --upload-certs \
+      --apiserver-cert-extra-sans={{ control_plane_loadbalancer_ip }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+- name: Create ~/.kube directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.kube/"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+
+- name: Copy admin.conf to home
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ ansible_env.HOME }}/.kube/config"
+    mode: "0600"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    remote_src: true
+
+- name: Fetch admin.conf
+  ansible.builtin.fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: ./admin.conf
+    flat: true
+
+# setup calico
+- name: Copy calico-custom-resources.yaml
+  ansible.builtin.copy:
+    src: calico-custom-resources.yaml
+    dest: "{{ ansible_env.HOME }}/calico-custom-resources.yaml"
+    mode: "0755"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+    backup: true
+
+- name: Setup Calico Tigera Operator with kubectl
+  ansible.builtin.command: |
+    kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+  register: calico_apply_result
+  changed_when: "'created' in calico_apply_result.stdout or 'configured' in calico_apply_result.stdout or 'unchanged' not in calico_apply_result.stdout"
+
+- name: Setup Calico Custom Resources (using shell)
+  ansible.builtin.command: |
+    kubectl apply -f "{{ ansible_env.HOME }}/calico-custom-resources.yaml"
+  register: calico_custom_resources_apply_result
+  changed_when: >
+    'created' in calico_custom_resources_apply_result.stdout or
+    'configured' in calico_custom_resources_apply_result.stdout or
+    'unchanged' not in calico_custom_resources_apply_result.stdout
+
+- name: Wait for etcd pod to be running (using shell)
+  ansible.builtin.command: |
+    kubectl get pods -n kube-system -l component=etcd --field-selector status.phase=Running -o jsonpath='{.items[*].metadata.name}'
+  register: etcd_pod_check
+  until: etcd_pod_check.stdout | length > 0
+  retries: 50
+  delay: 10
+  changed_when: false
