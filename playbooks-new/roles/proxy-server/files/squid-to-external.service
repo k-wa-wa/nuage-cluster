@@ -1,0 +1,18 @@
+[Unit]
+Description=Squid Web Proxy Server To External Internet Access
+After=local-fs.target network.target network-online.target nss-lookup.target
+
+[Service]
+Type=notify
+PIDFile=/run/squid-to-external.pid
+Group=proxy
+RuntimeDirectory=squid
+RuntimeDirectoryMode=0775
+ExecStartPre=/usr/sbin/squid --foreground -z -f /etc/squid/squid-to-external.conf
+ExecStart=/usr/sbin/squid --foreground -sYC -f /etc/squid/squid-to-external.conf
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target

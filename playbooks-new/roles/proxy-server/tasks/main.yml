@@ -1,0 +1,55 @@
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - squid
+    state: present
+
+### squid on port:3128
+- name: Deploy squid.conf
+  ansible.builtin.copy:
+    src: squid.conf
+    dest: /etc/squid/squid.conf
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  notify:
+    - Reconfigure squid
+### squid on port:3128
+
+### squid on port:3129 for external access
+- name: Add service file
+  ansible.builtin.copy:
+    src: squid-to-external.service
+    dest: /etc/systemd/system/squid-to-external.service
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  register: copy_service_file
+
+- name: Reload systemd daemon # noqa: no-handler
+  ansible.builtin.systemd:
+    name: squid-to-external
+    state: restarted
+    daemon_reload: true
+    enabled: true
+  when: copy_service_file.changed
+
+- name: Deploy squid-to-external.conf
+  ansible.builtin.copy:
+    src: squid-to-external.conf
+    dest: /etc/squid/squid-to-external.conf
+    mode: "0644"
+    owner: "{{ ansible_env.SUDO_USER }}"
+    group: "{{ ansible_env.SUDO_USER }}"
+  notify:
+    - Reconfigure squid-to-external
+### squid on port:3129 for external access
+
+- name: Ensure squid daemon is started
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - squid
+    - squid-to-external

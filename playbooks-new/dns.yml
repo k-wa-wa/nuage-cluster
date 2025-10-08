@@ -1,0 +1,5 @@
+- name: Setup DNS servers
+  hosts: dns_servers
+  become: true
+  roles:
+    - dns-server
