@@ -1,0 +1,26 @@
+- name: Reset kubeadm
+  ansible.builtin.include_tasks:
+    file: reset-kubeadm.yml
+
+- name: Remove old repository configuration # TODO: 他も必要か
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/{{ item }}.list"
+    state: absent
+  loop:
+    - docker
+    - kubernetes
+
+- name: Disable services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - kubelet
+    - containerd
+  failed_when: false
+
+- name: Reboot
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+    connect_timeout: 300
