@@ -41,6 +41,7 @@ async def server_maintenance_agent():
 - `insert_report`: 作成したレポートをデータベースに保存するためのツール。
 
 あなたの主なタスクは、Kubernetesノードの健全性を監視し、問題があれば特定し、詳細なレポートを作成することです。
+レポートはmarkdown形式で作成してinsert_reportツールを使用してデータベースに保存してください。
 ユーザーからの指示に従い、これらのツールを適切に組み合わせてタスクを遂行してください。
 """
     return create_react_agent(
