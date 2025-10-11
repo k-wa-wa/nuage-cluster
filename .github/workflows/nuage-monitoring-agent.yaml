@@ -8,9 +8,40 @@ on:
       - monitoring/monitoring-agent/**/*
 
 jobs:
-  call_reusable_workflow:
-    uses: ./.github/workflows/common-publish-docker-image.yaml
-    with:
-      path: monitoring/monitoring-agent/**/*
-      image_name: nuage-monitoring-agent
-      context: monitoring/monitoring-agent
+  publish_docker_image:
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/k-wa-wa/nuage-monitoring-agent
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          context: monitoring/monitoring-agent
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
