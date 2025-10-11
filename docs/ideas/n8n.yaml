@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n
+  labels:
+    app: n8n
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n
+  template:
+    metadata:
+      labels:
+        app: n8n
+    spec:
+      containers:
+      - name: n8n
+        image: n8nio/n8n:latest
+        env:
+          - name: N8N_HOST
+            value: "n8n-service"
+          - name: N8N_PROTOCOL
+            value: "http"
+          - name: N8N_PORT
+            value: "5678"
+          - name: N8N_BASIC_AUTH_ACTIVE
+            value: "true"
+          - name: N8N_BASIC_AUTH_USER
+            value: "n8nuser"
+          - name: N8N_BASIC_AUTH_PASSWORD
+            value: "n8npassword"
+          - name: N8N_LISTEN_ADDRESS
+            value: "0.0.0.0"
+          - name: N8N_NODES_EXECUTION_MODE
+            value: "queue"
+          - name: QUEUE_HEALTH_CHECK_TIMEOUT
+            value: "10000"
+          - name: QUEUE_MAX_POLL_TIMEOUT
+            value: "10000"
+          - name: N8N_SECURE_COOKIE
+            value: "false"
+        ports:
+          - containerPort: 5678
+        # volumeMounts:
+        #   - name: n8n-data
+        #     mountPath: /home/node/.n8n
+      # volumes:
+      #   - name: n8n-data
+      #     persistentVolumeClaim:
+      #       claimName: n8n-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-service
+  labels:
+    app: n8n
+spec:
+  selector:
+    app: n8n
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5678
+      nodePort: 30078
+  type: NodePort
