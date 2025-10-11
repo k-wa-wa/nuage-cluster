@@ -28,7 +28,7 @@ client = MultiServerMCPClient(
     }
 )
 
-model = ChatGoogleGenerativeAI(model='gemini-2.5-pro')
+model = ChatGoogleGenerativeAI(model=os.environ["GEMINI_MODEL"])
 
 
 async def server_maintenance_agent():
@@ -67,10 +67,7 @@ async def _create_supervisor():
 async def main():
     app = await server_maintenance_agent()
 
-    content = """
-    KubernetesクラスターのノードのCPU使用率とメモリ使用率を監視し、その結果をグラフ化してレポートを作成してください。
-    レポートはデータベースに保存してください。
-    """
+    content = os.environ["INPUT"]
     inputs = MessagesState(messages=[HumanMessage(content=content)])
     config: RunnableConfig = {'configurable': {'thread_id': '1'}}
     async for chunk in app.astream(input=inputs, config=config):
