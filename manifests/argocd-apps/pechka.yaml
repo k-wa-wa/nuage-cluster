@@ -1,4 +1,3 @@
-# prod-app.yaml (本番環境用)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -9,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/k-wa-wa/pechka
     targetRevision: HEAD
-    path: manifests/overlays/prod
+    path: manifests/overlays/dev
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
