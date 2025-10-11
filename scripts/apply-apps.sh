@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-export KUBECONFIG=playbooks/k8s/admin.conf
+export KUBECONFIG=playbooks/admin.conf
 
 #################### nodes ####################
 ./k apply -f manifests/node-labels.yaml

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-kubectl --kubeconfig ./playbooks/k8s/admin.conf "$@"
+kubectl --kubeconfig ./playbooks/admin.conf "$@"
