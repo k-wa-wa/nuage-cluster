@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-chart
+  labels:
+    app: mcp-chart
+spec:
+  selector:
+    matchLabels:
+      app: mcp-chart
+  template:
+    metadata:
+      labels:
+        app: mcp-chart
+    spec:
+      containers:
+      - name: mcp-chart
+        image: acuvity/mcp-server-chart:latest
+        args: ["--transport", "streamable"]
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-chart
+spec:
+  selector:
+    app: mcp-chart
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      nodePort: 30003
+  type: NodePort
