@@ -20,6 +20,7 @@ module "load-balancer-01" {
     ci_user   = "ubuntu"
     disk_size = 20
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "load-balancer-02" {
   source = "../../modules/ubuntu-vm"
@@ -43,6 +44,7 @@ module "load-balancer-02" {
     ci_user   = "ubuntu"
     disk_size = 20
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "control-plane-01" {
   source = "../../modules/ubuntu-vm"
@@ -66,6 +68,7 @@ module "control-plane-01" {
     ci_user   = "ubuntu"
     disk_size = 30
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "control-plane-02" {
   source = "../../modules/ubuntu-vm"
@@ -89,6 +92,7 @@ module "control-plane-02" {
     ci_user   = "ubuntu"
     disk_size = 30
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "control-plane-03" {
   source = "../../modules/ubuntu-vm"
@@ -112,6 +116,7 @@ module "control-plane-03" {
     ci_user   = "ubuntu"
     disk_size = 30
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "worker-node-01" {
   source = "../../modules/ubuntu-vm"
@@ -135,6 +140,7 @@ module "worker-node-01" {
     ci_user   = "ubuntu"
     disk_size = 30
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "worker-node-02" {
   source = "../../modules/ubuntu-vm"
@@ -158,6 +164,7 @@ module "worker-node-02" {
     ci_user   = "ubuntu"
     disk_size = 30
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 module "worker-node-device-host-01" {
   source = "../../modules/ubuntu-vm"
@@ -182,4 +189,5 @@ module "worker-node-device-host-01" {
     disk_size = 30
     usb_host  = "13fd:0840"
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }

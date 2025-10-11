@@ -27,6 +27,7 @@ module "oc1-proxy" {
     ci_user = "ubuntu"
     disk_size = 20
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
 
 module "oc1-dns" {
@@ -51,4 +52,5 @@ module "oc1-dns" {
     ci_user = "ubuntu"
     disk_size = 20
   }
+  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
