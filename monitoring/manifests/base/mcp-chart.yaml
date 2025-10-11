@@ -41,7 +41,7 @@ spec:
     app: mcp-chart
   ports:
     - protocol: TCP
-      port: 8000
+      port: 80
       targetPort: 8000
       nodePort: 30003
   type: NodePort
