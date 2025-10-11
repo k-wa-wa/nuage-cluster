@@ -1,8 +1,0 @@
-- name: Get join command
-  any_errors_fatal: true
-  max_fail_percentage: 0
-  hosts:
-    - control-plane
-  become: true
-  roles:
-    - get-join-command

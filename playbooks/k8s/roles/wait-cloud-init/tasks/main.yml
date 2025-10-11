@@ -1,6 +1,0 @@
-- name: Wait for cloud-init to finish
-  ansible.builtin.command:
-    cmd: "cloud-init status --wait"
-  register: cloudinit_status
-  failed_when: false
-  changed_when: false

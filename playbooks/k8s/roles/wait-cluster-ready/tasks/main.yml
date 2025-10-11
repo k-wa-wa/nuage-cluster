@@ -1,3 +1,0 @@
-- name: Wait nodes become ready
-  ansible.builtin.command: kubectl wait --for=condition=Ready --all nodes --timeout=300s
-  changed_when: false

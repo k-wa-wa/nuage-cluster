@@ -1,8 +1,0 @@
-- name: Init nodes
-  any_errors_fatal: true
-  max_fail_percentage: 0
-  hosts: all
-  become: true
-  roles:
-    - wait-cloud-init
-    - reset-hosts
