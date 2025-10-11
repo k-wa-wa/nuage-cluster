@@ -21,7 +21,7 @@ spec:
         args: ["-y", "@antv/mcp-server-chart", "--transport", "streamable"]
         env:
         - name: VIS_REQUEST_SERVER
-          value: http://vis-chart-server.svc.cluster.local:3000/generate-chart
+          value: http://vis-chart-server.nuage-monitoring.svc.cluster.local/generate-chart
         ports:
         - containerPort: 1122
         resources:
