@@ -77,7 +77,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: mcp-k8s
-  namespace: default # ServiceAccountがデプロイされるNamespace
+  namespace: nuage-monitoring # TODO: 運用検討
 roleRef:
   kind: ClusterRole
   name: mcp-k8s-role
