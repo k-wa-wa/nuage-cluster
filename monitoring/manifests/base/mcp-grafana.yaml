@@ -4,6 +4,7 @@ metadata:
   name: mcp-grafana
   labels:
     app: mcp-grafana
+  namespace: nuage-monitoring
 spec:
   selector:
     matchLabels:
@@ -18,12 +19,7 @@ spec:
         image: mcp/grafana:latest
         env:
           - name: GRAFANA_URL
-            value: GRAFANA_URL
-          - name: GRAFANA_SERVICE_ACCOUNT_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: grafana-credentials
-                key: service_account_token
+            value: http://prometheus-grafana.ops.svc.cluster.local
         args:
           - "-t"
           - "streamable-http"
@@ -45,6 +41,7 @@ metadata:
   name: mcp-grafana
   labels:
     app: mcp-grafana
+  namespace: nuage-monitoring
 spec:
   selector:
     app: mcp-grafana

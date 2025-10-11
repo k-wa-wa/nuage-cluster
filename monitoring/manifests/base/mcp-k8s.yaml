@@ -4,6 +4,7 @@ metadata:
   name: mcp-k8s
   labels:
     app: mcp-k8s
+  namespace: nuage-monitoring
 spec:
   replicas: 1
   selector:
@@ -41,6 +42,7 @@ metadata:
   name: mcp-k8s
   labels:
     app: mcp-k8s
+  namespace: nuage-monitoring
 spec:
   selector:
     app: mcp-k8s
@@ -77,7 +79,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: mcp-k8s
-  namespace: nuage-monitoring # TODO: 運用検討
+  namespace: nuage-monitoring
 roleRef:
   kind: ClusterRole
   name: mcp-k8s-role
