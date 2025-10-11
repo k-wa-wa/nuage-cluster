@@ -1,4 +1,4 @@
 development:
   dialect: postgres
-  datasource: xxx
+  datasource: postgresql://[user]:[password]@localhost:5432/nuage_monitoring?sslmode=disable
   dir: ./migrations/
