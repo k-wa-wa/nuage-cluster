@@ -1,0 +1,16 @@
+name: Docker Build and Push - nuage-monitoring-agent
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - monitoring/monitoring-agent/**/*
+
+jobs:
+  call_reusable_workflow:
+    uses: ./.github/workflows/common-publish-docker-image.yaml@master
+    with:
+      path: monitoring/monitoring-agent/**/*
+      image_name: nuage-monitoring-agent
+      context: monitoring/monitoring-agent
