@@ -1,0 +1,23 @@
+- name: Get join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command
+  changed_when: false
+
+- name: Get cert
+  ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
+  register: kube_cert
+  changed_when: false
+
+- name: Set join info
+  ansible.builtin.set_fact:
+    join_info:
+      join_command: "{{ join_command.stdout }}"
+      certificate_key: "{{ kube_cert.stdout_lines[-1] }}"
+
+- name: Save join info
+  become: false
+  ansible.builtin.copy:
+    dest: "./kubeadm_join_info.json"
+    content: "{{ join_info | to_json }}"
+    mode: '0644'
+  delegate_to: localhost

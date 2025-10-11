@@ -1,0 +1,21 @@
+- name: Read join info json
+  ansible.builtin.set_fact:
+    kubeadm_join_info: "{{ lookup('file', './kubeadm_join_info.json') | from_json }}"
+  delegate_to: localhost
+
+- name: Join control plane
+  ansible.builtin.command: |
+    {{ kubeadm_join_info.join_command }} \
+      --control-plane \
+      --apiserver-advertise-address={{ ansible_host }} \
+      --certificate-key {{ kubeadm_join_info.certificate_key }}
+  changed_when: result.rc == 0
+  register: result
+  when: "'k8s-control-planes' in group_names"
+
+- name: Join worker node
+  ansible.builtin.command: |
+    {{ kubeadm_join_info.join_command }}
+  changed_when: result.rc == 0
+  register: result
+  when: "'k8s-worker-nodes' in group_names"
