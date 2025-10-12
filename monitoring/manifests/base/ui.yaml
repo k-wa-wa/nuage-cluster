@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nuage-monitoring-ui
+  labels:
+    app: nuage-monitoring-ui
+  namespace: nuage-monitoring
+spec:
+  selector:
+    matchLabels:
+      app: nuage-monitoring-ui
+  template:
+    metadata:
+      labels:
+        app: nuage-monitoring-ui
+    spec:
+      containers:
+      - name: nuage-monitoring-ui
+        image: ghcr.io/k-wa-wa/nuage-monitoring-ui
+        env:
+          - name: EXPO_PUBLIC_GRAPHQL_ENDPOINT
+            value: gateway.nuage-monitoring.nuage
+        ports:
+        - containerPort: 8081
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nuage-monitoring-ui
+  namespace: nuage-monitoring
+spec:
+  selector:
+    app: nuage-monitoring-ui
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8081
+  type: ClusterIP

@@ -203,3 +203,43 @@ spec:
         host: argocd-server.argocd.svc.cluster.local
         port:
           number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: nuage-monitoring-ui-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "nuage-monitoring.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: nuage-monitoring-ui.nuage-monitoring.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: nuage-monitoring-gateway-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "gateway.nuage-monitoring.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: nuage-monitoring-gateway.nuage-monitoring.svc.cluster.local
+        port:
+          number: 80
