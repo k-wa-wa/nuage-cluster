@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nuage-monitoring-gateway
+  labels:
+    app: nuage-monitoring-gateway
+  namespace: nuage-monitoring
+spec:
+  selector:
+    matchLabels:
+      app: nuage-monitoring-gateway
+  template:
+    metadata:
+      labels:
+        app: nuage-monitoring-gateway
+    spec:
+      containers:
+      - name: nuage-monitoring-gateway
+        image: ghcr.io/k-wa-wa/nuage-monitoring-gateway
+        env:
+          - name: SECRET_KEY_BASE
+            value: asdfasdfasdfasdf # TODO: 運用検討
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: DB_HOST
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: DB_NAME
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: DB_USER
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: DB_PASSWORD
+          - name: DB_PORT
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: DB_PORT
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nuage-monitoring-gateway
+  namespace: nuage-monitoring
+spec:
+  selector:
+    app: nuage-monitoring-gateway
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      nodePort: 30100
+  type: NodePort
