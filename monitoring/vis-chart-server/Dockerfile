@@ -4,6 +4,13 @@ FROM node:24-slim AS base
 # Upgrade system packages to reduce vulnerabilities and remove cache
 RUN apt-get update && apt-get upgrade -y && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Install Japanese fonts and set locale for proper display of Japanese characters
+RUN apt-get update && apt-get install -y locales fonts-ipaexfont \
+    && rm -rf /var/lib/apt/lists/* \
+    && localedef -i ja_JP -f UTF-8 ja_JP.UTF-8
+ENV LANG ja_JP.UTF-8
+ENV LC_ALL ja_JP.UTF-8
+
 FROM base AS builder
 
 WORKDIR /app

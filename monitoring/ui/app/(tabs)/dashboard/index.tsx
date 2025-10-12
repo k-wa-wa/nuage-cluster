@@ -1,11 +1,12 @@
+import ReportsSection from '@/components/ReportsSection';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Link } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function DashboardScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Dashboard Screen</Text>
+      <ReportsSection />
     </View>
   );
 }

@@ -1,0 +1,32 @@
+"""
+An ISO 8601-encoded datetime
+"""
+scalar ISO8601DateTime @specifiedBy(url: "https://tools.ietf.org/html/rfc3339")
+
+type Mutation {
+  """
+  An example field added by the generator
+  """
+  testField: String!
+}
+
+type Query {
+  """
+  List of reports
+  """
+  reports: [Report!]!
+
+  """
+  A temporary response from the gateway server
+  """
+  temporaryResponse: String!
+}
+
+type Report {
+  content: String!
+  generatedAt: ISO8601DateTime!
+  reportId: ID!
+  reportName: String!
+  reportType: String
+  status: String!
+}
