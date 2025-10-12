@@ -11,9 +11,3 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
-
-#################### proxmox ve ####################
-(
-    cd terraform/targets/prerequire \
-    && tofu apply --auto-approve
-)
