@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: report-job
+  namespace: nuage-monitoring
+spec:
+  schedule: "0 * * * *" # Every hour
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 100
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: monitoring-agent
+              image: ghcr.io/k-wa-wa/nuage-monitoring-agent:latest
+              env:
+                - name: MCP_K8S_URL
+                  value: http://mcp-k8s.nuage-monitoring.svc.cluster.local/mcp
+                - name: MCP_GRAFANA_URL
+                  value: http://mcp-grafana.nuage-monitoring.svc.cluster.local/mcp
+                - name: MCP_CHART_URL
+                  value: http://mcp-chart.nuage-monitoring.svc.cluster.local/mcp
+                - name: GEMINI_MODEL
+                  value: gemini-2.5-flash
+                - name: GOOGLE_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: llm-credentials
+                      key: GOOGLE_API_KEY
+                - name: K8S_REPORT_AGENT_PROMPT
+                  value: |
+                    あなたはkubernetesの監視・レポートに特化したエージェントです。
+                - name: INPUT_PROMPT
+                  value: |
+                    以下の流れでレポートを作成してください。
+
+                    1. mcp-k8sを使用してk8sの各ノードの情報を取得する。
+                    2. mcp-grafanaを使用してCPU使用率とメモリ使用率を取得し、1のデータとマッピングする。
+                    3. mcp-chartを使用して2のメトリクスをグラフにする。
+                    4. 3で作成したグラフのURLを埋め込んだレポートをmarkdown形式で作成する。
+                    5. insert_reportツールを使用してレポートをデータベースに保存する。
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: DB_HOST
+                - name: DB_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: DB_NAME
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: DB_USER
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: DB_PASSWORD
+                - name: DB_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: DB_PORT
+              resources:
+                requests:
+                  cpu: "0.25"
+                  memory: "512Mi"
+                limits:
+                  cpu: "4"
+                  memory: "8Gi"
