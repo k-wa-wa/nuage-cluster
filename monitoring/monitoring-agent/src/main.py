@@ -31,23 +31,11 @@ client = MultiServerMCPClient(
 model = ChatGoogleGenerativeAI(model=os.environ["GEMINI_MODEL"])
 
 
-async def server_maintenance_agent():
-    prompt = """
-あなたはサーバー環境のメンテナンスを行う熟練したエンジニアです。
-以下のツールを使用して、Kubernetesクラスターの監視、診断、レポート作成を行います。
-- `mcp-k8s`: Kubernetesクラスターの情報を取得するためのツール。
-- `mcp-grafana`: Grafanaからメトリクス（CPU使用率、メモリ使用率など）を取得するためのツール。
-- `mcp-chart`: 取得したデータからグラフを作成するためのツール。
-- `insert_report`: 作成したレポートをデータベースに保存するためのツール。
-
-あなたの主なタスクは、Kubernetesノードの健全性を監視し、問題があれば特定し、詳細なレポートを作成することです。
-レポートはmarkdown形式で作成してinsert_reportツールを使用してデータベースに保存してください。
-ユーザーからの指示に従い、これらのツールを適切に組み合わせてタスクを遂行してください。
-"""
+async def k8s_report_agent():
     return create_react_agent(
-        name="server_maintenance_agent",
+        name="k8s_report_agent",
         model=model,
-        prompt=prompt,
+        prompt=os.environ["K8S_REPORT_AGENT_PROMPT"],
         tools=[*(await client.get_tools()), insert_report],
     )
 
@@ -55,7 +43,7 @@ async def server_maintenance_agent():
 async def _create_supervisor():
     return create_supervisor(
         model=model,
-        agents=[await server_maintenance_agent()],
+        agents=[await k8s_report_agent()],
         prompt=(
             "You are a supervisor agent"
         ),
@@ -65,14 +53,14 @@ async def _create_supervisor():
 
 
 async def main():
-    app = await server_maintenance_agent()
+    app = await k8s_report_agent()
 
-    content = os.environ["INPUT"]
+    content = os.environ["INPUT_PROMPT"]
     inputs = MessagesState(messages=[HumanMessage(content=content)])
     config: RunnableConfig = {'configurable': {'thread_id': '1'}}
     async for chunk in app.astream(input=inputs, config=config):
         print(chunk)
-        print("\n\n")
+        print("\n")
 
 
 if __name__ == "__main__":
