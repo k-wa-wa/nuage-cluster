@@ -18,8 +18,8 @@ fi
 ./k apply -f manifests/gateway.yaml
 
 #################### argocd ####################
-./k apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-./k apply -f manifests/argocd-apps/
+helm upgrade --install -n argocd argocd argo/argo-cd -f manifests/argocd/argocd-values.yaml
+./k apply -f manifests/argocd/apps/
 
 ./k apply -k manifests/secrets
 
