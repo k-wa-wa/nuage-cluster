@@ -19,7 +19,7 @@ spec:
         image: ghcr.io/k-wa-wa/nuage-monitoring-ui
         env:
           - name: EXPO_PUBLIC_GRAPHQL_ENDPOINT
-            value: http://gateway.nuage-monitoring.nuage/graphql
+            value: /graphql
         ports:
         - containerPort: 8081
         resources:
