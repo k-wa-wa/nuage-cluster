@@ -1,0 +1,5 @@
+- name: Setup minio
+  hosts: nfs-servers
+  become: true
+  roles:
+    - minio-server
