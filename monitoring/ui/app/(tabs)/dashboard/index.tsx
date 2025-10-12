@@ -14,8 +14,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // Removed justifyContent: 'center' and alignItems: 'center' to allow content to take full width and flow naturally
     backgroundColor: '#f0f0f0',
   },
   title: {

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface ReportsSectionProps {
   // Define any props if needed
 }
@@ -81,6 +81,8 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
         <FlatList
           data={reports}
           keyExtractor={(item) => item.reportId}
+          numColumns={isMobile ? 1 : 2} // 1 column for mobile, 2 for tablet/PC
+          columnWrapperStyle={!isMobile && styles.columnWrapper} // Apply wrapper style for 2 columns
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.reportItem}
@@ -99,21 +101,34 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
   );
 };
 
+const { width } = Dimensions.get('window');
+
+const isMobile = width < 768;
+const isTablet = width >= 768 && width < 1024;
+const isDesktop = width >= 1024;
+
 const styles = StyleSheet.create({
   container: {
-    marginTop: 20,
-    paddingHorizontal: 16,
+    flex: 1, // Ensure the container takes up available space
+    marginTop: isMobile ? 10 : isTablet ? 20 : 30,
+    paddingHorizontal: isMobile ? 16 : isTablet ? 32 : 64,
   },
   title: {
-    fontSize: 24,
+    fontSize: isMobile ? 20 : isTablet ? 28 : 36,
     fontWeight: 'bold',
     marginBottom: 10,
   },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 10, // Add margin between rows in a multi-column layout
+  },
   reportItem: {
     backgroundColor: '#fff',
-    padding: 15,
+    padding: isMobile ? 10 : isTablet ? 15 : 20,
     borderRadius: 8,
-    marginBottom: 10,
+    flex: isMobile ? undefined : 1, // Take full width on mobile, flexible width in multi-column
+    marginHorizontal: isMobile ? 0 : 5, // Add horizontal margin for spacing between columns
+    marginBottom: 10, // Always add bottom margin for spacing between items/rows
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -121,14 +136,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   reportName: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : isTablet ? 18 : 20,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   errorText: {
     color: 'red',
-    marginTop: 20,
-    paddingHorizontal: 16,
+    marginTop: isMobile ? 20 : isTablet ? 25 : 30,
+    paddingHorizontal: isMobile ? 16 : isTablet ? 32 : 64,
   },
 });
 
