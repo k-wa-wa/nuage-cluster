@@ -22,3 +22,6 @@ curl -X POST \
      -H "Content-Type: application/json" \
      --data "{ \"query\": \"$(echo $GRAPHQL_QUERY | tr -d '\n' | sed 's/"/\\"/g')\" }" \
      $GRAPHQL_URL | jq
+
+
+# memo: bundle exec rake graphql:schema:idl
