@@ -5,3 +5,4 @@ resources:
 - mcp-grafana.yaml
 - mcp-k8s.yaml
 - mcp-chart.yaml
+- vis-chart-server.yaml
