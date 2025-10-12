@@ -21,6 +21,8 @@ fi
 ./k apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ./k apply -f manifests/argocd-apps/
 
+./k apply -k manifests/secrets
+
 #################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0
