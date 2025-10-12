@@ -10,8 +10,8 @@ module Types
       context.schema.object_from_id(id, context)
     end
 
-    field :nodes, [Types::NodeType, null: true], null: true, description: "Fetches a list of objects given a list of IDs." do
-      argument :ids, [ID], required: true, description: "IDs of the objects."
+    field :nodes, [ Types::NodeType, null: true ], null: true, description: "Fetches a list of objects given a list of IDs." do
+      argument :ids, [ ID ], required: true, description: "IDs of the objects."
     end
 
     def nodes(ids:)
@@ -25,6 +25,11 @@ module Types
       description: "A temporary response from the gateway server"
     def temporary_response
       "This is a temporary response from the Rails GraphQL gateway server."
+    end
+
+    field :reports, [ Types::ReportType ], null: false, description: "List of reports"
+    def reports
+      Report.all
     end
   end
 end
