@@ -27,9 +27,24 @@ module Types
       "This is a temporary response from the Rails GraphQL gateway server."
     end
 
-    field :reports, [ Types::ReportType ], null: false, description: "List of reports"
-    def reports
-      Report.all
+    field :reports, [ Types::ReportType ], null: false, description: "List of reports" do
+      argument :sort, String, required: false, description: "Sort by field and direction (e.g., 'generatedAt:desc')"
+    end
+    def reports(sort: nil)
+      scope = Report.all
+      if sort
+        field_graphql, direction_str = sort.split(":", 2)
+        field_db = field_graphql.underscore # Convert camelCase to snake_case for database column
+        direction = direction_str&.downcase == "desc" ? "desc" : "asc" # Use lowercase for SQL direction
+
+        if Report.column_names.include?(field_db)
+          scope = scope.order("#{field_db} #{direction}")
+        else
+          # Optionally, raise an error or log a warning for invalid sort arguments
+          # For now, we'll just ignore invalid arguments and return unsorted
+        end
+      end
+      scope
     end
   end
 end

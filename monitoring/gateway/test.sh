@@ -6,7 +6,7 @@ GRAPHQL_URL="http://localhost:3000/graphql" # Adjust if your server runs on a di
 # GraphQL query to fetch reports
 GRAPHQL_QUERY='
   query {
-    reports {
+    reports(sort: "generatedAt:desc") {
       reportId
       reportName
       reportType
