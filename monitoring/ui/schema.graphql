@@ -14,7 +14,12 @@ type Query {
   """
   List of reports
   """
-  reports: [Report!]!
+  reports(
+    """
+    Sort by field and direction (e.g., 'generatedAt:desc')
+    """
+    sort: String
+  ): [Report!]!
 
   """
   A temporary response from the gateway server

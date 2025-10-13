@@ -32,7 +32,7 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
           body: JSON.stringify({
             query: `
               query {
-                reports {
+                reports(sort: "generatedAt:desc") {
                   content
                   generatedAt
                   reportId
