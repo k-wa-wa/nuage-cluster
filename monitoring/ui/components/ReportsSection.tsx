@@ -23,7 +23,7 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || 'http://192.168.5.62:30005/graphql';
+        const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || "";
         const response = await fetch(graphqlEndpoint, {
           method: 'POST',
           headers: {
