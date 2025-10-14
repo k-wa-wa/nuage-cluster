@@ -35,3 +35,8 @@ metadata:
   name: tests
   labels:
     istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nuage-monitoring # secret作成のためあらかじめ作成しておく
