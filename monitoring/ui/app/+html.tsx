@@ -26,7 +26,10 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <script src="/register-sw.js" defer></script>
+      </body>
     </html>
   );
 }

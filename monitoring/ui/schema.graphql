@@ -5,9 +5,34 @@ scalar ISO8601DateTime @specifiedBy(url: "https://tools.ietf.org/html/rfc3339")
 
 type Mutation {
   """
+  Sends a push notification to all subscribed clients
+  """
+  notifyAll: PushNotification!
+
+  """
+  Subscribes a client to WebPush notifications
+  """
+  subscribe(subscription: SubscriptionInput!): PushNotification!
+
+  """
   An example field added by the generator
   """
   testField: String!
+}
+
+"""
+Represents the result of a push notification operation
+"""
+type PushNotification {
+  """
+  A message related to the operation result
+  """
+  message: String
+
+  """
+  True if the operation was successful
+  """
+  success: Boolean!
 }
 
 type Query {
@@ -25,6 +50,11 @@ type Query {
   A temporary response from the gateway server
   """
   temporaryResponse: String!
+
+  """
+  The VAPID public key for WebPush notifications
+  """
+  vapidPublicKey: VapidPublicKey!
 }
 
 type Report {
@@ -35,3 +65,25 @@ type Report {
   reportType: String
   status: String!
 }
+
+"""
+Input for a WebPush subscription
+"""
+input SubscriptionInput {
+  endpoint: String!
+  expirationTime: ISO8601DateTime
+  keys: SubscriptionKeysInput!
+}
+
+"""
+Keys for a WebPush subscription
+"""
+input SubscriptionKeysInput {
+  auth: String!
+  p256dh: String!
+}
+
+"""
+A VAPID public key string
+"""
+scalar VapidPublicKey
