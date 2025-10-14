@@ -100,14 +100,7 @@ export default function SettingsScreen() {
             }
           `,
           variables: {
-            subscription: {
-              endpoint: subscription.endpoint,
-              expirationTime: subscription.expirationTime,
-              keys: {
-                p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh') as ArrayBuffer))),
-                auth: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth') as ArrayBuffer))),
-              },
-            },
+            subscription: JSON.parse(JSON.stringify(subscription))
           },
         }),
       });

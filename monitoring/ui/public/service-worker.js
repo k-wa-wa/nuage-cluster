@@ -8,7 +8,7 @@ self.addEventListener('activate', async () => {
 });
 
 self.addEventListener('push', event => {
-  const data = event.data.json();
+  const data = event.data.text();
   console.log('Push received:', data);
 
   const title = data.title || 'Nuage Cluster Monitoring';
