@@ -84,6 +84,7 @@ export default function SettingsScreen() {
       });
 
       // Send subscription to your backend
+      const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || ""
       const response = await fetch(graphqlEndpoint, {
         method: 'POST',
         headers: {
