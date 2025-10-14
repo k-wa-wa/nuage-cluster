@@ -1,11 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from 'react'; // Import useEffect
+import { StyleSheet, View } from 'react-native'; // Import Button and Platform
 
-export default function AppsScreen() {
+export default function DashboardScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Apps Screen</Text>
-      <Text>Content for the Apps tab will go here.</Text>
     </View>
   );
 }
@@ -13,13 +11,7 @@ export default function AppsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // Removed justifyContent: 'center' and alignItems: 'center' to allow content to take full width and flow naturally
     backgroundColor: '#f0f0f0',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
   },
 });

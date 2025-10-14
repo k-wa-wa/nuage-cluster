@@ -1,0 +1,4 @@
+[class*="navigationMenuRoot"] {
+  bottom: 24px !important;
+  top: unset !important; /* Ensure top is not applied */
+}
