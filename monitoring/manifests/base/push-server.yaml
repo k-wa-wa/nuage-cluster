@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: push-server
+  namespace: nuage-monitoring
+spec:
+  replicas: 1
+  serviceName: push-server
+  selector:
+    matchLabels:
+      app: push-server
+  template:
+    metadata:
+      labels:
+        app: push-server
+    spec:
+      containers:
+        - name: push-server
+          image: ghcr.io/k-wa-wa/micro-gopush
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: push-server
+  namespace: nuage-monitoring
+spec:
+  selector:
+    app: push-server
+  ports:
+  - port: 80
+    targetPort: 8080

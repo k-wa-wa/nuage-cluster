@@ -6,6 +6,7 @@ resources:
 - mcp-chart.yaml
 - mcp-grafana.yaml
 - mcp-k8s.yaml
+- push-server.yaml
 - report-job.yaml
 - ui.yaml
 - vis-chart-server.yaml
