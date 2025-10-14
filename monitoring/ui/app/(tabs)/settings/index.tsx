@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Button, Platform, StyleSheet, Text, View } from 'react-native';
 
-// Placeholder for GraphQL client or direct fetch utility
-const graphqlEndpoint = '/api/graphql'; // Adjust if your GraphQL endpoint is different
-
 export default function SettingsScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
