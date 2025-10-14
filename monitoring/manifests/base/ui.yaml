@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nuage-monitoring-ui
+  name: ui
   labels:
-    app: nuage-monitoring-ui
+    app: ui
   namespace: nuage-monitoring
 spec:
   selector:
     matchLabels:
-      app: nuage-monitoring-ui
+      app: ui
   template:
     metadata:
       labels:
-        app: nuage-monitoring-ui
+        app: ui
     spec:
       containers:
-      - name: nuage-monitoring-ui
+      - name: ui
         image: ghcr.io/k-wa-wa/nuage-monitoring-ui
         env:
           - name: EXPO_PUBLIC_GRAPHQL_ENDPOINT
@@ -33,11 +33,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nuage-monitoring-ui
+  name: ui
   namespace: nuage-monitoring
 spec:
   selector:
-    app: nuage-monitoring-ui
+    app: ui
   ports:
     - protocol: TCP
       port: 80

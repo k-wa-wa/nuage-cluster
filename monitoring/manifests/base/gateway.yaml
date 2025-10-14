@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nuage-monitoring-gateway
+  name: gateway
   labels:
-    app: nuage-monitoring-gateway
+    app: gateway
   namespace: nuage-monitoring
 spec:
   selector:
     matchLabels:
-      app: nuage-monitoring-gateway
+      app: gateway
   template:
     metadata:
       labels:
-        app: nuage-monitoring-gateway
+        app: gateway
     spec:
       containers:
-      - name: nuage-monitoring-gateway
+      - name: gateway
         image: ghcr.io/k-wa-wa/nuage-monitoring-gateway
         env:
           - name: SECRET_KEY_BASE
@@ -58,11 +58,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nuage-monitoring-gateway
+  name: gateway
   namespace: nuage-monitoring
 spec:
   selector:
-    app: nuage-monitoring-gateway
+    app: gateway
   ports:
     - protocol: TCP
       port: 80

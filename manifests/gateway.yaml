@@ -207,7 +207,7 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: nuage-monitoring-ui-virtualservice
+  name: nuage-monitoring-virtualservice
   namespace: default
 spec:
   hosts:
@@ -220,7 +220,7 @@ spec:
         prefix: /graphql
     route:
     - destination:
-        host: nuage-monitoring-gateway.nuage-monitoring.svc.cluster.local
+        host: gateway.nuage-monitoring.svc.cluster.local
         port:
           number: 80
   - match:
@@ -228,6 +228,6 @@ spec:
         prefix: /
     route:
     - destination:
-        host: nuage-monitoring-ui.nuage-monitoring.svc.cluster.local
+        host: ui.nuage-monitoring.svc.cluster.local
         port:
           number: 80
