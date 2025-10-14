@@ -21,6 +21,15 @@ module Types
     # Add root-level fields here.
     # They will be entry points for queries on your schema.
 
+    field :vapid_public_key, Types::VapidPublicKeyType, null: false,
+      description: "The VAPID public key for WebPush notifications"
+    def vapid_public_key
+      PushNotificationService.get_vapid_public_key
+    rescue StandardError => e
+      Rails.logger.error "Error fetching VAPID public key: #{e.message}"
+      raise GraphQL::ExecutionError, "Failed to fetch VAPID public key: #{e.message}"
+    end
+
     field :temporary_response, String, null: false,
       description: "A temporary response from the gateway server"
     def temporary_response
