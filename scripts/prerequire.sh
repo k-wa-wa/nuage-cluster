@@ -1,6 +1,5 @@
 #!/bin/bash
-
-set -e
+set -eu
 
 #################### ansible collection ####################
 ansible-galaxy collection install prometheus.prometheus --force
