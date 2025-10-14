@@ -21,7 +21,7 @@ spec:
       name: http
       protocol: HTTP
     tls:
-      httpsRedirect: false
+      httpsRedirect: true
     hosts:
     - "*"
 ---
