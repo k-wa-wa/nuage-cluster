@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=x
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ops-app-set
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - name: prometheus-grafana
+        repoURL: https://prometheus-community.github.io/helm-charts
+        targetRevision: 78.2.1
+        chart: kube-prometheus-stack
+        valueFile: manifests/helm/prometheus-values.yaml
+      - name: loki
+        repoURL: https://grafana.github.io/helm-charts
+        targetRevision: 2.10.2
+        chart: loki-stack
+        valueFile: manifests/helm/loki-custom.yaml
+      - name: promtail
+        repoURL: https://grafana.github.io/helm-charts
+        targetRevision: 6.17.0
+        chart: promtail
+        valueFile: manifests/helm/promtail-custom.yaml
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      sources:
+      - repoURL: '{{repoURL}}'
+        targetRevision: '{{targetRevision}}'
+        chart: '{{chart}}'
+        helm:
+          valueFiles:
+            - '$values/{{valueFile}}'
+      - repoURL: https://github.com/k-wa-wa/nuage-cluster
+        targetRevision: HEAD
+        ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: ops
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - ServerSideApply=true

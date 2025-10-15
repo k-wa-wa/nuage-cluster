@@ -29,17 +29,6 @@ helm upgrade --install -n argocd argocd argo/argo-cd -f manifests/argocd/argocd-
 ./k cp ./db/postgres/init.sh postgres-0:/tmp/init.sh
 ./k exec -it postgres-0 -- bash /tmp/init.sh
 
-#################### 監視 ####################
-helm upgrade --install --namespace ops prometheus-grafana prometheus-community/kube-prometheus-stack \
-  -f manifests/ops/prometheus-values.yaml
-./k wait -n ops \
-  --for=condition=Ready \
-  --timeout=300s \
-  -l "release=prometheus-grafana" \
-  --all pod
-helm upgrade --install --namespace ops loki grafana/loki-stack -f manifests/ops/loki-custom.yaml
-helm upgrade --install --namespace ops promtail grafana/promtail -f manifests/ops/promtail-custom.yaml
-
 #################### apps: dashboard ####################
 ./k apply -f manifests/dashboard-v2
 
