@@ -23,8 +23,8 @@ class PushNotificationService
     end
   end
 
-  def self.notify_all
-    response = post("/notify-all")
+  def self.notify_all(message)
+    response = post("/notify-all", body: { message: message }.to_json, headers: { "Content-Type" => "application/json" })
     handle_response(response) do
       { success: true, message: "Notification sent to all subscribers" }
     end

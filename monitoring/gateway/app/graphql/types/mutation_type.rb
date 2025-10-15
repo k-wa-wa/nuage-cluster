@@ -14,9 +14,11 @@ module Types
     end
 
     field :notify_all, Types::PushNotificationType, null: false,
-      description: "Sends a push notification to all subscribed clients"
-    def notify_all
-      PushNotificationService.notify_all
+      description: "Sends a push notification to all subscribed clients" do
+      argument :message, String, required: false, default_value: "Hello from GraphQL!"
+    end # Added 'end' here
+    def notify_all(message:)
+      PushNotificationService.notify_all(message)
     rescue StandardError => e
       Rails.logger.error "Error sending push notifications: #{e.message}"
       { success: false, message: "Failed to send notifications: #{e.message}" }
