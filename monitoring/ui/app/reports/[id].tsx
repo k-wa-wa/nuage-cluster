@@ -1,3 +1,4 @@
+import { graphqlEndpoint } from '@/constants/config';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -27,7 +28,6 @@ const ReportDetailPage: React.FC = () => {
 
     const fetchReport = async () => {
       try {
-        const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || "";
         const response = await fetch(graphqlEndpoint, {
           method: 'POST',
           headers: {

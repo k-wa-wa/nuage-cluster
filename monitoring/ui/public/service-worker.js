@@ -14,8 +14,8 @@ self.addEventListener('push', event => {
   const title = data.title || 'Nuage Cluster Monitoring';
   const options = {
     body: data.body || 'You have a new notification.',
-    icon: '/assets/images/icon.png', // Assuming an icon exists here
-    badge: '/assets/images/favicon.png', // Assuming a badge icon exists here
+    icon: '/assets/images/app-icon.png', // Assuming an icon exists here
+    badge: '/assets/images/app-icon.png', // Assuming a badge icon exists here
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

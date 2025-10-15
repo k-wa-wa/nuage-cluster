@@ -1,3 +1,4 @@
+import { graphqlEndpoint } from '@/constants/config';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -23,7 +24,6 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || "";
         const response = await fetch(graphqlEndpoint, {
           method: 'POST',
           headers: {

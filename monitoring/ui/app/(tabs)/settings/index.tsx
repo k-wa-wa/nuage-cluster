@@ -1,3 +1,4 @@
+import { graphqlEndpoint } from '@/constants/config';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Button, Platform, StyleSheet, Text, View } from 'react-native';
 
@@ -16,7 +17,6 @@ export default function SettingsScreen() {
         setVapidKeyLoading(true);
         setVapidKeyError(null);
         try {
-          const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || ""
           const response = await fetch(graphqlEndpoint, {
             method: 'POST',
             headers: {
@@ -84,7 +84,6 @@ export default function SettingsScreen() {
       });
 
       // Send subscription to your backend
-      const graphqlEndpoint = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || ""
       const response = await fetch(graphqlEndpoint, {
         method: 'POST',
         headers: {
