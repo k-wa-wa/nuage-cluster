@@ -41,12 +41,3 @@ grafana:
       enabled: true
     security:
       allow_embedding: true
-  additionalDataSources:
-    - name: prometheus_
-      type: prometheus_
-      uid: prometheus_
-      url: http://prometheus-grafana-kube-pr-prometheus:9090
-    - name: Loki
-      type: loki
-      uid: loki
-      url: http://loki:3100
