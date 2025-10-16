@@ -18,7 +18,7 @@ spec:
       - name: mcp-chart
         image: node:24-slim # 公式のimageを使用すると接続時にレスポンスが返ってこなくなったためcliで実行
         command: ["npx"]
-        args: ["-y", "@antv/mcp-server-chart", "--transport", "streamable"]
+        args: ["-y", "@antv/mcp-server-chart", "--transport", "streamable", "--host", "0.0.0.0"]
         env:
         - name: VIS_REQUEST_SERVER
           value: http://vis-chart-server.nuage-monitoring.svc.cluster.local/generate-chart
