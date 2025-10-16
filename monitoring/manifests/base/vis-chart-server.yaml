@@ -43,6 +43,11 @@ spec:
               secretKeyRef:
                 name: s3-credentials
                 key: S3_BUCKET_NAME
+          - name: CDN_ENDPOINT
+            valueFrom:
+              secretKeyRef:
+                name: s3-credentials
+                key: CDN_ENDPOINT
         ports:
         - containerPort: 3000
         resources:

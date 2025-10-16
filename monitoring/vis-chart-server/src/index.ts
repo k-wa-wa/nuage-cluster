@@ -48,7 +48,7 @@ app.post("/generate-chart", async (req, res) => {
     .send(new PutObjectCommand(uploadParams))
     .then(() => {
       console.log(`File uploaded successfully to MinIO: ${fileName}`)
-      const imageUrl = `${process.env.AWS_ENDPOINT}/${bucketName}/${fileName}` // Using AWS_ENDPOINT for MinIO URL
+      const imageUrl = `${process.env.CDN_ENDPOINT || process.env.AWS_ENDPOINT}/${bucketName}/${fileName}` // Using CDN_ENDPOINT for CDN URL
       res.json({
         success: true,
         resultObj: imageUrl,
