@@ -42,6 +42,10 @@ grafana:
     security:
       allow_embedding: true
   additionalDataSources:
+    - name: prometheus
+      type: prometheus
+      uid: prometheus
+      url: http://prometheus-grafana-kube-pr-prometheus:9090
     - name: Loki
       type: loki
       uid: loki
