@@ -13,7 +13,7 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: nuage-tls-credential
+      credentialName: nuage-tls-cert
     hosts:
     - "*"
   - port:
@@ -229,5 +229,25 @@ spec:
     route:
     - destination:
         host: ui.nuage-monitoring.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cdn-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "minio.cdn.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: varnish.public.svc.cluster.local
         port:
           number: 80

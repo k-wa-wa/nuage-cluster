@@ -1,0 +1,48 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: root-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  secretName: root-ca-secret
+  duration: 87600h # 10 years
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  subject:
+    organizations:
+      - cert-manager
+  commonName: nuage
+  dnsNames:
+  - "*.nuage"
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: ca-clusterissuer
+spec:
+  ca:
+    secretName: root-ca-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nuage-tls-cert
+  namespace: istio-system
+spec:
+  secretName: nuage-tls-cert
+  duration: 2160h # 90日間
+  renewBefore: 360h # 15日前に更新開始
+  dnsNames:
+  - "*.nuage"
+  issuerRef:
+    name: ca-clusterissuer
+    kind: ClusterIssuer
