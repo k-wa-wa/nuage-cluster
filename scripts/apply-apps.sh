@@ -10,12 +10,9 @@ export KUBECONFIG=playbooks/admin.conf
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
   ./istio-1.26.2/bin/istioctl install -y -f istio-1.26.2/istio-custom.yaml
-  ./k create -n istio-system secret tls nuage-tls-credential \
-    --key=istio-1.26.2/tls.key \
-    --cert=istio-1.26.2/tls.crt
 fi
+./k apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.0/cert-manager.yaml
 ./k apply -f istio-1.26.2/samples/addons
-./k apply -f manifests/gateway.yaml
 
 #################### argocd ####################
 helm upgrade --install -n argocd argocd argo/argo-cd -f manifests/argocd/argocd-values.yaml
