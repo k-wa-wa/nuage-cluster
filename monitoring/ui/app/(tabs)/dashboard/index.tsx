@@ -1,12 +1,12 @@
 import ReportsSection from '@/components/ReportsSection';
-import React from 'react'; // Import useEffect
-import { StyleSheet, View } from 'react-native'; // Import Button and Platform
+import { StyleSheet } from 'react-native'; // Import Button and Platform
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function DashboardScreen() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ReportsSection />
-    </View>
+    </SafeAreaView>
   );
 }
 
