@@ -9,5 +9,6 @@ module Types
     field :version, String, null: true
     field :icon, String, null: true
     field :description, String, null: true
+    field :group, String, null: false
   end
 end

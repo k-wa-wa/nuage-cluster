@@ -1,5 +1,6 @@
 type Application {
   description: String
+  group: String!
   icon: String
   name: String!
   namespace: String

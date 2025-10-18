@@ -17,6 +17,7 @@ const mocks = {
           {
             name: 'Mock App 1',
             description: 'This is the first mock application.',
+            group: 'Group A',
             icon: '🚀',
             namespace: 'default',
             status: 'Running',
@@ -26,6 +27,7 @@ const mocks = {
           {
             name: 'Mock App 2',
             description: 'Another mock application for testing.',
+            group: 'Group B',
             icon: '💡',
             namespace: 'staging',
             status: 'Stopped',
@@ -35,6 +37,7 @@ const mocks = {
           {
             name: 'Mock App 3',
             description: 'A third mock application.',
+            group: 'Group A',
             icon: '⚙️',
             namespace: 'production',
             status: 'Running',
@@ -51,6 +54,7 @@ const mocks = {
           {
             name: 'Mock App 4',
             description: 'Fourth mock application.',
+            group: 'Group C',
             icon: '📦',
             namespace: 'default',
             status: 'Running',
@@ -67,6 +71,7 @@ const mocks = {
   Application: () => ({
     name: () => 'Default Mock App',
     description: () => 'Default mock description',
+    group: () => 'Default Group', // Added default group
     icon: () => '❓',
     namespace: () => 'default',
     status: () => 'Unknown',
