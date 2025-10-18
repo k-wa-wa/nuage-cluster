@@ -55,5 +55,14 @@ module Types
       end
       scope
     end
+
+    field :application_lists, [ Types::ApplicationListType ], null: false,
+      description: "Fetches a list of ApplicationList custom resources"
+    def application_lists
+      KubernetesService.get_application_lists
+    rescue StandardError => e
+      Rails.logger.error "Error fetching ApplicationList custom resources: #{e.message}"
+      raise GraphQL::ExecutionError, "Failed to fetch ApplicationList custom resources: #{e.message}"
+    end
   end
 end

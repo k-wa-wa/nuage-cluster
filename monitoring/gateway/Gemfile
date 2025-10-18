@@ -22,6 +22,7 @@ gem "thruster", require: false
 
 gem "pg"
 gem "graphql"
+gem "kubeclient"
 gem "httparty" # For making HTTP requests to the micro-gopush service
 
 group :development, :test do
