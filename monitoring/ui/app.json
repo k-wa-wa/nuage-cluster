@@ -12,18 +12,20 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.wawata.nuage-ui",
       "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "monitoring.dev.nuage": {
+              "NSTemporaryExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            },
+            "minio.cdn.nuage": {
+              "NSTemporaryExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        },
         "ITSAppUsesNonExemptEncryption": false
       }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -53,6 +55,9 @@
       "eas": {
         "projectId": "9f2cece2-d04d-41a0-a5e6-86ef5e8a0584"
       }
+    },
+    "android": {
+      "package": "com.wawata.nuageui"
     }
   }
 }
