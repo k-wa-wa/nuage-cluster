@@ -47,9 +47,13 @@ spec:
                       description:
                         type: string
                         description: A brief description of the application.
+                      group:
+                        type: string
+                        description: The group the application belongs to.
                     required:
                       - name
                       - url
+                      - group
       subresources:
         status: {}
       additionalPrinterColumns:
