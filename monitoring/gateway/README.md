@@ -1,24 +1,25 @@
-# README
+# Gateway
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+This is the Gateway service for the Nuage Cluster monitoring system.
 
-Things you may want to cover:
+## Setup
 
-* Ruby version
+To set up the project, follow these steps:
 
-* System dependencies
+1.  **Install Dependencies**:
+    ```bash
+    bundle install
+    ```
 
-* Configuration
+2.  **Create GraphQL Schema**:
+    ```bash
+    bundle exec rake graphql:schema:idl
+    ```
 
-* Database creation
+## Running the Server
 
-* Database initialization
+To start the Rails server, run:
 
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+```bash
+rails s
+```
