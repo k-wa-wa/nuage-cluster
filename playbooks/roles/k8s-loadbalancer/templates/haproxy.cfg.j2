@@ -33,6 +33,18 @@ backend http_proxy
     server server{{ loop.index }} {{ ip }}:30080 check
 {% endfor %}
 
+########## http service for httponly ##########
+frontend http_proxy_httponly
+    bind *:81
+
+    default_backend http_proxy_httponly
+    log global
+
+backend http_proxy_httponly
+{% for ip in worker_node_ips %}
+    server server{{ loop.index }} {{ ip }}:30081 check
+{% endfor %}
+
 ########## https service ##########
 frontend https_passthrough
     bind *:80
