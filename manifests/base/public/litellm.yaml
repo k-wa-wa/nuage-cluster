@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: setup-config-script
+  namespace: public
+data:
+  setup-config.sh: |
+    #!/bin/bash
+    set -eu
+
+    echo "model_list:"
+    IFS=','
+    GOOGLE_API_KEY_ARRAY=($GOOGLE_API_KEY_LIST)
+    unset IFS
+
+    for KEY in "${GOOGLE_API_KEY_ARRAY[@]}"; do
+        if [[ -n "$KEY" ]]; then
+            # YAMLのインデントを考慮して整形して出力
+            cat <<EOT
+      - model_name: gemini-2.5-pro
+        litellm_params:
+          model: gemini/gemini-2.5-pro
+          tpm: 125000
+          rpm: 5
+          api_key: ${KEY}
+      - model_name: gemini-2.5-flash
+        litellm_params:
+          model: gemini/gemini-2.5-flash
+          tpm: 250000
+          rpm: 10
+          api_key: ${KEY}
+    EOT
+        fi
+    done
+
+    cat <<EOT
+    litellm_settings:
+      redact_user_api_key_info: true
+      routing_strategy: simple-shuffle
+    EOT
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-deployment
+  namespace: public
+spec:
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      initContainers:
+      - name: prepare-config
+        image: ubuntu
+        command: ["/bin/bash", "-c", "/bin/bash /scripts/setup-config.sh > /config/litellm-config.yaml"]
+        env:
+        - name: GOOGLE_API_KEY_LIST
+          valueFrom:
+            secretKeyRef:
+              name: litellm-credentials
+              key: GOOGLE_API_KEY_LIST
+        volumeMounts:
+        - name: config-data
+          mountPath: /config
+        - name: setup-config-script
+          mountPath: /scripts
+      containers:
+      - name: litellm-container
+        image: ghcr.io/berriai/litellm:main-stable
+        args:
+        - "--config"
+        - "/config/litellm-config.yaml"
+        env:
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-credentials
+              key: LITELLM_MASTER_KEY
+        - name: LITELLM_SALT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-credentials
+              key: LITELLM_SALT_KEY
+        - name: DATABASE_URL
+          value: "postgresql://llmproxy:dbpassword9090@litellm-db.public.svc.cluster.local:5432/litellm"
+        - name: UI_USERNAME
+          value: admin
+        - name: UI_PASSWORD
+          value: admin
+        volumeMounts:
+        - name: config-data
+          mountPath: /config
+          readOnly: true
+      volumes:
+      - name: config-data
+        emptyDir: {}
+      - name: setup-config-script
+        configMap:
+          name: setup-config-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-service
+  namespace: public
+spec:
+  selector:
+    app: litellm
+  ports:
+    - protocol: TCP
+      port: 4000
+      targetPort: 4000
+      nodePort: 30140
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: litellm-db
+  labels:
+    app: litellm-db
+  namespace: public
+spec:
+  serviceName: "litellm-db"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm-db
+  template:
+    metadata:
+      labels:
+        app: litellm-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        env:
+        - name: POSTGRES_DB
+          value: "litellm"
+        - name: POSTGRES_USER
+          value: "llmproxy"
+        - name: POSTGRES_PASSWORD
+          value: "dbpassword9090" # 本番環境では Secret を推奨
+        ports:
+        - containerPort: 5432
+          name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-db
+  labels:
+    app: litellm-db
+  namespace: public
+spec:
+  ports:
+    - port: 5432
+      name: postgres
+  # ヘッドレスサービスにする
+  clusterIP: None
+  selector:
+    app: litellm-db
