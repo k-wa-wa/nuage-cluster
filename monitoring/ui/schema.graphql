@@ -1,13 +1,39 @@
+type Application {
+  description: String
+  icon: String
+  name: String!
+  namespace: String
+  status: String
+  url: String!
+  version: String
+}
+
+type ApplicationList {
+  apiVersion: String!
+
+  """
+  List of applications defined in the spec
+  """
+  applications: [Application!]!
+  kind: String!
+  metadata: JSON!
+}
+
 """
 An ISO 8601-encoded datetime
 """
 scalar ISO8601DateTime @specifiedBy(url: "https://tools.ietf.org/html/rfc3339")
 
+"""
+Represents untyped JSON
+"""
+scalar JSON
+
 type Mutation {
   """
   Sends a push notification to all subscribed clients
   """
-  notifyAll: PushNotification!
+  notifyAll(message: String = "Hello from GraphQL!"): PushNotification!
 
   """
   Subscribes a client to WebPush notifications
@@ -36,6 +62,11 @@ type PushNotification {
 }
 
 type Query {
+  """
+  Fetches a list of ApplicationList custom resources
+  """
+  applicationLists: [ApplicationList!]!
+
   """
   List of reports
   """
