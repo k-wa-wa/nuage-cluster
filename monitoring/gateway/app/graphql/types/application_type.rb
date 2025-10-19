@@ -3,12 +3,10 @@
 module Types
   class ApplicationType < Types::BaseObject
     field :name, String, null: false
-    field :namespace, String, null: true
-    field :url, String, null: false
-    field :status, String, null: true
-    field :version, String, null: true
-    field :icon, String, null: true
     field :description, String, null: true
-    field :group, String, null: false
+    field :category, String, null: true
+    field :icon_urls, Types::IconUrlsType, null: false, hash_key: "iconUrls"
+    field :launch_urls, Types::LaunchUrlsType, null: false, hash_key: "launchUrls"
+    field :additional_links, [ Types::AdditionalLinkType ], null: true, hash_key: "additionalLinks"
   end
 end

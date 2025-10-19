@@ -7,7 +7,7 @@ module Kubernetes
     def initialize(config)
       @client = Kubeclient::Client.new(
         config.context.api_endpoint,
-        "monitoring.nuage.com/v1", # API version for ApplicationList custom resource
+        "example.com/v1alpha1", # API version for ApplicationList custom resource
         ssl_options: config.context.ssl_options,
         auth_options: config.context.auth_options
       )
@@ -15,8 +15,8 @@ module Kubernetes
 
     def get_application_lists
       @client.get_custom_resources(
-        group: "monitoring.nuage.com",
-        version: "v1",
+        group: "example.com",
+        version: "v1alpha1",
         plural: "applicationlists"
       )
     rescue Kubeclient::ResourceNotFoundError
