@@ -1,6 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- applicationlist-crd.yaml
+- applicationlist.yaml
 - namespace.yaml
 - gateway.yaml
 - mcp-chart.yaml

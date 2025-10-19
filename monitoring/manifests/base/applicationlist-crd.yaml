@@ -1,11 +1,18 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: applicationlists.monitoring.nuage.com
+  name: applicationlists.example.com
 spec:
-  group: monitoring.nuage.com
+  group: example.com
+  names:
+    plural: applicationlists
+    singular: applicationlist
+    kind: ApplicationList
+    shortNames:
+      - al
+  scope: Namespaced
   versions:
-    - name: v1
+    - name: v1alpha1
       served: true
       storage: true
       schema:
@@ -28,46 +35,62 @@ spec:
                     properties:
                       name:
                         type: string
-                        description: The name of the application.
-                      namespace:
-                        type: string
-                        description: The Kubernetes namespace where the application is deployed.
-                      url:
-                        type: string
-                        description: The URL to access the application.
-                      status:
-                        type: string
-                        description: The current status of the application (e.g., Running, Stopped, Degraded).
-                      version:
-                        type: string
-                        description: The version of the application.
-                      icon:
-                        type: string
-                        description: The icon of the application.
+                        description: The display name of the application.
                       description:
                         type: string
                         description: A brief description of the application.
-                      group:
+                      category:
                         type: string
-                        description: The group the application belongs to.
+                        description: The category the application belongs to (e.g., "Productivity", "Development").
+                      iconUrls:
+                        type: object
+                        description: URLs for the application icon, categorized by device size.
+                        properties:
+                          small:
+                            type: string
+                            description: URL for a small icon.
+                          medium:
+                            type: string
+                            description: URL for a medium icon.
+                          large:
+                            type: string
+                            description: URL for a large icon.
+                      launchUrls:
+                        type: object
+                        description: URLs to launch the application, categorized by platform.
+                        properties:
+                          web:
+                            type: string
+                            description: The URL to launch the application in a web browser.
+                          ios:
+                            type: string
+                            description: The URL scheme or deep link to launch the application on iOS.
+                      additionalLinks:
+                        type: array
+                        description: Optional additional button links for the application.
+                        items:
+                          type: object
+                          properties:
+                            buttonName:
+                              type: string
+                              description: The text displayed on the button.
+                            iconName:
+                              type: string
+                              description: The name of the icon to display next to the button.
+                            linkUrls:
+                              type: object
+                              description: URLs for the additional link, categorized by platform.
+                              properties:
+                                web:
+                                  type: string
+                                  description: The URL for the link in a web browser.
+                                ios:
+                                  type: string
+                                  description: The URL scheme or deep link for the link on iOS.
+                          required:
+                            - buttonName
+                            - linkUrls
                     required:
                       - name
-                      - url
-                      - group
-      subresources:
-        status: {}
-      additionalPrinterColumns:
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
-        - name: Applications
-          type: integer
-          jsonPath: .spec.applications.length
-          description: Number of applications in the list
-  scope: Namespaced
-  names:
-    plural: applicationlists
-    singular: applicationlist
-    kind: ApplicationList
-    shortNames:
-      - al
+              required:
+                - applications

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=applicationlist-crd.yaml
+apiVersion: example.com/v1alpha1
+kind: ApplicationList
+metadata:
+  name: nuage-application-list
+  namespace: nuage-monitoring
+spec:
+  applications:
+    - name: Proxmox
+      description: ""
+      category: Operations
+
+    - name: Grafana
+      description: ""
+      category: Operations
+
+    - name: File server
+      description: ""
+      category: Pechka
+
+    - name: Argo Workflow
+      description: ""
+      category: Pechka
+
+    # - name: Woodgrove Bank
+    #   description: "Manage your finances with Woodgrove Bank."
+    #   category: "Finance"
+    #   iconUrls:
+    #     small: "https://example.com/icons/small/woodgrove-bank.png"
+    #     medium: "https://example.com/icons/medium/woodgrove-bank.png"
+    #     large: "https://example.com/icons/large/woodgrove-bank.png"
+    #   launchUrls:
+    #     web: "https://woodgrovebank.example.com/web"
+    #     ios: "woodgrovebank://app"
+    #   additionalLinks:
+    #     - buttonName: "Learn More"
+    #       iconName: "info"
+    #       linkUrls:
+    #         web: "https://woodgrovebank.example.com/about"
+    #         ios: "woodgrovebank://about"
+    #     - buttonName: "Settings"
+    #       iconName: "settings"
+    #       linkUrls:
+    #         web: "https://woodgrovebank.example.com/settings"
+    #         ios: "woodgrovebank://settings"
