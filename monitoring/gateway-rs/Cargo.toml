@@ -1,0 +1,13 @@
+[package]
+name = "gateway-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.11.0"
+async-graphql = { version = "6.0.11", features = ["chrono", "uuid"] }
+async-graphql-actix-web = "6.0.11"
+dotenvy = "0.15.7"
+sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
+uuid = { version = "1.10.0", features = ["serde", "v4"] }
+chrono = { version = "0.4.38", features = ["serde"] }
