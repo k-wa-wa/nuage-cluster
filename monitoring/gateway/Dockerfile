@@ -14,7 +14,6 @@ COPY Cargo.toml ./
 
 # Build dummy dependencies to cache them
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-ENV OPENSSL_STATIC=1
 RUN cargo build --release
 RUN rm -rf src
 
@@ -22,7 +21,7 @@ RUN rm -rf src
 COPY src ./src
 
 # Build the application with static linking
-RUN RUSTFLAGS="-C target-feature=+crt-static" cargo build --release
+RUN cargo build --release
 
 # Stage 2: Runtime
 FROM gcr.io/distroless/cc AS runtime
