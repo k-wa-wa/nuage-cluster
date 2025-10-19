@@ -4,12 +4,20 @@ use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use dotenvy::dotenv;
 use std::env;
+use std::ptr::null;
 use sqlx::{PgPool, FromRow};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use reqwest;
 use serde_json; // Keep this for the json! macro
+use kube::{Api, Client, Config};
+use kube::config::Kubeconfig; // Import Kubeconfig
+
+mod crd;
+use crd::{ApplicationList, Application};
+
+use crate::crd::ApplicationListSpec;
 
 // Define your GraphQL Query
 struct Query;
@@ -75,6 +83,16 @@ struct Report {
 impl Query {
     async fn hello(&self, _ctx: &Context<'_>) -> String {
         "Hello, GraphQL!".to_string()
+    }
+
+    async fn application_list(&self, ctx: &Context<'_>, name: String) -> Result<ApplicationListSpec, async_graphql::Error> {
+        let client = ctx.data::<Client>().expect("Kube client not found in context");
+        let api: Api<ApplicationList> = Api::namespaced(client.clone(), "nuage-monitoring");
+
+        let application_lists = api.get(&name).await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to list ApplicationLists: {}", e)))?;
+
+        Ok(application_lists.spec)
     }
 
     async fn reports(&self, ctx: &Context<'_>, sort: Option<String>) -> Result<Vec<Report>, async_graphql::Error> {
@@ -210,8 +228,26 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to connect to Postgres");
 
+    // Initialize Kubernetes client
+    let kube_client = if let Ok(kube_config_path) = env::var("KUBE_CONFIG") {
+        println!("Using KUBE_CONFIG from: {}", kube_config_path);
+        let kube_config = Kubeconfig::read_from(&kube_config_path)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to read KUBE_CONFIG: {}", e)))?;
+        let config = Config::from_custom_kubeconfig(kube_config, &Default::default())
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to create Kube client from KUBE_CONFIG: {}", e)))?;
+        Client::try_from(config)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to create Kube client from KUBE_CONFIG: {}", e)))?
+    } else {
+        println!("KUBE_CONFIG not set, attempting in-cluster configuration.");
+        Client::try_default()
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to create in-cluster Kube client: {}", e)))?
+    };
+
     let schema = Schema::build(Query, Mutation, EmptySubscription)
         .data(pool.clone()) // Add the connection pool to the GraphQL context
+        .data(kube_client.clone()) // Add the Kubernetes client to the GraphQL context
         .finish();
 
     println!("GraphiQL playground: http://{}", server_address);
