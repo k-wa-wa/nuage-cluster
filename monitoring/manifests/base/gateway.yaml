@@ -14,6 +14,7 @@ spec:
       labels:
         app: gateway
     spec:
+      serviceAccountName: gateway
       containers:
       - name: gateway
         image: ghcr.io/k-wa-wa/nuage-monitoring-gateway
@@ -71,3 +72,34 @@ spec:
       targetPort: 3000
       nodePort: 30081
   type: NodePort
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  namespace: nuage-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gateway-role
+rules:
+- apiGroups: ["", "apps", "batch"] # 操作するリソースのAPIグループ
+  resources: ["pods", "deployments", "services", "nodes", "namespaces", "cronjobs", "jobs", "events", "applicationlists"] # 操作を許可するリソース
+  verbs: ["get", "list", "watch"] # 許可する操作
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-binding
+subjects:
+- kind: ServiceAccount
+  name: gateway
+  namespace: nuage-monitoring
+roleRef:
+  kind: ClusterRole
+  name: gateway-role
+  apiGroup: rbac.authorization.k8s.io
