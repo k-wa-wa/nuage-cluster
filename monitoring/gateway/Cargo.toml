@@ -1,5 +1,5 @@
 [package]
-name = "gateway-rs"
+name = "gateway"
 version = "0.1.0"
 edition = "2021"
 
@@ -19,7 +19,3 @@ k8s-openapi = { version = "0.21.0", features = ["v1_28"] }
 tokio = { version = "1.38.0", features = ["full"] }
 futures = "0.3"
 schemars = "0.8"
-
-[dependencies.openssl]
-version = "0.10"
-features = ["vendored"]
