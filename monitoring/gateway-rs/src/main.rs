@@ -1,5 +1,5 @@
 use actix_web::{web, App, HttpServer, HttpResponse, Result, guard};
-use async_graphql::{EmptyMutation, EmptySubscription, Schema, Object, Context, SimpleObject};
+use async_graphql::{EmptySubscription, Schema, Object, Context, SimpleObject, InputObject};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use dotenvy::dotenv;
@@ -7,9 +7,13 @@ use std::env;
 use sqlx::{PgPool, FromRow};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use reqwest;
+use serde_json; // Keep this for the json! macro
 
 // Define your GraphQL Query
 struct Query;
+struct Mutation;
 
 // Helper function to convert camelCase to snake_case
 fn camel_to_snake_case(s: &str) -> String {
@@ -27,6 +31,33 @@ fn camel_to_snake_case(s: &str) -> String {
     snake_case
 }
 
+// Define custom scalars as aliases to existing types for GraphQL schema generation
+type ISO8601DateTime = DateTime<Utc>;
+type VapidPublicKey = String;
+
+// PushNotification Type
+#[derive(SimpleObject, Serialize, Deserialize)]
+struct PushNotification {
+    message: Option<String>,
+    success: bool,
+}
+
+// SubscriptionKeysInput Input
+#[derive(InputObject, Serialize, Deserialize)]
+struct SubscriptionKeysInput {
+    auth: String,
+    p256dh: String,
+}
+
+// SubscriptionInput Input
+#[derive(InputObject, Serialize, Deserialize)]
+struct SubscriptionInput {
+    endpoint: String,
+    #[graphql(name = "expirationTime")]
+    expiration_time: Option<ISO8601DateTime>,
+    keys: SubscriptionKeysInput,
+}
+
 // Define the Report struct matching the database schema
 #[derive(FromRow, SimpleObject)]
 struct Report {
@@ -35,7 +66,7 @@ struct Report {
     report_id: Uuid,
     report_name: String,
     report_type: String,
-    generated_at: DateTime<Utc>, // This remains snake_case to match DB
+    generated_at: ISO8601DateTime, // This remains snake_case to match DB
     content: String,
     status: String,
 }
@@ -75,10 +106,74 @@ impl Query {
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(reports)
     }
+
+    /// A temporary response from the gateway server
+    async fn temporary_response(&self) -> String {
+        "This is a temporary response from the gateway.".to_string()
+    }
+
+    /// The VAPID public key for WebPush notifications
+    async fn vapid_public_key(&self, _ctx: &Context<'_>) -> Result<VapidPublicKey, async_graphql::Error> {
+        let micro_gopush_url = env::var("MICRO_GOPUSH_URL").expect("MICRO_GOPUSH_URL not found: {}");
+        let client = reqwest::Client::new();
+
+        let res = client.get(format!("{}/vapid-public-key", micro_gopush_url))
+            .send()
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to fetch VAPID public key: {}", e)))?;
+
+        let vapid_public_key_str = res.text().await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to parse VAPID public key response: {}", e)))?;
+
+        Ok(vapid_public_key_str)
+    }
+}
+
+#[Object]
+impl Mutation {
+    /// Sends a push notification to all subscribed clients
+    async fn notify_all(&self, _ctx: &Context<'_>, message: Option<String>) -> Result<PushNotification, async_graphql::Error> {
+        let micro_gopush_url = env::var("MICRO_GOPUSH_URL").expect("MICRO_GOPUSH_URL not found: {}");
+        let client = reqwest::Client::new();
+        let msg = message.unwrap_or_else(|| "".to_string());
+
+        let res = client.post(format!("{}/notify-all", micro_gopush_url))
+            .json(&serde_json::json!({ "message": msg }))
+            .send()
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to send notifyAll request: {}", e)))?;
+
+        let push_notification: PushNotification = res.json().await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to parse notifyAll response: {}", e)))?;
+
+        Ok(push_notification)
+    }
+
+    /// Subscribes a client to WebPush notifications
+    async fn subscribe(&self, _ctx: &Context<'_>, subscription: SubscriptionInput) -> Result<PushNotification, async_graphql::Error> {
+        let micro_gopush_url = env::var("MICRO_GOPUSH_URL").expect("MICRO_GOPUSH_URL not found: {}");
+        let client = reqwest::Client::new();
+
+        let res = client.post(format!("{}/subscribe", micro_gopush_url))
+            .json(&subscription)
+            .send()
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to send subscribe request: {}", e)))?;
+
+        let push_notification: PushNotification = res.json().await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to parse subscribe response: {}", e)))?;
+
+        Ok(push_notification)
+    }
+
+    /// An example field added by the generator
+    async fn test_field(&self) -> String {
+        "This is a test field from Mutation!".to_string()
+    }
 }
 
 // Create the GraphQL Schema
-type AppSchema = Schema<Query, EmptyMutation, EmptySubscription>;
+type AppSchema = Schema<Query, Mutation, EmptySubscription>;
 
 // GraphQL endpoint handler
 async fn index(schema: web::Data<AppSchema>, req: GraphQLRequest) -> GraphQLResponse {
@@ -98,8 +193,8 @@ async fn index_playground() -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    let db_host = env::var("DB_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let db_port = env::var("DB_PORT").unwrap_or_else(|_| "5432".to_string());
+    let db_host = env::var("DB_HOST").expect("DB_HOST must be set");
+    let db_port = env::var("DB_PORT").expect("DB_PORT must be set");
     let db_user = env::var("DB_USER").expect("DB_USER must be set");
     let db_password = env::var("DB_PASSWORD").expect("DB_PASSWORD must be set");
     let db_name = env::var("DB_NAME").expect("DB_NAME must be set");
@@ -108,16 +203,14 @@ async fn main() -> std::io::Result<()> {
         "postgres://{}:{}@{}:{}/{}",
         db_user, db_password, db_host, db_port, db_name
     );
-    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let server_address = format!("{}:{}", host, port);
+    let server_address = format!("0.0.0.0:3000");
 
     // Establish PostgreSQL connection pool
     let pool = PgPool::connect(&database_url)
         .await
         .expect("Failed to connect to Postgres");
 
-    let schema = Schema::build(Query, EmptyMutation, EmptySubscription)
+    let schema = Schema::build(Query, Mutation, EmptySubscription)
         .data(pool.clone()) // Add the connection pool to the GraphQL context
         .finish();
 
