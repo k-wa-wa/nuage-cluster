@@ -1,5 +1,6 @@
 use actix_web::{web, App, HttpServer, HttpResponse, Result, guard};
 use async_graphql::{EmptySubscription, Schema, Object, Context};
+use actix_cors::Cors;
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use dotenvy::dotenv;
@@ -122,7 +123,10 @@ async fn main() -> std::io::Result<()> {
     println!("GraphQL schema written to schema.graphql");
 
     HttpServer::new(move || {
+        let cors = Cors::permissive();
+
         App::new()
+            .wrap(cors)
             .app_data(web::Data::new(schema.clone()))
             .service(web::resource("/graphql").guard(guard::Post()).to(index))
             .service(web::resource("/").guard(guard::Get()).to(index_playground))
