@@ -43,5 +43,5 @@ jobs:
         with:
           push: true
           context: monitoring/gateway
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64 # ,linux/arm64 arm版のビルドにあまりにも時間がかかっていたため、一旦amdのみとする
           tags: ${{ steps.meta.outputs.tags }}
