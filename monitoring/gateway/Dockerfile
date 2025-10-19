@@ -2,8 +2,12 @@
 # Stage 1: Builder
 FROM rust:1.82-bullseye AS builder
 
-# Install musl-tools for static linking
-RUN apt-get update && apt-get install -y musl-tools libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    musl-tools \
+    build-essential \
+    perl \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 RUN rustup target add x86_64-unknown-linux-musl
 
 WORKDIR /app
@@ -14,6 +18,7 @@ COPY Cargo.toml Cargo.lock ./
 # Build dummy dependencies to cache them
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 ENV RUSTFLAGS="-C target-feature=+crt-static"
+ENV OPENSSL_STATIC=1
 RUN cargo build --release --target x86_64-unknown-linux-musl
 RUN rm -rf src
 
