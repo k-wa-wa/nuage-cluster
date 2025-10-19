@@ -4,13 +4,30 @@ require "kubeclient"
 
 module Kubernetes
   class KubernetesClient
-    def initialize(config)
-      @client = Kubeclient::Client.new(
-        config.context.api_endpoint,
-        "example.com/v1alpha1", # API version for ApplicationList custom resource
-        ssl_options: config.context.ssl_options,
-        auth_options: config.context.auth_options
-      )
+    def initialize
+      if ENV["KUBE_CONFIG"]
+        config = Kubeclient::Config.read(ENV["KUBE_CONFIG"])
+        @client = Kubeclient::Client.new(
+          config.context.api_endpoint,
+          "v1",
+          ssl_options: config.context.ssl_options,
+          auth_options: config.context.auth_options
+        )
+      else
+        auth_options = {
+          bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        }
+        ssl_options = {}
+        if File.exist?("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+          ssl_options[:ca_file] = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        end
+        @client = Kubeclient::Client.new(
+          "https://kubernetes.default.svc",
+          "v1",
+          auth_options: auth_options,
+          ssl_options:  ssl_options
+        )
+      end
     end
 
     def get_application_lists
