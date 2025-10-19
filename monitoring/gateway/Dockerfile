@@ -1,6 +1,6 @@
 # Stage 1: Builder
 # Stage 1: Builder
-FROM rust:1.82-slim-bullseye AS builder
+FROM rust:1.82-bullseye AS builder
 
 # Install musl-tools for static linking
 RUN apt-get update && apt-get install -y musl-tools libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
