@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Cargo.toml and Cargo.lock to leverage Docker cache
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 
 # Build dummy dependencies to cache them
 RUN mkdir src && echo "fn main() {}" > src/main.rs
