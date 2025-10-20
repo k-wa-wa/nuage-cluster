@@ -82,12 +82,9 @@ kind: ClusterRole
 metadata:
   name: gateway-role
 rules:
-- apiGroups: ["", "apps", "batch"] # 操作するリソースのAPIグループ
-  resources: ["pods", "deployments", "services", "nodes", "namespaces", "cronjobs", "jobs", "events", "applicationlists"] # 操作を許可するリソース
+- apiGroups: ["example.com"] # 操作するリソースのAPIグループ
+  resources: ["applicationlists"] # 操作を許可するリソース
   verbs: ["get", "list", "watch"] # 許可する操作
-- apiGroups: [""]
-  resources: ["pods/log"]
-  verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
