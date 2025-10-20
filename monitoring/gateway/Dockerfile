@@ -20,19 +20,4 @@ RUN rm -rf src
 # Copy the actual source code
 COPY src ./src
 
-# Build the application with static linking
-RUN cargo build --release
-
-# Stage 2: Runtime
-FROM gcr.io/distroless/cc AS runtime
-
-WORKDIR /app
-
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/gateway ./gateway
-
-# Expose the port the application listens on (assuming 8080 as a common default for actix-web)
-EXPOSE 8080
-
-# Run the application
-CMD ["./gateway"]
+CMD ["cargo", "run"]
