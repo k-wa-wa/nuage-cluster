@@ -19,8 +19,6 @@ spec:
       - name: gateway
         image: ghcr.io/k-wa-wa/nuage-monitoring-gateway
         env:
-          - name: SECRET_KEY_BASE
-            value: asdfasdfasdfasdf # TODO: 運用検討
           - name: DB_HOST
             valueFrom:
               secretKeyRef:
@@ -52,11 +50,11 @@ spec:
         - containerPort: 3000
         resources:
           limits:
+            cpu: "2"
+            memory: "4096Mi"
+          requests:
             cpu: "500m"
             memory: "512Mi"
-          requests:
-            cpu: "250m"
-            memory: "256Mi"
 ---
 apiVersion: v1
 kind: Service
