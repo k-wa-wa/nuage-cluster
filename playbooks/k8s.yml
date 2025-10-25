@@ -13,12 +13,19 @@
   roles:
     - k8s-loadbalancer
 
+- name: Setup k8s nodes
+  hosts:
+    - k8s-control-planes
+    - k8s-worker-nodes
+  become: true
+  roles:
+    - k8s-node
+
 - name: Setup control plane
   hosts:
     - k8s-control-planes[0]
   become: true
   roles:
-    - k8s-node
     - k8s-init-control-plane
     - k8s-get-join-info
 
@@ -28,5 +35,4 @@
     - k8s-worker-nodes
   become: true
   roles:
-    - k8s-node
     - k8s-join-node

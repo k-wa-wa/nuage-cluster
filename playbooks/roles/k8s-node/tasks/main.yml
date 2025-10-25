@@ -54,28 +54,24 @@
   ansible.builtin.command: swapoff -a
   changed_when: false # This command is not idempotent, but we want to run it if swap is active
 
-- name: Generate default containerd config if not exists
-  ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
-  args:
-    creates: /etc/containerd/config.toml # Idempotency check
-  notify: Restart containerd
-
 - name: Configure crictl endpoint
   ansible.builtin.command: >
     crictl config --set runtime-endpoint=unix:///run/containerd/containerd.sock \
     --set image-endpoint=unix:///run/containerd/containerd.sock
   changed_when: false # This command is not idempotent, but we want to ensure it's set
 
+- name: Generate default containerd config if not exists
+  ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml # Idempotency check
+  notify: Restart containerd
+
 - name: Enable systemd cgroup
   ansible.builtin.lineinfile:
     path: /etc/containerd/config.toml
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    insertafter: "{{ item.insertafter }}"
-  with_items:
-    - regexp: "SystemdCgroup = false"
-      line: "SystemdCgroup = true"
-      insertafter: 'plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options'
+    regexp: '^\s*#?\s*SystemdCgroup\s*=\s*false'
+    line: "            SystemdCgroup = true"
+    state: present
   notify: Restart containerd
 
 - name: Configure Kubelet node IP
