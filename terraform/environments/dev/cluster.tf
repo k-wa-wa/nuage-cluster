@@ -138,7 +138,7 @@ module "worker-node-01" {
       }
     ]
     ci_user   = "ubuntu"
-    disk_size = 30
+    disk_size = 100
   }
   depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
@@ -162,7 +162,7 @@ module "worker-node-02" {
       }
     ]
     ci_user   = "ubuntu"
-    disk_size = 30
+    disk_size = 100
   }
   depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
@@ -186,7 +186,7 @@ module "worker-node-device-host-01" {
       }
     ]
     ci_user   = "ubuntu"
-    disk_size = 30
+    disk_size = 100
     usb_host  = "13fd:0840"
   }
   depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
