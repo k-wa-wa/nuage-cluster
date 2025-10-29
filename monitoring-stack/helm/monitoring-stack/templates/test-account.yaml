@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-user-sa
+  namespace: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-secret
+  namespace: default
+type: Opaque
+data:
+  username: YWRtaW4=
+  passwordHash: OGM2OTc2ZTViNTQxMDQxNWJkZTkwOGJkNGRlZTE1ZGZiMTY3YTljODczZmM0YmI4YTgxZjZmMmFiNDQ4YTkxOA==
+  serviceAccountName: dGVzdC11c2VyLXNh # base64 encoded "test-user-sa"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: test-user-role
+rules:
+- apiGroups: ["apigroup"] # 操作するリソースのAPIグループ
+  resources: ["aaa"] # 操作を許可するリソース
+  verbs: ["get"] # 許可する操作
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: test-user-binding
+subjects:
+- kind: ServiceAccount
+  name: test-user-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: test-user-role
+  apiGroup: rbac.authorization.k8s.io

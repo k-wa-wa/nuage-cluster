@@ -1,0 +1,11 @@
+postgresql:
+  enabled: true # 開発時は true に設定してデプロイ
+  auth:
+    username: user
+    password: password
+    database: user_service_db
+
+  image:
+    registry: registry-1.docker.io
+    repository: bitnami/postgresql
+    tag: latest
