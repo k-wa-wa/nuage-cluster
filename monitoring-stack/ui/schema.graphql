@@ -1,121 +1,63 @@
-type Application {
-  description: String
-  group: String!
-  icon: String
-  name: String!
-  namespace: String
-  status: String
-  url: String!
-  version: String
+
+
+
+
+"""
+A scalar that can represent any JSON Object value.
+"""
+scalar JSONObject
+
+type LoginPayload {
+	token: String!
+	expiresIn: Int!
 }
-
-type ApplicationList {
-  apiVersion: String!
-
-  """
-  List of applications defined in the spec
-  """
-  applications: [Application!]!
-  kind: String!
-  metadata: JSON!
-}
-
-"""
-An ISO 8601-encoded datetime
-"""
-scalar ISO8601DateTime @specifiedBy(url: "https://tools.ietf.org/html/rfc3339")
-
-"""
-Represents untyped JSON
-"""
-scalar JSON
 
 type Mutation {
-  """
-  Sends a push notification to all subscribed clients
-  """
-  notifyAll(message: String = "Hello from GraphQL!"): PushNotification!
-
-  """
-  Subscribes a client to WebPush notifications
-  """
-  subscribe(subscription: SubscriptionInput!): PushNotification!
-
-  """
-  An example field added by the generator
-  """
-  testField: String!
+	"""
+	ユーザー認証を行い、JWTを返します。
+	"""
+	login(username: String!, password: String!): LoginPayload!
+	"""
+	ユーザープロファイルを更新します。
+	"""
+	updateUserProfile(displayName: String, notificationSettings: [NotificationSettingInput!]): UserProfile!
 }
 
-"""
-Represents the result of a push notification operation
-"""
-type PushNotification {
-  """
-  A message related to the operation result
-  """
-  message: String
-
-  """
-  True if the operation was successful
-  """
-  success: Boolean!
+input NotificationSettingInput {
+	key: String!
+	value: String!
 }
 
 type Query {
-  """
-  Fetches a list of ApplicationList custom resources
-  """
-  applicationLists: [ApplicationList!]!
-
-  """
-  List of reports
-  """
-  reports(
-    """
-    Sort by field and direction (e.g., 'generatedAt:desc')
-    """
-    sort: String
-  ): [Report!]!
-
-  """
-  A temporary response from the gateway server
-  """
-  temporaryResponse: String!
-
-  """
-  The VAPID public key for WebPush notifications
-  """
-  vapidPublicKey: VapidPublicKey!
+	"""
+	認証済みのユーザープロファイルを取得します。
+	"""
+	me: UserProfile!
+	"""
+	レポート一覧を取得します。
+	"""
+	reports: [Report!]!
+	"""
+	特定のレポートを取得します。
+	"""
+	report(id: String!): Report
 }
 
 type Report {
-  content: String!
-  generatedAt: ISO8601DateTime!
-  reportId: ID!
-  reportName: String!
-  reportType: String
-  status: String!
+	id: String!
+	title: String!
+	content: String!
+	createdAt: String!
 }
 
-"""
-Input for a WebPush subscription
-"""
-input SubscriptionInput {
-  endpoint: String!
-  expirationTime: ISO8601DateTime
-  keys: SubscriptionKeysInput!
+
+type UserProfile {
+	id: String!
+	displayName: String!
+	notificationSettings: JSONObject!
 }
 
-"""
-Keys for a WebPush subscription
-"""
-input SubscriptionKeysInput {
-  auth: String!
-  p256dh: String!
+schema {
+	query: Query
+	mutation: Mutation
 }
-
-"""
-A VAPID public key string
-"""
-scalar VapidPublicKey

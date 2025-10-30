@@ -1,7 +1,7 @@
-const GRAPHQL_ENDPOINT = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4001/graphql';
+import { graphqlEndpoint } from '@/constants/config';
 
 export async function graphqlRequest<T>(query: string, variables?: Record<string, any>): Promise<T> {
-  const response = await fetch(GRAPHQL_ENDPOINT, {
+  const response = await fetch(graphqlEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
