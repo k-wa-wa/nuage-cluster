@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
 use tonic::transport::Channel;
-use warp::Filter;
+use warp::{Filter, http::Method};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -191,6 +191,10 @@ async fn main() {
         .data(user_service_client.clone())
         .finish();
 
+    // スキーマをファイルに書き出す (開発用)
+    //let schema_sdl = schema.sdl();
+    //std::fs::write("../ui/schema.graphql", schema_sdl).expect("Failed to write schema");
+
     let graphql_post = async_graphql_warp::graphql(schema).and_then(
         |(schema, request): (
             Schema<Query, Mutation, EmptySubscription>,
@@ -200,7 +204,12 @@ async fn main() {
         },
     );
 
-    let routes = warp::path("graphql").and(graphql_post);
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["User-Agent", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Content-Type"])
+        .allow_methods(&[Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS]);
+
+    let routes = warp::path("graphql").and(graphql_post).with(cors);
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }
