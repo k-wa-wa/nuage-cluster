@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package user_service;
+
+option go_package = "github.com/nuage-cluster/monitoring-stack/user-service";
+
+// User Service は、認証、権限キャッシュJWTの発行、およびユーザープロファイル管理を担当するgRPCサービスです。
+service UserService {
+  // Login はユーザー名とパスワードを受け取り、認証を行い、権限情報を含むJWTを発行します。
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // GetUserProfile は指定されたユーザーIDのプロファイル情報を取得します。
+  rpc GetUserProfile(GetUserProfileRequest) returns (UserProfile);
+  // UpdateUserProfile はユーザープロファイル情報を更新します。
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+}
+
+// LoginRequest はLogin RPCのリクエストメッセージです。
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+// LoginResponse はLogin RPCのレスポンスメッセージです。
+message LoginResponse {
+  string token = 1;
+  int64 expires_in = 2; // JWTの有効期限（秒）
+}
+
+// GetUserProfileRequest はGetUserProfile RPCのリクエストメッセージです。
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+// UpdateUserProfileRequest はUpdateUserProfile RPCのリクエストメッセージです。
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  optional string display_name = 2;
+  map<string, string> notification_settings = 3;
+}
+
+// UpdateUserProfileResponse はUpdateUserProfile RPCのレスポンスメッセージです。
+message UpdateUserProfileResponse {
+  bool success = 1;
+}
+
+// UserProfile はユーザープロファイル情報を表すメッセージです。
+message UserProfile {
+  string user_id = 1;
+  string display_name = 2;
+  map<string, string> notification_settings = 3;
+}
