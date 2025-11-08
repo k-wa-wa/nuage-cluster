@@ -8,8 +8,20 @@ curl -k -i -X PUT "https://localhost:9200/reports_index?pretty" -H 'Content-Type
       "report_id": {
         "type": "keyword"
       },
-      "report_text": {
+      "report_body": {
         "type": "text"
+      },
+      "report_title": {
+        "type": "text"
+      },
+      "report_type": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "severity": {
+        "type": "keyword"
       },
       "user_id": {
         "type": "keyword"
@@ -26,4 +38,4 @@ curl -k -i -X PUT "https://localhost:9200/reports_index?pretty" -H 'Content-Type
     }
   }
 }
-' -u "elastic:${ES_PASSWORD}"
+' -u "elastic:t9chq8axfZXZmPp72yclJXM3"

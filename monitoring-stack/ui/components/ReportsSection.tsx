@@ -14,12 +14,10 @@ interface ReportsSectionProps {
 }
 
 interface Report {
-  content: string
-  generatedAt: string // ISO8601DateTime is a string
   reportId: string
-  reportName: string
-  reportType?: string // Optional based on schema
-  status: string
+  reportBody: string
+  userId: string
+  createdAtUnix: number
 }
 
 const ReportsSection: React.FC<ReportsSectionProps> = () => {
@@ -29,7 +27,7 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchReports = async () => {
+        const fetchReports = async () => {
       try {
         const response = await fetch(graphqlEndpoint, {
           method: "POST",
@@ -38,24 +36,25 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
           },
           body: JSON.stringify({
             query: `
-              query {
-                reports(sort: "generatedAt:desc") {
-                  content
-                  generatedAt
+              query Reports($userId: String!) {
+                reports(userId: $userId) {
                   reportId
-                  reportName
-                  reportType
-                  status
+                  reportBody
+                  userId
+                  createdAtUnix
                 }
               }
             `,
+            variables: {
+              userId: "", // 空文字を渡す
+            },
           }),
         })
 
         const result = await response.json()
 
         if (result.errors) {
-          console.error("GraphQL errors:", result.errors)
+          console.error("GraphQL errors (reports query):", result.errors)
           setError(result.errors[0].message)
         } else if (result.data && result.data.reports) {
           setReports(result.data.reports)
@@ -95,11 +94,10 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
               style={styles.reportItem}
               onPress={() => router.push(`/reports/${item.reportId}`)}
             >
-              <Text style={styles.reportName}>{item.reportName}</Text>
-              <Text>ID: {item.reportId}</Text>
-              <Text>Type: {item.reportType}</Text>
-              <Text>Generated At: {item.generatedAt}</Text>
-              <Text>Status: {item.status}</Text>
+              <Text style={styles.reportName}>{item.reportId}</Text>
+              <Text>Body: {item.reportBody}</Text>
+              <Text>User ID: {item.userId}</Text>
+              <Text>Created At: {new Date(item.createdAtUnix * 1000).toLocaleString()}</Text>
             </TouchableOpacity>
           )}
         />

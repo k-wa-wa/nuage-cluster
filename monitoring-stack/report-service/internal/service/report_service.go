@@ -50,6 +50,10 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		ReportText:   req.GetReportBody(),
 		ReportVector: vector, // 768次元のベクトル
 		UserID:       req.GetUserId(),
+		ReportTitle:  req.GetReportTitle(),
+		ReportType:   req.GetReportType(),
+		Status:       req.GetStatus(),
+		Severity:     req.GetSeverity().String(), // enumを文字列として保存
 		CreatedAt:    createdAtUnix,
 	}
 
@@ -65,6 +69,10 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 			ReportId:      req.GetReportId(),
 			ReportBody:    req.GetReportBody(),
 			UserId:        req.GetUserId(),
+			ReportTitle:   req.GetReportTitle(),
+			ReportType:    req.GetReportType(),
+			Status:        req.GetStatus(),
+			Severity:      req.GetSeverity(),
 			CreatedAtUnix: createdAtUnix,
 		},
 		Success: true,
@@ -90,6 +98,10 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 			ReportId:      doc.ReportID,
 			ReportBody:    doc.ReportText,
 			UserId:        doc.UserID,
+			ReportTitle:   doc.ReportTitle,
+			ReportType:    doc.ReportType,
+			Status:        doc.Status,
+			Severity:      pb.Severity(pb.Severity_value[doc.Severity]), // 文字列からenumに変換
 			CreatedAtUnix: doc.CreatedAt,
 		},
 		Success: true,
@@ -115,6 +127,10 @@ func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequ
 			ReportId:      doc.ReportID,
 			ReportBody:    doc.ReportText,
 			UserId:        doc.UserID,
+			ReportTitle:   doc.ReportTitle,
+			ReportType:    doc.ReportType,
+			Status:        doc.Status,
+			Severity:      pb.Severity(pb.Severity_value[doc.Severity]), // 文字列からenumに変換
 			CreatedAtUnix: doc.CreatedAt,
 		})
 	}

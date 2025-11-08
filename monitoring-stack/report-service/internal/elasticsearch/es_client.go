@@ -45,6 +45,10 @@ type ReportDocument struct {
 	ReportText   string    `json:"report_text"`
 	ReportVector []float32 `json:"report_vector"` // Geminiから取得したベクトル
 	UserID       string    `json:"user_id"`
+	ReportTitle  string    `json:"report_title"`
+	ReportType   string    `json:"report_type"`
+	Status       string    `json:"status"`
+	Severity     string    `json:"severity"` // enumは文字列として保存
 	CreatedAt    int64     `json:"created_at"`
 }
 

@@ -23,11 +23,70 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Severity int32
+
+const (
+	Severity_UNSPECIFIED Severity = 0
+	Severity_LOW         Severity = 1
+	Severity_MEDIUM      Severity = 2
+	Severity_HIGH        Severity = 3
+	Severity_CRITICAL    Severity = 4
+)
+
+// Enum value maps for Severity.
+var (
+	Severity_name = map[int32]string{
+		0: "UNSPECIFIED",
+		1: "LOW",
+		2: "MEDIUM",
+		3: "HIGH",
+		4: "CRITICAL",
+	}
+	Severity_value = map[string]int32{
+		"UNSPECIFIED": 0,
+		"LOW":         1,
+		"MEDIUM":      2,
+		"HIGH":        3,
+		"CRITICAL":    4,
+	}
+)
+
+func (x Severity) Enum() *Severity {
+	p := new(Severity)
+	*p = x
+	return p
+}
+
+func (x Severity) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Severity) Descriptor() protoreflect.EnumDescriptor {
+	return file_report_service_proto_enumTypes[0].Descriptor()
+}
+
+func (Severity) Type() protoreflect.EnumType {
+	return &file_report_service_proto_enumTypes[0]
+}
+
+func (x Severity) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Severity.Descriptor instead.
+func (Severity) EnumDescriptor() ([]byte, []int) {
+	return file_report_service_proto_rawDescGZIP(), []int{0}
+}
+
 type CreateReportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ReportId      string                 `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`       // レポートを一意に識別するID
 	ReportBody    string                 `protobuf:"bytes,2,opt,name=report_body,json=reportBody,proto3" json:"report_body,omitempty"` // レポート本文 (ベクトル化の対象)
 	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`             // 作成者/通知先ユーザーID
+	ReportTitle   string                 `protobuf:"bytes,4,opt,name=report_title,json=reportTitle,proto3" json:"report_title,omitempty"`
+	ReportType    string                 `protobuf:"bytes,5,opt,name=report_type,json=reportType,proto3" json:"report_type,omitempty"`
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Severity      Severity               `protobuf:"varint,7,opt,name=severity,proto3,enum=report_service.Severity" json:"severity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,12 +142,44 @@ func (x *CreateReportRequest) GetUserId() string {
 	return ""
 }
 
+func (x *CreateReportRequest) GetReportTitle() string {
+	if x != nil {
+		return x.ReportTitle
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetReportType() string {
+	if x != nil {
+		return x.ReportType
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetSeverity() Severity {
+	if x != nil {
+		return x.Severity
+	}
+	return Severity_UNSPECIFIED
+}
+
 type Report struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ReportId      string                 `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
 	ReportBody    string                 `protobuf:"bytes,2,opt,name=report_body,json=reportBody,proto3" json:"report_body,omitempty"`
 	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	CreatedAtUnix int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	ReportTitle   string                 `protobuf:"bytes,4,opt,name=report_title,json=reportTitle,proto3" json:"report_title,omitempty"`
+	ReportType    string                 `protobuf:"bytes,5,opt,name=report_type,json=reportType,proto3" json:"report_type,omitempty"`
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Severity      Severity               `protobuf:"varint,7,opt,name=severity,proto3,enum=report_service.Severity" json:"severity,omitempty"`
+	CreatedAtUnix int64                  `protobuf:"varint,8,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -142,6 +233,34 @@ func (x *Report) GetUserId() string {
 		return x.UserId
 	}
 	return ""
+}
+
+func (x *Report) GetReportTitle() string {
+	if x != nil {
+		return x.ReportTitle
+	}
+	return ""
+}
+
+func (x *Report) GetReportType() string {
+	if x != nil {
+		return x.ReportType
+	}
+	return ""
+}
+
+func (x *Report) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Report) GetSeverity() Severity {
+	if x != nil {
+		return x.Severity
+	}
+	return Severity_UNSPECIFIED
 }
 
 func (x *Report) GetCreatedAtUnix() int64 {
@@ -447,18 +566,28 @@ var File_report_service_proto protoreflect.FileDescriptor
 
 const file_report_service_proto_rawDesc = "" +
 	"\n" +
-	"\x14report_service.proto\x12\x0ereport_service\"l\n" +
+	"\x14report_service.proto\x12\x0ereport_service\"\xfe\x01\n" +
 	"\x13CreateReportRequest\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1f\n" +
 	"\vreport_body\x18\x02 \x01(\tR\n" +
 	"reportBody\x12\x17\n" +
-	"\auser_id\x18\x03 \x01(\tR\x06userId\"\x87\x01\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12!\n" +
+	"\freport_title\x18\x04 \x01(\tR\vreportTitle\x12\x1f\n" +
+	"\vreport_type\x18\x05 \x01(\tR\n" +
+	"reportType\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x124\n" +
+	"\bseverity\x18\a \x01(\x0e2\x18.report_service.SeverityR\bseverity\"\x99\x02\n" +
 	"\x06Report\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1f\n" +
 	"\vreport_body\x18\x02 \x01(\tR\n" +
 	"reportBody\x12\x17\n" +
-	"\auser_id\x18\x03 \x01(\tR\x06userId\x12&\n" +
-	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\"z\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12!\n" +
+	"\freport_title\x18\x04 \x01(\tR\vreportTitle\x12\x1f\n" +
+	"\vreport_type\x18\x05 \x01(\tR\n" +
+	"reportType\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x124\n" +
+	"\bseverity\x18\a \x01(\x0e2\x18.report_service.SeverityR\bseverity\x12&\n" +
+	"\x0fcreated_at_unix\x18\b \x01(\x03R\rcreatedAtUnix\"z\n" +
 	"\x14CreateReportResponse\x12.\n" +
 	"\x06report\x18\x01 \x01(\v2\x16.report_service.ReportR\x06report\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x18\n" +
@@ -478,7 +607,14 @@ const file_report_service_proto_rawDesc = "" +
 	"\areports\x18\x01 \x03(\v2\x16.report_service.ReportR\areports\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x18\n" +
 	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage2\x94\x02\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage*H\n" +
+	"\bSeverity\x12\x0f\n" +
+	"\vUNSPECIFIED\x10\x00\x12\a\n" +
+	"\x03LOW\x10\x01\x12\n" +
+	"\n" +
+	"\x06MEDIUM\x10\x02\x12\b\n" +
+	"\x04HIGH\x10\x03\x12\f\n" +
+	"\bCRITICAL\x10\x042\x94\x02\n" +
 	"\rReportService\x12Y\n" +
 	"\fCreateReport\x12#.report_service.CreateReportRequest\x1a$.report_service.CreateReportResponse\x12P\n" +
 	"\tGetReport\x12 .report_service.GetReportRequest\x1a!.report_service.GetReportResponse\x12V\n" +
@@ -496,31 +632,35 @@ func file_report_service_proto_rawDescGZIP() []byte {
 	return file_report_service_proto_rawDescData
 }
 
+var file_report_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_report_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_report_service_proto_goTypes = []any{
-	(*CreateReportRequest)(nil),  // 0: report_service.CreateReportRequest
-	(*Report)(nil),               // 1: report_service.Report
-	(*CreateReportResponse)(nil), // 2: report_service.CreateReportResponse
-	(*GetReportRequest)(nil),     // 3: report_service.GetReportRequest
-	(*GetReportResponse)(nil),    // 4: report_service.GetReportResponse
-	(*ListReportsRequest)(nil),   // 5: report_service.ListReportsRequest
-	(*ListReportsResponse)(nil),  // 6: report_service.ListReportsResponse
+	(Severity)(0),                // 0: report_service.Severity
+	(*CreateReportRequest)(nil),  // 1: report_service.CreateReportRequest
+	(*Report)(nil),               // 2: report_service.Report
+	(*CreateReportResponse)(nil), // 3: report_service.CreateReportResponse
+	(*GetReportRequest)(nil),     // 4: report_service.GetReportRequest
+	(*GetReportResponse)(nil),    // 5: report_service.GetReportResponse
+	(*ListReportsRequest)(nil),   // 6: report_service.ListReportsRequest
+	(*ListReportsResponse)(nil),  // 7: report_service.ListReportsResponse
 }
 var file_report_service_proto_depIdxs = []int32{
-	1, // 0: report_service.CreateReportResponse.report:type_name -> report_service.Report
-	1, // 1: report_service.GetReportResponse.report:type_name -> report_service.Report
-	1, // 2: report_service.ListReportsResponse.reports:type_name -> report_service.Report
-	0, // 3: report_service.ReportService.CreateReport:input_type -> report_service.CreateReportRequest
-	3, // 4: report_service.ReportService.GetReport:input_type -> report_service.GetReportRequest
-	5, // 5: report_service.ReportService.ListReports:input_type -> report_service.ListReportsRequest
-	2, // 6: report_service.ReportService.CreateReport:output_type -> report_service.CreateReportResponse
-	4, // 7: report_service.ReportService.GetReport:output_type -> report_service.GetReportResponse
-	6, // 8: report_service.ReportService.ListReports:output_type -> report_service.ListReportsResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0, // 0: report_service.CreateReportRequest.severity:type_name -> report_service.Severity
+	0, // 1: report_service.Report.severity:type_name -> report_service.Severity
+	2, // 2: report_service.CreateReportResponse.report:type_name -> report_service.Report
+	2, // 3: report_service.GetReportResponse.report:type_name -> report_service.Report
+	2, // 4: report_service.ListReportsResponse.reports:type_name -> report_service.Report
+	1, // 5: report_service.ReportService.CreateReport:input_type -> report_service.CreateReportRequest
+	4, // 6: report_service.ReportService.GetReport:input_type -> report_service.GetReportRequest
+	6, // 7: report_service.ReportService.ListReports:input_type -> report_service.ListReportsRequest
+	3, // 8: report_service.ReportService.CreateReport:output_type -> report_service.CreateReportResponse
+	5, // 9: report_service.ReportService.GetReport:output_type -> report_service.GetReportResponse
+	7, // 10: report_service.ReportService.ListReports:output_type -> report_service.ListReportsResponse
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_report_service_proto_init() }
@@ -533,13 +673,14 @@ func file_report_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_report_service_proto_rawDesc), len(file_report_service_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_report_service_proto_goTypes,
 		DependencyIndexes: file_report_service_proto_depIdxs,
+		EnumInfos:         file_report_service_proto_enumTypes,
 		MessageInfos:      file_report_service_proto_msgTypes,
 	}.Build()
 	File_report_service_proto = out.File

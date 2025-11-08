@@ -1,6 +1,22 @@
-import { graphqlEndpoint } from '@/constants/config';
+import { sdk } from '@/components/utils/graphqlClient';
+import { gql } from 'graphql-tag';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Button, Platform, StyleSheet, Text, View } from 'react-native';
+
+const VapidPublicKeyDocument = gql`
+  query VapidPublicKey {
+    vapidPublicKey
+  }
+`;
+
+const SubscribeDocument = gql`
+  mutation Subscribe($subscription: SubscriptionInput!) {
+    subscribe(subscription: $subscription) {
+      success
+      message
+    }
+  }
+`;
 
 export default function SettingsScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -17,24 +33,8 @@ export default function SettingsScreen() {
         setVapidKeyLoading(true);
         setVapidKeyError(null);
         try {
-          const response = await fetch(graphqlEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: `
-                query {
-                  vapidPublicKey
-                }
-              `,
-            }),
-          });
-          const result = await response.json();
-          if (result.errors) {
-            throw new Error(result.errors[0].message || 'Failed to fetch VAPID public key.');
-          }
-          setVapidPublicKey(result.data.vapidPublicKey);
+          const result = await sdk.VapidPublicKey();
+          setVapidPublicKey(result.vapidPublicKey);
         } catch (err: any) {
           console.error('Error fetching VAPID public key:', err);
           setVapidKeyError(err.message || 'Failed to fetch VAPID public key.');
@@ -84,37 +84,15 @@ export default function SettingsScreen() {
       });
 
       // Send subscription to your backend
-      const response = await fetch(graphqlEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: `
-            mutation Subscribe($subscription: SubscriptionInput!) {
-              subscribe(subscription: $subscription) {
-                success
-                message
-              }
-            }
-          `,
-          variables: {
-            subscription: JSON.parse(JSON.stringify(subscription))
-          },
-        }),
+      const result = await sdk.Subscribe({
+        subscription: JSON.parse(JSON.stringify(subscription))
       });
 
-      const result = await response.json();
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message || 'GraphQL subscription error');
-      }
-
-      if (result.data.subscribe.success) {
+      if (result.subscribe.success) {
         setIsSubscribed(true);
-        console.log('Push subscription successful:', result.data.subscribe.message);
+        console.log('Push subscription successful:', result.subscribe.message);
       } else {
-        setError(result.data.subscribe.message || 'Subscription failed.');
+        setError(result.subscribe.message || 'Subscription failed.');
       }
     } catch (err: any) {
       console.error('Error subscribing to push notifications:', err);

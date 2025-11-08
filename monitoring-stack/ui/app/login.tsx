@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet, TextInput, Button, Alert, Text, View } from 'react-native';
-import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // AsyncStorageをインポート
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { graphqlRequest } from '@/components/utils/graphqlClient'; // graphqlRequestをインポート
+import { sdk } from '@/components/utils/graphqlClient'; // sdkをインポート
+import AsyncStorage from '@react-native-async-storage/async-storage'; // AsyncStorageをインポート
+import { router } from 'expo-router';
+import { gql } from 'graphql-tag'; // gqlをインポート
+import React, { useState } from 'react';
+import { Alert, Button, StyleSheet, Text, TextInput } from 'react-native';
 
-const LOGIN_MUTATION = `
+const LoginDocument = gql`
   mutation Login($username: String!, $password: String!) {
     login(username: $username, password: $password) {
       token
@@ -25,11 +26,8 @@ export default function LoginScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await graphqlRequest<{ login: { token: string; expiresIn: number } }>(
-        LOGIN_MUTATION,
-        { username, password }
-      );
-      if (data?.login.token) {
+      const data = await sdk.Login({ username, password });
+      if (data.login.token) {
         await AsyncStorage.setItem('userToken', data.login.token); // Save token
         Alert.alert('Login Successful', 'Redirecting to dashboard.');
         router.replace('/(tabs)/dashboard'); // Navigate to dashboard and remove login screen from history

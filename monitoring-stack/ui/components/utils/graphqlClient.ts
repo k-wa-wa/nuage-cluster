@@ -1,22 +1,8 @@
 import { graphqlEndpoint } from '@/constants/config';
+import { getSdk } from '@/types/graphql';
+import { GraphQLClient } from 'graphql-request';
 
-export async function graphqlRequest<T>(query: string, variables?: Record<string, any>): Promise<T> {
-  const response = await fetch(graphqlEndpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
-  });
+const client = new GraphQLClient(graphqlEndpoint);
+const sdk = getSdk(client);
 
-  const result = await response.json();
-
-  if (result.errors) {
-    throw new Error(result.errors.map((error: any) => error.message).join('\n'));
-  }
-
-  return result.data;
-}
+export { sdk };

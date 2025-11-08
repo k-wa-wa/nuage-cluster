@@ -5,12 +5,10 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import Markdown from 'react-native-markdown-display';
 
 interface Report {
-  content: string;
-  generatedAt: string;
   reportId: string;
-  reportName: string;
-  reportType?: string;
-  status: string;
+  reportBody: string;
+  userId: string;
+  createdAtUnix: number;
 }
 
 const ReportDetailPage: React.FC = () => {
@@ -35,17 +33,18 @@ const ReportDetailPage: React.FC = () => {
           },
           body: JSON.stringify({
             query: `
-              query {
-                reports {
-                  content
-                  generatedAt
+              query Report($reportId: String!) {
+                report(reportId: $reportId) {
                   reportId
-                  reportName
-                  reportType
-                  status
+                  reportBody
+                  userId
+                  createdAtUnix
                 }
               }
             `,
+            variables: {
+              reportId: id,
+            },
           }),
         });
 
@@ -54,15 +53,10 @@ const ReportDetailPage: React.FC = () => {
         if (result.errors) {
           console.error('GraphQL errors:', result.errors);
           setError(result.errors[0].message);
-        } else if (result.data && result.data.reports) {
-          const foundReport = result.data.reports.find((r: Report) => r.reportId === id);
-          if (foundReport) {
-            setReport(foundReport);
-          } else {
-            setError("Report not found.");
-          }
+        } else if (result.data && result.data.report) {
+          setReport(result.data.report);
         } else {
-          setError("No reports data available.");
+          setError("Report not found.");
         }
       } catch (err: any) {
         console.error('Error fetching report:', err);
@@ -102,14 +96,12 @@ const ReportDetailPage: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Stack.Screen options={{ title: report.reportName }} />
-      <Text style={styles.title}>{report.reportName}</Text>
-      <Text style={styles.meta}>ID: {report.reportId}</Text>
-      <Text style={styles.meta}>Type: {report.reportType}</Text>
-      <Text style={styles.meta}>Generated At: {new Date(report.generatedAt).toLocaleString()}</Text>
-      <Text style={styles.meta}>Status: {report.status}</Text>
+      <Stack.Screen options={{ title: report.reportId }} />
+      <Text style={styles.title}>{report.reportId}</Text>
+      <Text style={styles.meta}>User ID: {report.userId}</Text>
+      <Text style={styles.meta}>Created At: {new Date(report.createdAtUnix * 1000).toLocaleString()}</Text>
       <View style={styles.contentContainer}>
-        <Markdown style={markdownStyles}>{report.content}</Markdown>
+        <Markdown style={markdownStyles}>{report.reportBody}</Markdown>
       </View>
     </ScrollView>
   );

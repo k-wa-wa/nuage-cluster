@@ -16,13 +16,29 @@ message CreateReportRequest {
   string report_id = 1;         // レポートを一意に識別するID
   string report_body = 2;       // レポート本文 (ベクトル化の対象)
   string user_id = 3;           // 作成者/通知先ユーザーID
+  string report_title = 4;
+  string report_type = 5;
+  string status = 6;
+  Severity severity = 7;
+}
+
+enum Severity {
+  UNSPECIFIED = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+  CRITICAL = 4;
 }
 
 message Report {
   string report_id = 1;
   string report_body = 2;
   string user_id = 3;
-  int64 created_at_unix = 4;
+  string report_title = 4;
+  string report_type = 5;
+  string status = 6;
+  Severity severity = 7;
+  int64 created_at_unix = 8;
 }
 
 message CreateReportResponse {

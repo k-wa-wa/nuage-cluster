@@ -1,0 +1,4 @@
+## 動作確認
+
+`npx tsc --noEmit` でエラーが出ないこと、`npx expo export --platform web` でビルドが成功することを確認してください。
+それ以外の `npm run web` などは実行しないでください。

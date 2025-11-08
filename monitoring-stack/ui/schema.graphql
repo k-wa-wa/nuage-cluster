@@ -21,11 +21,31 @@ type Mutation {
 	ユーザープロファイルを更新します。
 	"""
 	updateUserProfile(displayName: String, notificationSettings: [NotificationSettingInput!]): UserProfile!
+	"""
+	プッシュ通知の購読情報を登録します。
+	"""
+	subscribe(subscription: SubscriptionInput!): SubscribePayload!
 }
 
 input NotificationSettingInput {
 	key: String!
 	value: String!
+}
+
+input SubscriptionInput {
+	endpoint: String!
+	expirationTime: String
+	keys: SubscriptionKeysInput!
+}
+
+input SubscriptionKeysInput {
+	p256dh: String!
+	auth: String!
+}
+
+type SubscribePayload {
+	success: Boolean!
+	message: String
 }
 
 type Query {
@@ -36,18 +56,22 @@ type Query {
 	"""
 	レポート一覧を取得します。
 	"""
-	reports: [Report!]!
+	reports(userId: String!, pageSize: Int, pageToken: String): [Report!]!
 	"""
 	特定のレポートを取得します。
 	"""
-	report(id: String!): Report
+	report(reportId: String!): Report
+	"""
+	VAPID公開鍵を取得します。
+	"""
+	vapidPublicKey: String!
 }
 
 type Report {
-	id: String!
-	title: String!
-	content: String!
-	createdAt: String!
+	reportId: String!
+	reportBody: String!
+	userId: String!
+	createdAtUnix: Int!
 }
 
 
