@@ -122,22 +122,25 @@ func (c *Client) GetReportByID(ctx context.Context, reportID string) (*ReportDoc
 	return &esResponse.Source, nil
 }
 
-// SearchReports はユーザーIDに基づいてレポートを検索し、ページネーションを適用
+// SearchReports はレポートを検索し、ページネーションを適用
 func (c *Client) SearchReports(ctx context.Context, userID string, pageSize int, pageToken string) ([]ReportDocument, int, error) {
 	if pageSize <= 0 {
 		pageSize = 10 // デフォルトのページサイズ
 	}
 
 	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"term": map[string]interface{}{
-				"user_id.keyword": userID,
-			},
-		},
 		"sort": []map[string]interface{}{
 			{"created_at": "desc"}, // 最新のレポートから取得
 		},
 		"size": pageSize,
+	}
+
+	if userID != "" {
+		query["query"] = map[string]interface{}{
+			"term": map[string]interface{}{
+				"user_id.keyword": userID,
+			},
+		}
 	}
 
 	// pageToken (今回は report_id を想定) を使ったページネーション

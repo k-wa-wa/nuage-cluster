@@ -99,7 +99,7 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 
 // ListReports はユーザーIDに基づいてレポートのリストを取得
 func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequest) (*pb.ListReportsResponse, error) {
-	log.Printf("Received ListReports request for UserID: %s, PageSize: %d, PageToken: %s", req.GetUserId(), req.GetPageSize(), req.GetPageToken())
+	log.Printf("Received ListReports request for PageSize: %d, PageToken: %s", req.GetPageSize(), req.GetPageToken())
 
 	// ページネーションとフィルタリングのロジックをESクライアントに渡す
 	// TODO: page_token の実装は後回し。今回は単純なページングのみ

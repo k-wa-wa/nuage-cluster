@@ -37,7 +37,8 @@ func (c *Client) GenerateEmbedding(ctx context.Context, text string) ([]float32,
 		return nil, nil
 	}
 
-	res, err := c.genaiClient.EmbedContent(ctx, embeddingModel, genai.Text(text))
+	model := c.genaiClient.EmbeddingModel(embeddingModel)
+	res, err := model.EmbedContent(ctx, genai.Text(text))
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed content: %w", err)
 	}
