@@ -12,11 +12,17 @@ mod proto {
     pub mod user_service {
         tonic::include_proto!("user_service");
     }
+    pub mod report_service {
+        tonic::include_proto!("report_service");
+    }
 }
 
 use proto::user_service::{
     user_service_client::UserServiceClient, GetUserProfileRequest, LoginRequest,
     UpdateUserProfileRequest,
+};
+use proto::report_service::{
+    report_service_client::ReportServiceClient, GetReportRequest, ListReportsRequest,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -58,33 +64,55 @@ impl Query {
     }
 
     /// レポート一覧を取得します。
-    async fn reports(&self, _ctx: &async_graphql::Context<'_>) -> Vec<Report> {
-        // TODO: Report Serviceを呼び出し、認可ロジックを追加
-        vec![
-            Report {
-                id: "1".to_string(),
-                title: "Report 1".to_string(),
-                content: "Content 1".to_string(),
-                created_at: "2023-01-01".to_string(),
-            },
-            Report {
-                id: "2".to_string(),
-                title: "Report 2".to_string(),
-                content: "Content 2".to_string(),
-                created_at: "2023-01-02".to_string(),
-            },
-        ]
+    async fn reports(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+        user_id: String, // TODO: JWTからユーザーIDを取得
+        page_size: Option<i32>,
+        page_token: Option<String>,
+    ) -> async_graphql::Result<Vec<Report>> {
+        // TODO: 認可ロジックを追加
+        let report_service_client = ctx.data::<Arc<Mutex<ReportServiceClient<Channel>>>>()?;
+        let mut client = report_service_client.lock().await.clone();
+        let request = tonic::Request::new(ListReportsRequest {
+            user_id,
+            page_size: page_size.unwrap_or(10),
+            page_token: page_token.unwrap_or_default(),
+        });
+        let response = client.list_reports(request).await?.into_inner();
+
+        let reports: Vec<Report> = response
+            .reports
+            .into_iter()
+            .map(|r| Report {
+                report_id: r.report_id,
+                report_body: r.report_body,
+                user_id: r.user_id,
+                created_at_unix: r.created_at_unix,
+            })
+            .collect();
+
+        Ok(reports)
     }
 
     /// 特定のレポートを取得します。
-    async fn report(&self, _ctx: &async_graphql::Context<'_>, id: String) -> Option<Report> {
-        // TODO: Report Serviceを呼び出し、認可ロジックを追加
-        Some(Report {
-            id: id.clone(),
-            title: format!("Report {}", id),
-            content: format!("Content {}", id),
-            created_at: "2023-01-01".to_string(),
-        })
+    async fn report(&self, ctx: &async_graphql::Context<'_>, report_id: String) -> async_graphql::Result<Option<Report>> {
+        // TODO: 認可ロジックを追加
+        let report_service_client = ctx.data::<Arc<Mutex<ReportServiceClient<Channel>>>>()?;
+        let mut client = report_service_client.lock().await.clone();
+        let request = tonic::Request::new(GetReportRequest { report_id: report_id.clone() });
+        let response = client.get_report(request).await?.into_inner();
+
+        if let Some(r) = response.report {
+            Ok(Some(Report {
+                report_id: r.report_id,
+                report_body: r.report_body,
+                user_id: r.user_id,
+                created_at_unix: r.created_at_unix,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -167,10 +195,10 @@ struct LoginPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::SimpleObject)]
 struct Report {
-    id: String,
-    title: String,
-    content: String,
-    created_at: String,
+    report_id: String,
+    report_body: String,
+    user_id: String,
+    created_at_unix: i64,
 }
 
 #[tokio::main]
@@ -179,16 +207,26 @@ async fn main() {
 
     let user_service_url = std::env::var("USER_SERVICE_URL")
         .unwrap_or_else(|_| "http://localhost:50051".to_string());
+    let report_service_url = std::env::var("REPORT_SERVICE_URL")
+        .unwrap_or_else(|_| "http://localhost:50052".to_string()); // Report ServiceのURLを追加
 
-    let channel = tonic::transport::Endpoint::from_shared(user_service_url)
+    let user_channel = tonic::transport::Endpoint::from_shared(user_service_url)
         .expect("Invalid User Service URL")
         .connect()
         .await
         .expect("Failed to connect to User Service");
-    let user_service_client = Arc::new(Mutex::new(UserServiceClient::new(channel)));
+    let user_service_client = Arc::new(Mutex::new(UserServiceClient::new(user_channel)));
+
+    let report_channel = tonic::transport::Endpoint::from_shared(report_service_url)
+        .expect("Invalid Report Service URL")
+        .connect()
+        .await
+        .expect("Failed to connect to Report Service");
+    let report_service_client = Arc::new(Mutex::new(ReportServiceClient::new(report_channel)));
 
     let schema = Schema::build(Query, Mutation, EmptySubscription)
         .data(user_service_client.clone())
+        .data(report_service_client.clone()) // Report Serviceクライアントを追加
         .finish();
 
     // スキーマをファイルに書き出す (開発用)
