@@ -205,33 +205,76 @@ struct Report {
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    // スキーマをファイルに書き出す (開発用)
+    // サービス接続の前にスキーマを生成
+    let schema_for_sdl = Schema::build(Query, Mutation, EmptySubscription).finish();
+    let schema_sdl = schema_for_sdl.sdl();
+    //std::fs::write("../ui/schema.graphql", schema_sdl).expect("Failed to write schema");
+    //println!("GraphQL schema written to ../ui/schema.graphql"); // スキーマ出力の確認メッセージを追加
+
     let user_service_url = std::env::var("USER_SERVICE_URL")
         .unwrap_or_else(|_| "http://localhost:50051".to_string());
     let report_service_url = std::env::var("REPORT_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:50052".to_string()); // Report ServiceのURLを追加
+        .unwrap_or_else(|_| "http://localhost:50052".to_string());
 
-    let user_channel = tonic::transport::Endpoint::from_shared(user_service_url)
-        .expect("Invalid User Service URL")
-        .connect()
-        .await
-        .expect("Failed to connect to User Service");
-    let user_service_client = Arc::new(Mutex::new(UserServiceClient::new(user_channel)));
+    let user_service_client_arc: Option<Arc<Mutex<UserServiceClient<Channel>>>>;
+    let report_service_client_arc: Option<Arc<Mutex<ReportServiceClient<Channel>>>>;
 
-    let report_channel = tonic::transport::Endpoint::from_shared(report_service_url)
-        .expect("Invalid Report Service URL")
-        .connect()
-        .await
-        .expect("Failed to connect to Report Service");
-    let report_service_client = Arc::new(Mutex::new(ReportServiceClient::new(report_channel)));
+    // User Serviceへの接続を試みる
+    match tonic::transport::Endpoint::from_shared(user_service_url.clone()) {
+        Ok(endpoint) => {
+            match endpoint.connect().await {
+                Ok(channel) => {
+                    user_service_client_arc = Some(Arc::new(Mutex::new(UserServiceClient::new(channel))));
+                    println!("Connected to User Service at {}", user_service_url);
+                },
+                Err(e) => {
+                    eprintln!("Failed to connect to User Service at {}: {}", user_service_url, e);
+                    user_service_client_arc = None;
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("Invalid User Service URL {}: {}", user_service_url, e);
+            user_service_client_arc = None;
+        }
+    }
 
-    let schema = Schema::build(Query, Mutation, EmptySubscription)
-        .data(user_service_client.clone())
-        .data(report_service_client.clone()) // Report Serviceクライアントを追加
-        .finish();
+    // Report Serviceへの接続を試みる
+    match tonic::transport::Endpoint::from_shared(report_service_url.clone()) {
+        Ok(endpoint) => {
+            match endpoint.connect().await {
+                Ok(channel) => {
+                    report_service_client_arc = Some(Arc::new(Mutex::new(ReportServiceClient::new(channel))));
+                    println!("Connected to Report Service at {}", report_service_url);
+                },
+                Err(e) => {
+                    eprintln!("Failed to connect to Report Service at {}: {}", report_service_url, e);
+                    report_service_client_arc = None;
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Invalid Report Service URL {}: {}", report_service_url, e);
+            report_service_client_arc = None;
+        }
+    }
 
-    // スキーマをファイルに書き出す (開発用)
-    //let schema_sdl = schema.sdl();
-    //std::fs::write("../ui/schema.graphql", schema_sdl).expect("Failed to write schema");
+    let mut schema_builder = Schema::build(Query, Mutation, EmptySubscription);
+
+    if let Some(client) = user_service_client_arc {
+        schema_builder = schema_builder.data(client);
+    } else {
+        eprintln!("User Service client not available. Some GraphQL queries/mutations may fail.");
+    }
+
+    if let Some(client) = report_service_client_arc {
+        schema_builder = schema_builder.data(client);
+    } else {
+        eprintln!("Report Service client not available. Some GraphQL queries/mutations may fail.");
+    }
+
+    let schema = schema_builder.finish();
 
     let graphql_post = async_graphql_warp::graphql(schema).and_then(
         |(schema, request): (
