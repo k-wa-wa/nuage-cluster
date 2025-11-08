@@ -4,6 +4,8 @@
 // 	protoc        v6.33.0
 // source: report_service.proto
 
+//go:generate protoc --go_out=../internal/pb --go_opt=paths=source_relative --go-grpc_out=../internal/pb --go-grpc_opt=paths=source_relative report_service.proto
+
 package pb
 
 import (
@@ -23,10 +25,9 @@ const (
 
 type CreateReportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ReportId      string                 `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`                   // レポートを一意に識別するID
-	ReportBody    string                 `protobuf:"bytes,2,opt,name=report_body,json=reportBody,proto3" json:"report_body,omitempty"`             // レポート本文 (ベクトル化の対象)
-	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                         // 作成者/通知先ユーザーID
-	CreatedAtUnix int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"` // 作成日時 (Unixタイムスタンプ)
+	ReportId      string                 `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`       // レポートを一意に識別するID
+	ReportBody    string                 `protobuf:"bytes,2,opt,name=report_body,json=reportBody,proto3" json:"report_body,omitempty"` // レポート本文 (ベクトル化の対象)
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`             // 作成者/通知先ユーザーID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -82,7 +83,68 @@ func (x *CreateReportRequest) GetUserId() string {
 	return ""
 }
 
-func (x *CreateReportRequest) GetCreatedAtUnix() int64 {
+type Report struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ReportId      string                 `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	ReportBody    string                 `protobuf:"bytes,2,opt,name=report_body,json=reportBody,proto3" json:"report_body,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	CreatedAtUnix int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Report) Reset() {
+	*x = Report{}
+	mi := &file_report_service_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Report) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Report) ProtoMessage() {}
+
+func (x *Report) ProtoReflect() protoreflect.Message {
+	mi := &file_report_service_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Report.ProtoReflect.Descriptor instead.
+func (*Report) Descriptor() ([]byte, []int) {
+	return file_report_service_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Report) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *Report) GetReportBody() string {
+	if x != nil {
+		return x.ReportBody
+	}
+	return ""
+}
+
+func (x *Report) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *Report) GetCreatedAtUnix() int64 {
 	if x != nil {
 		return x.CreatedAtUnix
 	}
@@ -91,15 +153,16 @@ func (x *CreateReportRequest) GetCreatedAtUnix() int64 {
 
 type CreateReportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Report        *Report                `protobuf:"bytes,1,opt,name=report,proto3" json:"report,omitempty"`
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateReportResponse) Reset() {
 	*x = CreateReportResponse{}
-	mi := &file_report_service_proto_msgTypes[1]
+	mi := &file_report_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +174,7 @@ func (x *CreateReportResponse) String() string {
 func (*CreateReportResponse) ProtoMessage() {}
 
 func (x *CreateReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_report_service_proto_msgTypes[1]
+	mi := &file_report_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,7 +187,14 @@ func (x *CreateReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReportResponse.ProtoReflect.Descriptor instead.
 func (*CreateReportResponse) Descriptor() ([]byte, []int) {
-	return file_report_service_proto_rawDescGZIP(), []int{1}
+	return file_report_service_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CreateReportResponse) GetReport() *Report {
+	if x != nil {
+		return x.Report
+	}
+	return nil
 }
 
 func (x *CreateReportResponse) GetSuccess() bool {
@@ -145,16 +215,22 @@ var File_report_service_proto protoreflect.FileDescriptor
 
 const file_report_service_proto_rawDesc = "" +
 	"\n" +
-	"\x14report_service.proto\x12\x0ereport_service\"\x94\x01\n" +
+	"\x14report_service.proto\x12\x0ereport_service\"l\n" +
 	"\x13CreateReportRequest\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1f\n" +
 	"\vreport_body\x18\x02 \x01(\tR\n" +
 	"reportBody\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\"\x87\x01\n" +
+	"\x06Report\x12\x1b\n" +
+	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1f\n" +
+	"\vreport_body\x18\x02 \x01(\tR\n" +
+	"reportBody\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12&\n" +
-	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\"J\n" +
-	"\x14CreateReportResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2j\n" +
+	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\"z\n" +
+	"\x14CreateReportResponse\x12.\n" +
+	"\x06report\x18\x01 \x01(\v2\x16.report_service.ReportR\x06report\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage2j\n" +
 	"\rReportService\x12Y\n" +
 	"\fCreateReport\x12#.report_service.CreateReportRequest\x1a$.report_service.CreateReportResponseB\x1cZ\x1areport-service/internal/pbb\x06proto3"
 
@@ -170,19 +246,21 @@ func file_report_service_proto_rawDescGZIP() []byte {
 	return file_report_service_proto_rawDescData
 }
 
-var file_report_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_report_service_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_report_service_proto_goTypes = []any{
 	(*CreateReportRequest)(nil),  // 0: report_service.CreateReportRequest
-	(*CreateReportResponse)(nil), // 1: report_service.CreateReportResponse
+	(*Report)(nil),               // 1: report_service.Report
+	(*CreateReportResponse)(nil), // 2: report_service.CreateReportResponse
 }
 var file_report_service_proto_depIdxs = []int32{
-	0, // 0: report_service.ReportService.CreateReport:input_type -> report_service.CreateReportRequest
-	1, // 1: report_service.ReportService.CreateReport:output_type -> report_service.CreateReportResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: report_service.CreateReportResponse.report:type_name -> report_service.Report
+	0, // 1: report_service.ReportService.CreateReport:input_type -> report_service.CreateReportRequest
+	2, // 2: report_service.ReportService.CreateReport:output_type -> report_service.CreateReportResponse
+	2, // [2:3] is the sub-list for method output_type
+	1, // [1:2] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_report_service_proto_init() }
@@ -196,7 +274,7 @@ func file_report_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_report_service_proto_rawDesc), len(file_report_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

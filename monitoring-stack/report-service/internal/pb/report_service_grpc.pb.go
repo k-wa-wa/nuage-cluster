@@ -4,6 +4,8 @@
 // - protoc             v6.33.0
 // source: report_service.proto
 
+//go:generate protoc --go_out=../internal/pb --go_opt=paths=source_relative --go-grpc_out=../internal/pb --go-grpc_opt=paths=source_relative report_service.proto
+
 package pb
 
 import (

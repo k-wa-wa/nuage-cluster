@@ -2,7 +2,6 @@ module report-service
 
 go 1.24.0
 
-toolchain go1.24.9
 
 require (
 	github.com/google/generative-ai-go v0.20.1

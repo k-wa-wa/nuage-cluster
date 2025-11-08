@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"time"
 
 	"report-service/internal/elasticsearch"
 	"report-service/internal/gemini"
@@ -40,13 +41,16 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		return &pb.CreateReportResponse{Success: false, Message: "Embedding failed"}, err
 	}
 
+	// サーバー側で created_at_unix を設定
+	createdAtUnix := time.Now().Unix()
+
 	// 2. ES に格納するドキュメントを作成
 	doc := elasticsearch.ReportDocument{
 		ReportID:     req.GetReportId(),
 		ReportText:   req.GetReportBody(),
 		ReportVector: vector, // 768次元のベクトル
 		UserID:       req.GetUserId(),
-		CreatedAt:    req.GetCreatedAtUnix(),
+		CreatedAt:    createdAtUnix,
 	}
 
 	// 3. 永続化 (Elasticsearch への挿入)
@@ -55,5 +59,15 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		return &pb.CreateReportResponse{Success: false, Message: "Persistence failed"}, err
 	}
 
-	return &pb.CreateReportResponse{Success: true, Message: "Report created successfully"}, nil
+	// 成功したら作成されたレポートを返す
+	return &pb.CreateReportResponse{
+		Report: &pb.Report{
+			ReportId:      req.GetReportId(),
+			ReportBody:    req.GetReportBody(),
+			UserId:        req.GetUserId(),
+			CreatedAtUnix: createdAtUnix,
+		},
+		Success: true,
+		Message: "Report created successfully",
+	}, nil
 }

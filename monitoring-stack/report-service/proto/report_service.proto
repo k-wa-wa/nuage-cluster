@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+//go:generate protoc --go_out=../internal/pb --go_opt=paths=source_relative --go-grpc_out=../internal/pb --go-grpc_opt=paths=source_relative report_service.proto
+
 package report_service;
 
 option go_package = "report-service/internal/pb";
@@ -13,10 +15,17 @@ message CreateReportRequest {
   string report_id = 1;         // レポートを一意に識別するID
   string report_body = 2;       // レポート本文 (ベクトル化の対象)
   string user_id = 3;           // 作成者/通知先ユーザーID
-  int64 created_at_unix = 4;    // 作成日時 (Unixタイムスタンプ)
+}
+
+message Report {
+  string report_id = 1;
+  string report_body = 2;
+  string user_id = 3;
+  int64 created_at_unix = 4;
 }
 
 message CreateReportResponse {
-  bool success = 1;
-  string message = 2;
+  Report report = 1;
+  bool success = 2;
+  string message = 3;
 }
