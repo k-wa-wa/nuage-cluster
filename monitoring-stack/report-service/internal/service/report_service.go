@@ -71,3 +71,67 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		Message: "Report created successfully",
 	}, nil
 }
+
+// GetReport は指定されたレポートIDのレポートを取得
+func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest) (*pb.GetReportResponse, error) {
+	log.Printf("Received GetReport request for ID: %s", req.GetReportId())
+
+	doc, err := s.esClient.GetReportByID(ctx, req.GetReportId())
+	if err != nil {
+		log.Printf("Error getting report from ES: %v", err)
+		return &pb.GetReportResponse{Success: false, Message: "Failed to get report"}, err
+	}
+	if doc == nil {
+		return &pb.GetReportResponse{Success: false, Message: "Report not found"}, nil
+	}
+
+	return &pb.GetReportResponse{
+		Report: &pb.Report{
+			ReportId:      doc.ReportID,
+			ReportBody:    doc.ReportText,
+			UserId:        doc.UserID,
+			CreatedAtUnix: doc.CreatedAt,
+		},
+		Success: true,
+		Message: "Report retrieved successfully",
+	}, nil
+}
+
+// ListReports はユーザーIDに基づいてレポートのリストを取得
+func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequest) (*pb.ListReportsResponse, error) {
+	log.Printf("Received ListReports request for UserID: %s, PageSize: %d, PageToken: %s", req.GetUserId(), req.GetPageSize(), req.GetPageToken())
+
+	// ページネーションとフィルタリングのロジックをESクライアントに渡す
+	// TODO: page_token の実装は後回し。今回は単純なページングのみ
+	docs, total, err := s.esClient.SearchReports(ctx, req.GetUserId(), int(req.GetPageSize()), req.GetPageToken())
+	if err != nil {
+		log.Printf("Error searching reports in ES: %v", err)
+		return &pb.ListReportsResponse{Success: false, Message: "Failed to list reports"}, err
+	}
+
+	var reports []*pb.Report
+	for _, doc := range docs {
+		reports = append(reports, &pb.Report{
+			ReportId:      doc.ReportID,
+			ReportBody:    doc.ReportText,
+			UserId:        doc.UserID,
+			CreatedAtUnix: doc.CreatedAt,
+		})
+	}
+
+	// TODO: next_page_token の生成ロジックを実装
+	nextPageToken := ""
+	if int(req.GetPageSize()) > 0 && len(docs) == int(req.GetPageSize()) {
+		// 簡単な例: 最後のレポートIDをトークンとする
+		// 実際には、より堅牢なページネーション戦略が必要 (例: search_after)
+		nextPageToken = docs[len(docs)-1].ReportID
+	}
+	_ = total // total は現時点では使用しないが、将来的に必要になる可能性
+
+	return &pb.ListReportsResponse{
+		Reports:       reports,
+		NextPageToken: nextPageToken,
+		Success:       true,
+		Message:       "Reports listed successfully",
+	}, nil
+}
