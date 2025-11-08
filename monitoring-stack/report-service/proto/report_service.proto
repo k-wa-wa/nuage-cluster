@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package report_service;
+
+option go_package = "report-service/internal/pb";
+
+service ReportService {
+  rpc CreateReport (CreateReportRequest) returns (CreateReportResponse);
+  // 他のRPC: GetReport, ListReports, etc.
+}
+
+message CreateReportRequest {
+  string report_id = 1;         // レポートを一意に識別するID
+  string report_body = 2;       // レポート本文 (ベクトル化の対象)
+  string user_id = 3;           // 作成者/通知先ユーザーID
+  int64 created_at_unix = 4;    // 作成日時 (Unixタイムスタンプ)
+}
+
+message CreateReportResponse {
+  bool success = 1;
+  string message = 2;
+}
