@@ -212,10 +212,8 @@ async fn main() {
     //std::fs::write("../ui/schema.graphql", schema_sdl).expect("Failed to write schema");
     //println!("GraphQL schema written to ../ui/schema.graphql"); // スキーマ出力の確認メッセージを追加
 
-    let user_service_url = std::env::var("USER_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:50051".to_string());
-    let report_service_url = std::env::var("REPORT_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:50052".to_string());
+    let user_service_url = std::env::var("USER_SERVICE_URL").unwrap();
+    let report_service_url = std::env::var("REPORT_SERVICE_URL").unwrap();
 
     let user_service_client_arc: Option<Arc<Mutex<UserServiceClient<Channel>>>>;
     let report_service_client_arc: Option<Arc<Mutex<ReportServiceClient<Channel>>>>;
