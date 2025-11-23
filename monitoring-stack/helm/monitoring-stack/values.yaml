@@ -9,3 +9,6 @@ postgresql:
     registry: registry-1.docker.io
     repository: bitnami/postgresql
     tag: latest
+
+elasticsearch:
+  enabled: true # 開発時は true に設定してデプロイ

@@ -1,6 +1,9 @@
 dependencies:
 - name: postgresql
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 12.12.10
-digest: sha256:226cc0c55b747082ffc05c34e27ddd0b0fafa4e7d167b698fb741c96c7425d5a
-generated: "2025-10-29T18:04:22.095187+09:00"
+  repository: https://charts.bitnami.com/bitnami
+  version: 14.0.0
+- name: eck-operator
+  repository: https://helm.elastic.co
+  version: 3.2.0
+digest: sha256:471a21e10ee9c541da73d1246a9bdbaf468a4c41127ce8b061abfa8243d79812
+generated: "2025-11-08T18:03:22.179963+09:00"
