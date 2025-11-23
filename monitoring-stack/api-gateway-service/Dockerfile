@@ -25,9 +25,6 @@ COPY proto ./proto
 # gRPCクライアントコードを生成
 RUN cargo build --release --bin api-gateway-service
 
-# リリースビルド
-RUN cargo install --path . --root /usr/local
-
 # 最終的な実行イメージ
 FROM debian:bookworm-slim
 
@@ -42,7 +39,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ビルダーイメージからコンパイル済みのバイナリをコピー
-COPY --from=builder /usr/local/bin/api-gateway-service /usr/local/bin/api-gateway-service
+COPY --from=builder /app/target/release/api-gateway-service /usr/local/bin/api-gateway-service
 
 # 実行可能ファイルに権限を付与
 RUN chmod +x /usr/local/bin/api-gateway-service
