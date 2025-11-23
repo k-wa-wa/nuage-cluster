@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61i_service.proto\x12\nai_service\"O\n\x15GenerateReportRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x14\n\x0cinstructions\x18\x02 \x01(\t\x12\x0f\n\x07\x63ontext\x18\x03 \x01(\t\"^\n\x16GenerateReportResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\"\n\x06report\x18\x03 \x01(\x0b\x32\x12.ai_service.Report\"%\n\x06Report\x12\r\n\x05title\x18\x01 \x01(\t\x12\x0c\n\x04\x62ody\x18\x02 \x01(\t2d\n\tAIService\x12W\n\x0eGenerateReport\x12!.ai_service.GenerateReportRequest\x1a\".ai_service.GenerateReportResponseB<Z:github.com/nuage-cluster/monitoring-stack/ai-service/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61i_service.proto\x12\nai_service\"]\n\x15GenerateReportRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x14\n\x0cinstructions\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\t\x12\x0f\n\x07\x63ontext\x18\x04 \x01(\t\"^\n\x16GenerateReportResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\"\n\x06report\x18\x03 \x01(\x0b\x32\x12.ai_service.Report\"%\n\x06Report\x12\r\n\x05title\x18\x01 \x01(\t\x12\x0c\n\x04\x62ody\x18\x02 \x01(\t2d\n\tAIService\x12W\n\x0eGenerateReport\x12!.ai_service.GenerateReportRequest\x1a\".ai_service.GenerateReportResponseB<Z:github.com/nuage-cluster/monitoring-stack/ai-service/protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,11 +33,11 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z:github.com/nuage-cluster/monitoring-stack/ai-service/proto'
   _globals['_GENERATEREPORTREQUEST']._serialized_start=32
-  _globals['_GENERATEREPORTREQUEST']._serialized_end=111
-  _globals['_GENERATEREPORTRESPONSE']._serialized_start=113
-  _globals['_GENERATEREPORTRESPONSE']._serialized_end=207
-  _globals['_REPORT']._serialized_start=209
-  _globals['_REPORT']._serialized_end=246
-  _globals['_AISERVICE']._serialized_start=248
-  _globals['_AISERVICE']._serialized_end=348
+  _globals['_GENERATEREPORTREQUEST']._serialized_end=125
+  _globals['_GENERATEREPORTRESPONSE']._serialized_start=127
+  _globals['_GENERATEREPORTRESPONSE']._serialized_end=221
+  _globals['_REPORT']._serialized_start=223
+  _globals['_REPORT']._serialized_end=260
+  _globals['_AISERVICE']._serialized_start=262
+  _globals['_AISERVICE']._serialized_end=362
 # @@protoc_insertion_point(module_scope)

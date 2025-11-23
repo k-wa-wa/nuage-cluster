@@ -5,14 +5,16 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GenerateReportRequest(_message.Message):
-    __slots__ = ("user_id", "instructions", "context")
+    __slots__ = ("user_id", "instructions", "data", "context")
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     INSTRUCTIONS_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
     CONTEXT_FIELD_NUMBER: _ClassVar[int]
     user_id: str
     instructions: str
+    data: str
     context: str
-    def __init__(self, user_id: _Optional[str] = ..., instructions: _Optional[str] = ..., context: _Optional[str] = ...) -> None: ...
+    def __init__(self, user_id: _Optional[str] = ..., instructions: _Optional[str] = ..., data: _Optional[str] = ..., context: _Optional[str] = ...) -> None: ...
 
 class GenerateReportResponse(_message.Message):
     __slots__ = ("success", "message", "report")
