@@ -11,14 +11,18 @@ from agent import Agent, MCPClients
 class AIServiceServicer(ai_service_pb2_grpc.AIServiceServicer):
 
     async def GenerateReport(self, request: ai_service_pb2.GenerateReportRequest, context):
-        async with MCPClients(
-            mcp_clients_config={
-                "mcp_client_1": {
-                    "transport": "streamable_http",
-                    "url": "http://mcp-k8s.default.svc.cluster.local/mcp"
-                },
-            }
-        ) as mcp_clients:
+        mcp_clients = MCPClients(mcp_clients_config={
+            "mcp_client_1": {
+                "transport": "streamable_http",
+                "url": "http://mcp-k8s.default.svc.cluster.local/mcp"
+            },
+        })
+
+        try:
+            # 2. 手動でコンテキストに入る (async with と同じ処理)
+            await mcp_clients.__aenter__()
+
+            # 3. 非同期ジェネレータを安全に実行
             async for state in Agent().generate(
                 user_instructions=request.instructions,
                 mcp_clients=mcp_clients
@@ -32,12 +36,17 @@ class AIServiceServicer(ai_service_pb2_grpc.AIServiceServicer):
                             body=state["completed"]
                         )
                     )
-                    return
                 else:
                     yield ai_service_pb2.GenerateReportResponse(
                         tasks=state["tasks"],
                         thinking=state["thinking"],
                     )
+        # 4. finally ブロックで確実にリソースを解放する
+        #    GeneratorExit や他の例外が発生しても、このブロックは実行される
+        finally:
+            if mcp_clients:
+                # 5. 手動でコンテキストから出る (async with と同じクリーンアップ処理)
+                await mcp_clients.__aexit__(None, None, None)
 
 
 async def serve():
