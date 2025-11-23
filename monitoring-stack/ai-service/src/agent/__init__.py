@@ -10,7 +10,7 @@ from openai.types.chat import (
 from dotenv import load_dotenv
 import xml.etree.ElementTree as ET
 
-from mcp_client import MCPClients
+from agent.mcp_client import MCPClients
 
 load_dotenv(".env")
 

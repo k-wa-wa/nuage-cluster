@@ -15,4 +15,4 @@ COPY src ./src
 EXPOSE 5053
 
 # サーバーを起動
-CMD ["python", "src/agent/mcp_client.py"]
+CMD ["python", "src/server.py"]
