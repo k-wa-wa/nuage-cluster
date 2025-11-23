@@ -18,11 +18,13 @@ import (
 var (
 	aiServiceAddress     string
 	reportServiceAddress string
+	instructions         string
 )
 
 func init() {
 	aiServiceAddress = os.Getenv("AI_SERVICE_ADDRESS")
 	reportServiceAddress = os.Getenv("REPORT_SERVICE_ADDRESS")
+	instructions = os.Getenv("INSTRUCTIONS")
 }
 
 // GenerateReportFromInstructions は指定された指示に基づいてレポートを生成し、結果のレポートを返します。
@@ -100,7 +102,6 @@ func PersistReport(reportReq *reportpb.CreateReportRequest) error {
 }
 
 func main() {
-	instructions := "過去24時間のシステムパフォーマンスに関する詳細なレポートを作成してください。特にCPU使用率とメモリ使用率に焦点を当ててください。"
 	aiReport, err := GenerateReportFromInstructions(instructions)
 	if err != nil || aiReport == nil {
 		log.Fatalf("レポート生成に失敗しました: %v", err)
