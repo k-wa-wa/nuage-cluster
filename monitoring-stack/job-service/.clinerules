@@ -1,0 +1,16 @@
+## proto ファイルからソースの生成
+
+```zsh
+protoc --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative \
+--go_out=./internal/pb/ai_service --go-grpc_out=./internal/pb/ai_service \
+proto/ai_service.proto
+
+protoc --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative \
+--go_out=./internal/pb/report_service --go-grpc_out=./internal/pb/report_service \
+proto/report_service.proto
+```
+
+
+## ビルド
+
+ビルドには `go build ./cmd/generate_report -o dist/generate_report` を使用してください。それ以外のgoコマンドは極力使用しない。

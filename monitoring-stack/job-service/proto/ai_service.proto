@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package ai_service;
+
+option go_package = "github.com/nuage-cluster/monitoring-stack/ai-service/proto";
+
+service AIService {
+  rpc GenerateReport (GenerateReportRequest) returns (stream GenerateReportResponse);
+}
+
+message GenerateReportRequest {
+  string user_id = 1;
+  string instructions = 2; // レポート生成のための指示内容
+  string data = 3; // レポート生成に使用するデータ
+  string context = 4; // データ収集に必要なコンテキスト（例: 期間、対象リソースなど）
+}
+
+message GenerateReportResponse {
+  string tasks = 1;
+  string thinking = 2;
+  Report report = 3;
+}
+
+message Report {
+  string title = 1;
+  string body = 2;
+}
