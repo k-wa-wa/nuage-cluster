@@ -34,7 +34,7 @@ class AIServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GenerateReport = channel.unary_unary(
+        self.GenerateReport = channel.unary_stream(
                 '/ai_service.AIService/GenerateReport',
                 request_serializer=ai__service__pb2.GenerateReportRequest.SerializeToString,
                 response_deserializer=ai__service__pb2.GenerateReportResponse.FromString,
@@ -53,7 +53,7 @@ class AIServiceServicer(object):
 
 def add_AIServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GenerateReport': grpc.unary_unary_rpc_method_handler(
+            'GenerateReport': grpc.unary_stream_rpc_method_handler(
                     servicer.GenerateReport,
                     request_deserializer=ai__service__pb2.GenerateReportRequest.FromString,
                     response_serializer=ai__service__pb2.GenerateReportResponse.SerializeToString,
@@ -80,7 +80,7 @@ class AIService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_stream(
             request,
             target,
             '/ai_service.AIService/GenerateReport',

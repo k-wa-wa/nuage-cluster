@@ -5,7 +5,7 @@ package ai_service;
 option go_package = "github.com/nuage-cluster/monitoring-stack/ai-service/proto";
 
 service AIService {
-  rpc GenerateReport (GenerateReportRequest) returns (GenerateReportResponse);
+  rpc GenerateReport (GenerateReportRequest) returns (stream GenerateReportResponse);
 }
 
 message GenerateReportRequest {
@@ -16,8 +16,8 @@ message GenerateReportRequest {
 }
 
 message GenerateReportResponse {
-  bool success = 1;
-  string message = 2;
+  string tasks = 1;
+  string thinking = 2;
   Report report = 3;
 }
 

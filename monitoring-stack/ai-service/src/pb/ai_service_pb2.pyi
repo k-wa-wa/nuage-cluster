@@ -17,14 +17,14 @@ class GenerateReportRequest(_message.Message):
     def __init__(self, user_id: _Optional[str] = ..., instructions: _Optional[str] = ..., data: _Optional[str] = ..., context: _Optional[str] = ...) -> None: ...
 
 class GenerateReportResponse(_message.Message):
-    __slots__ = ("success", "message", "report")
-    SUCCESS_FIELD_NUMBER: _ClassVar[int]
-    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("tasks", "thinking", "report")
+    TASKS_FIELD_NUMBER: _ClassVar[int]
+    THINKING_FIELD_NUMBER: _ClassVar[int]
     REPORT_FIELD_NUMBER: _ClassVar[int]
-    success: bool
-    message: str
+    tasks: str
+    thinking: str
     report: Report
-    def __init__(self, success: bool = ..., message: _Optional[str] = ..., report: _Optional[_Union[Report, _Mapping]] = ...) -> None: ...
+    def __init__(self, tasks: _Optional[str] = ..., thinking: _Optional[str] = ..., report: _Optional[_Union[Report, _Mapping]] = ...) -> None: ...
 
 class Report(_message.Message):
     __slots__ = ("title", "body")
