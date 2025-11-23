@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Iterable
+from typing import Iterable, TypedDict
 
 from openai import OpenAI
 from openai.types.chat import (
@@ -18,6 +18,12 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     base_url=os.getenv("OPENAI_BASE_URL"),
 )
+
+
+class AgentState(TypedDict):
+    tasks: str
+    thinking: str
+    completed: str | None
 
 
 class Agent:
@@ -68,12 +74,12 @@ mcpクライアントを使用して、kubernetesクラスターの情報を取�
 
 <response>
     <tasks>
-        <task>- [ ] ノードとポッドの一覧を取得する</task>
-        <task>- [ ] 各ノードとポッドの状態を確認する</task>
-        <task>- [ ] 各ノードとポッドのリソース使用率を収集する</task>
-        <task>- [ ] ネットワークの状態を確認する</task>
-        <task>- [ ] イベントログを収集する</task>
-        <task>- [ ] レポートを生成する</task>
+        - [ ] ノードとポッドの一覧を取得する
+        - [ ] 各ノードとポッドの状態を確認する
+        - [ ] 各ノードとポッドのリソース使用率を収集する
+        - [ ] ネットワークの状態を確認する
+        - [ ] イベントログを収集する
+        - [ ] レポートを生成する
     </tasks>
 
     <thinking>まず、ノードとポッドの一覧を取得します。</thinking>
@@ -110,27 +116,31 @@ mcpクライアントを使用して、kubernetesクラスターの情報を取�
         ]
 
         for i in range(30):
-            res = client.chat.completions.create(
+            res_content = client.chat.completions.create(
                 model="gemini-2.5-flash",
                 messages=messages
-            )
+            ).choices[0].message.content
             messages: Iterable[ChatCompletionMessageParam] = [
                 *messages,
                 ChatCompletionAssistantMessageParam(
                     name="agent",
                     role="assistant",
-                    content=res.choices[0].message.content
+                    content=res_content
                 )
             ]
-            print(res.choices[0].message.content)
-            response = ET.fromstring(f"{res.choices[0].message.content}")
+            print(res_content)
+            response = ET.fromstring(f"{res_content}")
 
-            if response.find("completed") is not None:
+            state = AgentState(
+                tasks=response.findtext("tasks", default=""),
+                thinking=response.findtext("thinking", default=""),
+                completed=response.findtext("completed"),
+            )
+            yield state
+
+            if state["completed"] is not None:
                 print("====== Task Completed ======")
-                return f"{res.choices[0].message.content}"
-
-            if (thinking := response.find("thinking")) is not None:
-                print(thinking.text)
+                return
 
             if response.find("mcp_tool_call") is not None:
                 mcp_client = None
@@ -181,9 +191,10 @@ if __name__ == '__main__':
                 },
             }
         ) as mcp_clients:
-            await Agent().generate(
+            async for state in Agent().generate(
                 user_instructions=user_instructions,
                 mcp_clients=mcp_clients
-            )
+            ):
+                print(state)
 
     asyncio.run(main())
