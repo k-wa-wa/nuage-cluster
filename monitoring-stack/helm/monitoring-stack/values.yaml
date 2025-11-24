@@ -11,4 +11,10 @@ postgresql:
     tag: latest
 
 elasticsearch:
-  enabled: true # 開発時は true に設定してデプロイ
+  enabled: false # 開発時は true に設定してデプロイ
+
+metrics-server:
+  apiService:
+    insecureSkipTLSVerify: true
+  args:
+    - --kubelet-insecure-tls

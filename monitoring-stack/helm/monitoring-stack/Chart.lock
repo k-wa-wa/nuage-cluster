@@ -5,5 +5,8 @@ dependencies:
 - name: eck-operator
   repository: https://helm.elastic.co
   version: 3.2.0
-digest: sha256:471a21e10ee9c541da73d1246a9bdbaf468a4c41127ce8b061abfa8243d79812
-generated: "2025-11-08T18:03:22.179963+09:00"
+- name: metrics-server
+  repository: https://kubernetes-sigs.github.io/metrics-server/
+  version: 3.8.2
+digest: sha256:2df540a0663718661ae99454a3e00e0c1ae04f744b3398f0d02228b09ea13aa3
+generated: "2025-11-24T17:07:14.06452+09:00"

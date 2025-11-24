@@ -33,3 +33,6 @@ dependencies:
   repository: https://helm.elastic.co
   version: "3.2.0"
   condition: elasticsearch.enabled
+- name: metrics-server
+  version: 3.8.2
+  repository: https://kubernetes-sigs.github.io/metrics-server/
