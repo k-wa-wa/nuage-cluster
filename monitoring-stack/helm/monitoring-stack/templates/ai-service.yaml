@@ -29,7 +29,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: genai-credentials
-              key: OPENAI_API_KEY
+              key: OPENAI_BASE_URL
 ---
 apiVersion: v1
 kind: Service
