@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  labels:
+    app: ai-service
+spec:
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+      - name: ai-service
+        image: ai-service
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5053
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: genai-credentials
+              key: OPENAI_API_KEY
+        - name: OPENAI_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: genai-credentials
+              key: OPENAI_API_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+spec:
+  selector:
+    app: ai-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5053
+  type: ClusterIP

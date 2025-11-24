@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  labels:
+    app: report-service
+spec:
+  selector:
+    matchLabels:
+      app: report-service
+  template:
+    metadata:
+      labels:
+        app: report-service
+    spec:
+      containers:
+      - name: report-service
+        image: report-service
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5051
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: genai-credentials
+              key: GEMINI_API_KEY
+        - name: ES_URL
+          value: https://quickstart-es-default.default.svc.cluster.local:9200
+        - name: ES_USERNAME
+          value: elastic
+        - name: ES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quickstart-es-elastic-user
+              key: elastic
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+spec:
+  selector:
+    app: report-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5051
+  type: ClusterIP

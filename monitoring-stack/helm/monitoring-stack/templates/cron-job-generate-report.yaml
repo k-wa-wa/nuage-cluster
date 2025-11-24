@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "cron-job-generate-report"
+  labels:
+    app: "cron-job-generate-report"
+spec:
+  schedule: "0 */2 * * *"
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: "cron-job-generate-report"
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: job-generate-report
+            image: job-generate-report
+            imagePullPolicy: Never
+            env:
+            - name: AI_SERVICE_ADDRESS
+              value: ai-service:80
+            - name: REPORT_SERVICE_ADDRESS
+              value: report-service:80
+            - name: INSTRUCTIONS
+              value: "ノード、ポッドの一覧とその状態、リソース使用率（CPU、メモリ、ディスク）、ネットワークの状態、イベントログなどを含むkubernetesクラスターの現在の状態に関する詳細なレポートを生成してください。"
