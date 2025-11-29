@@ -1,19 +1,17 @@
-import { CodegenConfig } from '@graphql-codegen/cli';
+import type { CodegenConfig } from "@graphql-codegen/cli"
 
 const config: CodegenConfig = {
-  schema: './schema.graphql',
-  documents: ['app/**/*.tsx', 'components/**/*.tsx', 'app/**/*.ts', 'components/**/*.ts'],
+  schema: "schema.graphql",
   generates: {
-    './types/graphql.ts': {
-      plugins: ['typescript', 'typescript-operations', 'typescript-graphql-request'],
+    "./types/generated/graphql.ts": {
+      plugins: ["typescript", "typescript-operations", "typescript-resolvers"],
       config: {
-        scalars: {
-          JSONObject: 'Record<string, any>',
-        },
+        useIndexSignature: true,
+        noSchemaStitching: true,
+        useTypeImports: true,
       },
     },
   },
-  ignoreNoDocuments: true,
-};
+}
 
-export default config;
+export default config

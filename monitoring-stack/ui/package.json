@@ -52,15 +52,17 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@graphql-codegen/cli": "^6.0.1",
-    "@graphql-codegen/typescript": "^5.0.2",
+    "@graphql-codegen/cli": "^6.1.0",
+    "@graphql-codegen/typescript": "^5.0.6",
     "@graphql-codegen/typescript-graphql-request": "^6.3.0",
-    "@graphql-codegen/typescript-operations": "^5.0.2",
+    "@graphql-codegen/typescript-operations": "^5.0.6",
+    "@graphql-codegen/typescript-resolvers": "^5.1.4",
     "@graphql-tools/mock": "^9.0.25",
     "@graphql-tools/schema": "^10.0.25",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "graphql": "^16.12.0",
     "graphql-yoga": "^5.16.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
