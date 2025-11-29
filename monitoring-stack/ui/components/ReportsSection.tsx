@@ -1,6 +1,7 @@
-import { graphqlEndpoint } from "@/constants/config"
-import { useRouter } from "expo-router"
-import React, { useEffect, useState } from "react"
+import { IconSymbol } from "@/components/ui/icon-symbol"; // Import IconSymbol
+import { graphqlEndpoint } from "@/constants/config";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -8,7 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from "react-native"
+} from "react-native";
 interface ReportsSectionProps {
   // Define any props if needed
 }
@@ -78,6 +79,22 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
     return <Text style={styles.errorText}>Error: {error}</Text>
   }
 
+  const formatRelativeTime = (timestamp: number) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(timestamp * 1000).getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return Math.floor(seconds) + " seconds ago";
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Reports</Text>
@@ -95,9 +112,11 @@ const ReportsSection: React.FC<ReportsSectionProps> = () => {
               onPress={() => router.push(`/reports/${item.reportId}`)}
             >
               <Text style={styles.reportName}>{item.reportId}</Text>
-              <Text>Body: {item.reportBody}</Text>
-              <Text>User ID: {item.userId}</Text>
-              <Text>Created At: {new Date(item.createdAtUnix * 1000).toLocaleString()}</Text>
+              <View style={styles.userInfo}>
+                <IconSymbol name="person.fill" size={16} color="#333" />
+                <Text style={styles.userIdText}>{item.userId}</Text>
+              </View>
+              <Text style={styles.createdAtText}>{formatRelativeTime(item.createdAtUnix)}</Text>
             </TouchableOpacity>
           )}
         />
@@ -144,6 +163,19 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 16 : isTablet ? 18 : 20,
     fontWeight: "bold",
     marginBottom: 5,
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  userIdText: {
+    marginLeft: 5,
+    fontSize: isMobile ? 12 : isTablet ? 14 : 16,
+  },
+  createdAtText: {
+    fontSize: isMobile ? 12 : isTablet ? 14 : 16,
+    color: "#666",
   },
   errorText: {
     color: "red",

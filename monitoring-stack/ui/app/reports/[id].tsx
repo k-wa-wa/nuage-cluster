@@ -1,3 +1,4 @@
+import { IconSymbol } from '@/components/ui/icon-symbol'; // Import IconSymbol
 import { graphqlEndpoint } from '@/constants/config';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -94,12 +95,31 @@ const ReportDetailPage: React.FC = () => {
     );
   }
 
+  const formatRelativeTime = (timestamp: number) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(timestamp * 1000).getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return Math.floor(seconds) + " seconds ago";
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Stack.Screen options={{ title: report.reportId }} />
       <Text style={styles.title}>{report.reportId}</Text>
-      <Text style={styles.meta}>User ID: {report.userId}</Text>
-      <Text style={styles.meta}>Created At: {new Date(report.createdAtUnix * 1000).toLocaleString()}</Text>
+      <View style={styles.userInfo}>
+        <IconSymbol name="person.fill" size={16} color="#333" />
+        <Text style={styles.userIdText}>{report.userId}</Text>
+      </View>
+      <Text style={styles.createdAtText}>{formatRelativeTime(report.createdAtUnix)}</Text>
       <View style={styles.contentContainer}>
         <Markdown style={markdownStyles}>{report.reportBody}</Markdown>
       </View>
@@ -124,7 +144,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#333',
   },
-  meta: {
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  userIdText: {
+    marginLeft: 5,
+    fontSize: 16,
+    color: '#666',
+  },
+  createdAtText: {
     fontSize: 16,
     color: '#666',
     marginBottom: 5,
