@@ -54,7 +54,7 @@ const mocks: Resolvers = {
 }
 
 const schema = makeExecutableSchema({ typeDefs: schemaString })
-const schemaWithMocks = addMocksToSchema({ schema, mocks: mocks as any })
+const schemaWithMocks = addMocksToSchema({ schema, resolvers: mocks })
 
 const yoga = createYoga({
   schema: schemaWithMocks,
