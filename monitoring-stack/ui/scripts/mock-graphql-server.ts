@@ -19,8 +19,15 @@ const mocks: Resolvers = {
       displayName: "Mock User",
       notificationSettings: {},
     }),
-    reports: () => [],
-    report: (parent: any, { reportId }: { reportId: string }) => ({
+    reports: () => [
+      ...[1, 2, 3].map((i) => ({
+        reportId: `report-${i + 1}`,
+        reportBody: `This is the body of mock report ${i + 1}`,
+        userId: "mock-user-id",
+        createdAtUnix: Math.floor(Date.now() / 1000) - (i + 1) * 86400,
+      })),
+    ],
+    report: (parent, { reportId }) => ({
       reportId: reportId,
       reportBody: `Mock report body for ${reportId}`,
       userId: "mock-user-id",
