@@ -15,10 +15,6 @@ from agent.mcp_client import MCPClients
 
 load_dotenv(".env")
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url=os.getenv("OPENAI_BASE_URL"),
-)
 
 type ParseErrorMessage = str
 
@@ -47,6 +43,12 @@ class AgentState(TypedDict):
 
 
 class Agent:
+    def __init__(self, openai_client: OpenAI | None = None):
+        self.openai_client = openai_client if openai_client else OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_BASE_URL"),
+        )
+
     async def build_system_prompt(
         self, *, mcp_clients: MCPClients
     ) -> Iterable[ChatCompletionSystemMessageParam]:
@@ -178,7 +180,9 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
         ]
 
         for i in range(30):
-            res_content = client.chat.completions.create(
+            print("====== New Iteration ======")
+            print(messages)
+            res_content = self.openai_client.chat.completions.create(
                 model="gemini-2.5-flash",
                 messages=messages
             ).choices[0].message.content
