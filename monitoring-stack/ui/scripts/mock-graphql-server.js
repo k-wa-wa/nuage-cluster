@@ -1,101 +1,180 @@
-const { createSchema, createYoga } = require('graphql-yoga');
-const { readFileSync } = require('fs');
-const { resolve } = require('path'); // Use resolve instead of join
-const { addMocksToSchema } = require('@graphql-tools/mock');
-const { makeExecutableSchema } = require('@graphql-tools/schema');
+const { createYoga } = require("graphql-yoga")
+const { readFileSync } = require("fs")
+const { resolve } = require("path")
+const { addMocksToSchema } = require("@graphql-tools/mock")
+const { makeExecutableSchema } = require("@graphql-tools/schema")
+const { buildSchema } = require("graphql") // Add buildSchema for validation
 
-const schemaString = readFileSync(resolve(process.cwd(), 'schema.graphql'), 'utf-8');
+const schemaString = readFileSync(
+  resolve(process.cwd(), "schema.graphql"),
+  "utf-8"
+)
 
 const mocks = {
   Query: () => ({
-    applicationLists: () => [
-      {
-        apiVersion: 'v1',
-        kind: 'ApplicationList',
-        metadata: { name: 'mock-app-list-1' },
-        applications: [
-          {
-            name: 'Mock App 1',
-            description: 'This is the first mock application.',
-            group: 'Group A',
-            icon: '🚀',
-            namespace: 'default',
-            status: 'Running',
-            url: 'https://mockapp1.example.com',
-            version: '1.0.0',
-          },
-          {
-            name: 'Mock App 2',
-            description: 'Another mock application for testing.',
-            group: 'Group B',
-            icon: '💡',
-            namespace: 'staging',
-            status: 'Stopped',
-            url: 'https://mockapp2.example.com',
-            version: '1.2.0',
-          },
-          {
-            name: 'Mock App 3',
-            description: 'A third mock application.',
-            group: 'Group A',
-            icon: '⚙️',
-            namespace: 'production',
-            status: 'Running',
-            url: 'https://mockapp3.example.com',
-            version: '2.0.0',
-          },
-        ],
-      },
-      {
-        apiVersion: 'v1',
-        kind: 'ApplicationList',
-        metadata: { name: 'mock-app-list-2' },
-        applications: [
-          {
-            name: 'Mock App 4',
-            description: 'Fourth mock application.',
-            group: 'Group C',
-            icon: '📦',
-            namespace: 'default',
-            status: 'Running',
-            url: 'https://mockapp4.example.com',
-            version: '1.0.0',
-          },
-        ],
-      },
-    ],
-    reports: () => [], // Mock reports to be empty for now
-    temporaryResponse: () => 'Mock temporary response',
-    vapidPublicKey: () => 'MOCK_VAPID_PUBLIC_KEY',
+    me: () => ({
+      id: "mock-user-id",
+      displayName: "Mock User",
+      notificationSettings: {},
+    }),
+    reports: () => [],
+    report: (parent, { reportId }) => ({
+      reportId: reportId,
+      reportBody: `Mock report body for ${reportId}`,
+      userId: "mock-user-id",
+      createdAtUnix: Math.floor(Date.now() / 1000),
+    }),
+    vapidPublicKey: () => "MOCK_VAPID_PUBLIC_KEY",
   }),
-  Application: () => ({
-    name: () => 'Default Mock App',
-    description: () => 'Default mock description',
-    group: () => 'Default Group', // Added default group
-    icon: () => '❓',
-    namespace: () => 'default',
-    status: () => 'Unknown',
-    url: () => 'https://default.example.com',
-    version: () => '0.0.1',
+  Mutation: () => ({
+    login: () => ({
+      token: "mock-jwt-token",
+      expiresIn: 3600,
+    }),
+    updateUserProfile: (parent, { displayName, notificationSettings }) => ({
+      id: "mock-user-id",
+      displayName: displayName || "Mock User",
+      notificationSettings: notificationSettings
+        ? notificationSettings.reduce(
+            (acc, setting) => ({ ...acc, [setting.key]: setting.value }),
+            {}
+          )
+        : {},
+    }),
+    subscribe: () => ({
+      success: true,
+      message: "Mock subscription successful",
+    }),
   }),
-};
+  UserProfile: () => ({
+    id: "mock-user-id",
+    displayName: "Mock User",
+    notificationSettings: {},
+  }),
+  Report: () => ({
+    reportId: "mock-report-id",
+    reportBody: "Mock report body",
+    userId: "mock-user-id",
+    createdAtUnix: Math.floor(Date.now() / 1000),
+  }),
+  LoginPayload: () => ({
+    token: "mock-jwt-token",
+    expiresIn: 3600,
+  }),
+  SubscribePayload: () => ({
+    success: true,
+    message: "Mock subscription successful",
+  }),
+}
 
-const schema = makeExecutableSchema({ typeDefs: schemaString });
-const schemaWithMocks = addMocksToSchema({ schema, mocks });
+// --- Schema and Mock Validation Logic ---
+const validateMocks = (schemaString, mocks) => {
+  const builtSchema = buildSchema(schemaString)
+  let hasError = false
 
-const http = require('http'); // Import http module
+  // Helper to check fields for a given type
+  const checkTypeFields = (typeName, schemaFields, mockFields) => {
+    for (const fieldName in mockFields) {
+      if (!schemaFields[fieldName]) {
+        console.error(
+          `Error: Mock field '${typeName}.${fieldName}' exists but is not defined in the schema.`
+        )
+        hasError = true
+      }
+    }
+    for (const fieldName in schemaFields) {
+      const field = schemaFields[fieldName]
+      // Check for non-nullable fields that are not mocked
+      if (
+        field.type.toString().endsWith("!") &&
+        (!mockFields || !mockFields[fieldName])
+      ) {
+        console.warn(
+          `Warning: Non-nullable field '${typeName}.${fieldName}' is not explicitly mocked.`
+        )
+      }
+    }
+  }
+
+  // Validate Query type
+  const queryType = builtSchema.getQueryType()
+  if (queryType) {
+    const schemaQueryFields = queryType.getFields()
+    const mockQueryFields = mocks.Query ? mocks.Query() : {}
+    checkTypeFields("Query", schemaQueryFields, mockQueryFields)
+  } else if (mocks.Query) {
+    console.error(
+      "Error: Mock 'Query' type exists but 'Query' is not defined in the schema."
+    )
+    hasError = true
+  }
+
+  // Validate Mutation type
+  const mutationType = builtSchema.getMutationType()
+  if (mutationType) {
+    const schemaMutationFields = mutationType.getFields()
+    const mockMutationFields = mocks.Mutation ? mocks.Mutation() : {}
+    checkTypeFields("Mutation", schemaMutationFields, mockMutationFields)
+  } else if (mocks.Mutation) {
+    console.error(
+      "Error: Mock 'Mutation' type exists but 'Mutation' is not defined in the schema."
+    )
+    hasError = true
+  }
+
+  // Validate other object types (e.g., UserProfile, Report)
+  for (const mockTypeName in mocks) {
+    if (
+      mockTypeName === "Query" ||
+      mockTypeName === "Mutation" ||
+      mockTypeName === "JSONObject"
+    ) {
+      continue // Already handled or scalar
+    }
+
+    const type = builtSchema.getType(mockTypeName)
+    if (!type) {
+      console.error(
+        `Error: Mock type '${mockTypeName}' exists but is not defined in the schema.`
+      )
+      hasError = true
+      continue
+    }
+
+    if (type.getFields) {
+      // Check if it's an object type
+      const schemaFields = type.getFields()
+      const mockFields = mocks[mockTypeName] ? mocks[mockTypeName]() : {}
+      checkTypeFields(mockTypeName, schemaFields, mockFields)
+    }
+  }
+
+  if (hasError) {
+    console.error("Schema and mock JSON mismatch detected. Exiting.")
+    process.exit(1)
+  }
+}
+
+validateMocks(schemaString, mocks) // Call validation function
+// --- End Schema and Mock Validation Logic ---
+
+const schema = makeExecutableSchema({ typeDefs: schemaString })
+const schemaWithMocks = addMocksToSchema({ schema, mocks })
+
+const http = require("http")
 
 const yoga = createYoga({
   schema: schemaWithMocks,
   logging: true,
-  // Integrate with Node.js http server
-  fetchAPI: { Response }
-});
+  fetchAPI: { Response },
+})
 
-const port = process.env.GRAPHQL_MOCK_PORT || 4001; // Changed port to 4001
+const port = 4001
 
-const server = http.createServer(yoga);
+const server = http.createServer(yoga)
 
 server.listen(port, () => {
-  console.log(`Mock GraphQL Server is running on http://localhost:${port}/graphql`);
-});
+  console.log(
+    `Mock GraphQL Server is running on http://localhost:${port}/graphql`
+  )
+})
