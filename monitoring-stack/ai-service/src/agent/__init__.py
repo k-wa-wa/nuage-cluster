@@ -9,6 +9,7 @@ from openai.types.chat import (
 )
 from dotenv import load_dotenv
 import xml.etree.ElementTree as ET
+from pydantic import BaseModel, ValidationError
 
 from agent.mcp_client import MCPClients
 
@@ -18,6 +19,25 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     base_url=os.getenv("OPENAI_BASE_URL"),
 )
+
+type ParseErrorMessage = str
+
+
+class _AgentResponse_McpToolCall_ToolCall(BaseModel):
+    name: str
+    parameters: str  # JSON string
+
+
+class _AgentResponse_McpToolCall(BaseModel):
+    name: str
+    tool_call: _AgentResponse_McpToolCall_ToolCall
+
+
+class _AgentResponse(BaseModel):
+    tasks: str
+    thinking: str
+    mcp_tool_call: _AgentResponse_McpToolCall | None
+    completed: str | None
 
 
 class AgentState(TypedDict):
@@ -125,6 +145,32 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
             },
         ]
 
+    def parse_response(
+        self, response_str: str
+    ) -> tuple[_AgentResponse, None] | tuple[None, ParseErrorMessage]:
+        try:
+            response_xml = ET.fromstring(response_str)
+        except ET.ParseError as e:
+            return None, f"XMLのパースに失敗しました: {e}"
+
+        try:
+            agent_response = _AgentResponse.model_validate({
+                "tasks": response_xml.findtext("tasks"),
+                "thinking": response_xml.findtext("thinking"),
+                "mcp_tool_call": _AgentResponse_McpToolCall.model_validate({
+                    "name": response_xml.findtext("mcp_tool_call/name"),
+                    "tool_call": _AgentResponse_McpToolCall_ToolCall.model_validate({
+                        "name": response_xml.findtext("mcp_tool_call/tool_call/name"),
+                        "parameters": response_xml.findtext("mcp_tool_call/tool_call/parameters"),
+                    }),
+                }) if response_xml.find("mcp_tool_call") else None,
+                "completed": response_xml.findtext("completed"),
+            })
+        except ValidationError as e:
+            return None, f"レスポンスの解析に失敗しました: {e}"
+
+        return agent_response, None
+
     async def generate(self, *, user_instructions: str, mcp_clients: MCPClients):
         messages: Iterable[ChatCompletionMessageParam] = [
             *(await self.build_system_prompt(mcp_clients=mcp_clients)),
@@ -145,12 +191,18 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
                 )
             ]
             print(res_content)
-            response = ET.fromstring(f"{res_content}")
+            agent_response, parse_error = self.parse_response(f"{res_content}")
+            if parse_error or not agent_response:
+                messages.append(ChatCompletionUserMessageParam(
+                    role="user",
+                    content=f"レスポンスの解析に失敗しました。正しく解析できるようエラーを修正してください。\n{parse_error}"
+                ))
+                continue
 
             state = AgentState(
-                tasks=response.findtext("tasks", default=""),
-                thinking=response.findtext("thinking", default=""),
-                completed=response.findtext("completed"),
+                tasks=agent_response.tasks,
+                thinking=agent_response.thinking,
+                completed=agent_response.completed,
             )
             yield state
 
@@ -158,24 +210,17 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
                 print("====== Task Completed ======")
                 return
 
-            if response.find("mcp_tool_call") is not None:
-                mcp_client = None
-                if mcp_name := response.findtext("mcp_tool_call/name"):
-                    mcp_client = mcp_clients.get_client(mcp_name)
-                if mcp_client is None:
+            if mcp_tool_call := agent_response.mcp_tool_call:
+                try:
+                    mcp_client = mcp_clients.get_client(mcp_tool_call.name)
+                except KeyError:
                     messages.append(ChatCompletionUserMessageParam(
                         role="user",
-                        content=f"Invalid tool_name: '{mcp_name}'"
+                        content=f"Invalid tool_name: '{mcp_tool_call.name}'"
                     ))
                     continue
-
-                if not (tool_name := response.findtext("mcp_tool_call/tool_call/name")):
-                    messages.append(ChatCompletionUserMessageParam(
-                        role="user",
-                        content="tool_name is required."
-                    ))
-                    continue
-                tool_parameters = response.findtext("mcp_tool_call/tool_call/parameters")
+                tool_name = mcp_tool_call.tool_call.name
+                tool_parameters = mcp_tool_call.tool_call.parameters
                 try:
                     tool_response = await mcp_client.call_tool(
                         name=tool_name,
@@ -188,7 +233,7 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
                 except Exception as e:
                     messages.append(ChatCompletionUserMessageParam(
                         role="user",
-                        content=f"Tool call failed: {str(e)}"
+                        content=f"Tool call failed: {e}"
                     ))
 
 
