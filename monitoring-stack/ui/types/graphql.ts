@@ -1,4 +1,4 @@
-import { GraphQLClient } from 'graphql-request'; // RequestOptionsを削除
+import { GraphQLClient, RequestOptions } from 'graphql-request';
 import gql from 'graphql-tag';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -7,7 +7,7 @@ export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: 
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
-type GraphQLClientRequestHeaders = HeadersInit; // RequestOptions['requestHeaders']をHeadersInitに変更
+type GraphQLClientRequestHeaders = RequestOptions['requestHeaders'];
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: { input: string; output: string; }
@@ -49,7 +49,7 @@ export type MutationSubscribeArgs = {
 
 export type MutationUpdateUserProfileArgs = {
   displayName?: InputMaybe<Scalars['String']['input']>;
-  notificationSettings?: InputMaybe<NotificationSettingInput[]>;
+  notificationSettings?: InputMaybe<Array<NotificationSettingInput>>;
 };
 
 export type NotificationSettingInput = {
@@ -64,7 +64,7 @@ export type Query = {
   /** 特定のレポートを取得します。 */
   report?: Maybe<Report>;
   /** レポート一覧を取得します。 */
-  reports: Report[];
+  reports: Array<Report>;
   /** VAPID公開鍵を取得します。 */
   vapidPublicKey: Scalars['String']['output'];
 };
