@@ -1,22 +1,23 @@
 import asyncio
 import grpc
+import argparse
+import json
+import os
 from concurrent import futures
 
 import pb.ai_service_pb2 as ai_service_pb2
 import pb.ai_service_pb2_grpc as ai_service_pb2_grpc
 
-from agent import Agent, MCPClients
+from agent import Agent
+from agent.mcp_client import MCPClients, MCPClientsConfig
 
 
 class AIServiceServicer(ai_service_pb2_grpc.AIServiceServicer):
+    def __init__(self, mcp_clients_config: MCPClientsConfig):
+        self._mcp_clients_config = mcp_clients_config
 
     async def GenerateReport(self, request: ai_service_pb2.GenerateReportRequest, context):
-        mcp_clients = MCPClients(mcp_clients_config={
-            "mcp_client_1": {
-                "transport": "streamable_http",
-                "url": "http://mcp-k8s.default.svc.cluster.local/mcp"
-            },
-        })
+        mcp_clients = MCPClients(mcp_clients_config=self._mcp_clients_config)
 
         try:
             # 2. 手動でコンテキストに入る (async with と同じ処理)
@@ -49,9 +50,9 @@ class AIServiceServicer(ai_service_pb2_grpc.AIServiceServicer):
                 await mcp_clients.__aexit__(None, None, None)
 
 
-async def serve():
+async def serve(mcp_clients_config: MCPClientsConfig):
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
-    ai_service_pb2_grpc.add_AIServiceServicer_to_server(AIServiceServicer(), server)
+    ai_service_pb2_grpc.add_AIServiceServicer_to_server(AIServiceServicer(mcp_clients_config), server)
     server.add_insecure_port('[::]:5053')
     await server.start()
     print("AI Service server started on port 5053")
@@ -59,4 +60,21 @@ async def serve():
 
 
 if __name__ == '__main__':
-    asyncio.run(serve())
+    parser = argparse.ArgumentParser(description="AI Service gRPC server")
+    parser.add_argument(
+        "--mcp_clients_config",
+        type=str,
+        default=None,
+        help="Path to the MCP clients configuration JSON file."
+    )
+    args = parser.parse_args()
+
+    config_data: MCPClientsConfig = {}
+    if args.mcp_clients_config:
+        if os.path.exists(args.mcp_clients_config):
+            with open(args.mcp_clients_config, 'r') as f:
+                config_data = json.load(f)
+        else:
+            print(f"Warning: MCP clients config file not found at {args.mcp_clients_config}. Using empty config.")
+
+    asyncio.run(serve(config_data))
