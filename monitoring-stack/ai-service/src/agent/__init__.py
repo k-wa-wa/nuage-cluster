@@ -165,7 +165,7 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
                         "name": response_xml.findtext("mcp_tool_call/tool_call/name"),
                         "parameters": response_xml.findtext("mcp_tool_call/tool_call/parameters"),
                     }),
-                }) if response_xml.find("mcp_tool_call") else None,
+                }) if response_xml.find("mcp_tool_call") is not None else None,
                 "completed": response_xml.findtext("completed"),
             })
         except ValidationError as e:
