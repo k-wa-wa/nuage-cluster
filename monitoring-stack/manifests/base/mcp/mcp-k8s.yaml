@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-k8s
+  labels:
+    app: mcp-k8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-k8s
+  template:
+    metadata:
+      labels:
+        app: mcp-k8s
+    spec:
+      serviceAccountName: mcp-k8s
+      containers:
+      - name: mcp-k8s
+        image: flux159/mcp-server-kubernetes:latest
+        env:
+          - name: ENABLE_UNSAFE_STREAMABLE_HTTP_TRANSPORT
+            value: "1"
+          - name: HOST
+            value: "0.0.0.0"
+          - name: PORT
+            value: "3001"
+        ports:
+          - containerPort: 3001
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-k8s
+  labels:
+    app: mcp-k8s
+spec:
+  selector:
+    app: mcp-k8s
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3001
+      nodePort: 30001
+  type: NodePort
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-k8s
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-k8s-role
+rules:
+- apiGroups: ["", "apps", "batch"] # 操作するリソースのAPIグループ
+  resources: ["pods", "deployments", "services", "nodes", "namespaces", "cronjobs", "jobs", "events"] # 操作を許可するリソース
+  verbs: ["get", "list", "watch"] # 許可する操作
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-k8s-binding
+subjects:
+- kind: ServiceAccount
+  name: mcp-k8s
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: mcp-k8s-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-grafana
+  labels:
+    app: mcp-grafana
+spec:
+  selector:
+    matchLabels:
+      app: mcp-grafana
+  template:
+    metadata:
+      labels:
+        app: mcp-grafana
+    spec:
+      containers:
+      - name: mcp-grafana
+        image: mcp/grafana:latest
+        env:
+          - name: GRAFANA_URL
+            value: http://prometheus-grafana.default.svc.cluster.local
+        args:
+          - "-t"
+          - "streamable-http"
+          - "-address"
+          - "0.0.0.0:8000"
+        ports:
+          - containerPort: 8000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-grafana
+  labels:
+    app: mcp-grafana
+spec:
+  selector:
+    app: mcp-grafana
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      nodePort: 30002
+  type: NodePort

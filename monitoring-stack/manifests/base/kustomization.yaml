@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # - mcp/mcp-chart.yaml
+  - mcp/mcp-grafana.yaml
+  - mcp/mcp-k8s.yaml
+
+helmCharts:
+- name: kube-prometheus-stack
+  releaseName: kube-prometheus-stack
+  version: 78.2.1
+  repo: https://prometheus-community.github.io/helm-charts
+  includeCRDs: true
+
+- name: loki-stack
+  releaseName: loki-stack
+  version: 2.10.2
+  repo: https://grafana.github.io/helm-charts
+  valuesFile: helm/loki-custom.yaml
+
+- name: promtail
+  releaseName: promtail
+  version: 6.17.0
+  repo: https://grafana.github.io/helm-charts
+  valuesFile: helm/promtail-custom.yaml
