@@ -59,7 +59,7 @@ async def serve(mcp_clients_config: MCPClientsConfig):
     await server.wait_for_termination()
 
 
-if __name__ == '__main__':
+def load_mcp_clients_config() -> MCPClientsConfig:
     parser = argparse.ArgumentParser(description="AI Service gRPC server")
     parser.add_argument(
         "--mcp_clients_config",
@@ -77,4 +77,9 @@ if __name__ == '__main__':
         else:
             print(f"Warning: MCP clients config file not found at {args.mcp_clients_config}. Using empty config.")
 
-    asyncio.run(serve(config_data))
+    return config_data
+
+
+if __name__ == '__main__':
+    validated_config = load_mcp_clients_config()
+    asyncio.run(serve(validated_config))
