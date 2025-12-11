@@ -1,0 +1,28 @@
+# Optional, but highly recommended. Generate via `openssl rand -hex 32`.
+#  langfuse:
+#    encryptionKey:
+#      value: ""
+langfuse:
+  salt:
+    value: secureSalt
+  nextauth:
+    secret:
+      value: "secret"
+
+postgresql:
+  auth:
+    # If you want to use `postgres` as the username, you need to provide postgresPassword instead of password.
+    username: langfuse
+    password: "langfuse"
+
+clickhouse:
+  auth:
+    password: "langfuse"
+
+redis:
+  auth:
+    password: "langfuse"
+
+s3:
+  auth:
+    rootPassword: "langfuse"
