@@ -1,0 +1,94 @@
+- name: 1. aptパッケージリストの更新
+  ansible.builtin.apt:
+    update_cache: true
+
+# --- 2. OpenJDK 17 & JSVC のインストール (Omada Controller v5.15.20以上) ---
+
+- name: 2-1. OpenJDK-17-jre-headlessのインストール
+  ansible.builtin.apt:
+    name: openjdk-17-jre-headless
+    state: present
+
+- name: 2-2. jsvcのインストール
+  ansible.builtin.apt:
+    name: jsvc
+    state: present
+
+# --- 3. MongoDB Community Server 8.0 のインストール (Ubuntu 22.04 Jammy) ---
+# FAQの手順(v8.0)に従い、GPGキーのインポートとリポジトリの追加を行います。
+
+- name: 3-1. MongoDBインストールに必要なパッケージ (gnupg, curl) のインストール
+  ansible.builtin.apt:
+    name:
+      - gnupg
+      - curl
+    state: present
+
+- name: 3-2. MongoDB Public GPGキーのインポート (8.0)
+  ansible.builtin.get_url:
+    url: https://www.mongodb.org/static/pgp/server-8.0.asc
+    dest: /usr/share/keyrings/mongodb-server-8.0.asc
+    mode: '0644'
+    owner: root
+    group: root
+    force: false
+
+- name: 3-2b. MongoDB GPGキーをdearmorしてキーリングに配置
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg /usr/share/keyrings/mongodb-server-8.0.asc
+    creates: /usr/share/keyrings/mongodb-server-8.0.gpg
+
+- name: 3-3. MongoDB リポジトリの追加 (Ubuntu 22.04 - Jammy)
+  ansible.builtin.apt_repository:
+    repo: "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse"
+    state: present
+    update_cache: true
+
+- name: 3-4. MongoDB Community Server (最新安定版) のインストール
+  ansible.builtin.apt:
+    name: mongodb-org
+    state: present
+    # Omada ControllerはMongoDBを内部で管理するため、デフォルトで起動/有効化はしません。
+
+# --- 4. Omada Software Controller のインストール ---
+
+- name: 4-1. Omada Software Controller (.debファイル) の取得
+  ansible.builtin.get_url:
+    url: "https://static.tp-link.com/upload/software/2025/202508/20250802/omada_v5.15.24.19_linux_x64_20250724152622.deb"
+    dest: "/tmp/Omada_SDN_Controller_v5.15.24.19_linux_x64.deb"
+    mode: '0644'
+    owner: root
+    group: root
+    force: false
+
+- name: 4-1b. Omada Software Controller (.debファイル) のインストール
+  ansible.builtin.apt:
+    deb: "/tmp/Omada_SDN_Controller_v5.15.24.19_linux_x64.deb"
+    state: present
+    # OpenJDK 11以上を使用する場合の '--ignore-depends=jsvc' は、
+    # jsvcが既にインストールされていれば通常不要ですが、もし依存関係のエラーが出る場合は
+    # commandモジュールで dpkg --ignore-depends=jsvc を使用することを検討してください。
+
+# --- 5. サービスの確認と開始 ---
+
+- name: 5-1. Omada Controllerサービスを開始する
+  ansible.builtin.service:
+    name: tpeap
+    state: started
+    enabled: true
+
+- name: 5-2. Omada Controllerのステータス確認 (情報メッセージ)
+  ansible.builtin.command: tpeap status
+  register: tpeap_status_output
+  changed_when: false
+
+- name: 5-3. 完了メッセージとアクセス情報
+  ansible.builtin.debug:
+    msg: |
+      Omada Software Controllerのインストールと起動が完了しました。
+
+      ステータス:
+      {{ tpeap_status_output.stdout }}
+
+      Web UIへは、サーバーのIPアドレスとポート8043 (HTTPS) または 8088 (HTTP) でアクセスしてください。
+      例: https://{{ ansible_default_ipv4.address }}:8043 (初回はセットアップウィザードが開始されます)

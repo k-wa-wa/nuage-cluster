@@ -1,0 +1,5 @@
+- name: Setup omada controllers
+  hosts: omada-controllers
+  become: true
+  roles:
+    - omada-controller
