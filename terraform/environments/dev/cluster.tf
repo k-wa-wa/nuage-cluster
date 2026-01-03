@@ -187,7 +187,11 @@ module "worker-node-device-host-01" {
     ]
     ci_user   = "ubuntu"
     disk_size = 100
-    usb_host  = "13fd:0840"
+    usb = [
+      {
+        host = "13fd:0840"
+      }
+    ]
   }
   depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
