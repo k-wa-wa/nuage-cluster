@@ -1,0 +1,39 @@
+configuration:
+  features: EnableCSI
+  backupStorageLocation:
+    - provider: aws
+      bucket: velero
+      config:
+        region: us-east-1
+        s3Url: "http://192.168.5.151:9000"
+        s3ForcePathStyle: true
+        insecureSkipTLSVerify: true
+  volumeSnapshotLocation:
+    - name: longhorn-vsl # 任意の名前
+      # CSIを使用するため、プロバイダーは 'csi' にする
+      provider: csi
+      config:
+        # LonghornのVolumeSnapshotClass名と一致させる
+        csi.storage.k8s.io/snapshotter-names: driver.longhorn.io
+        # LonghornのCSIスナップショットクラスを指定
+        # Longhornが提供するデフォルトのクラス名を使用
+        csi.storage.k8s.io/volume-snapshot-class: longhorn-vsc
+
+credentials:
+  useSecret: true
+  secretContents:
+    cloud: |
+      [default]
+      aws_access_key_id = minioadmin
+      aws_secret_access_key = minioadmin
+
+deployCSINodePlugins: true
+deployCSIControllerPlugins: true
+
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.13.0
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins

@@ -1,0 +1,7 @@
+global:
+  nodeSelector:
+    longhorn-storage-node: "true"
+
+defaultBackupStore:
+  backupTarget: "s3://longhorn@192.168.5.151:9000/"
+  backupTargetCredentialSecret: s3-credentials

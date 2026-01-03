@@ -1,0 +1,13 @@
+apiVersion: velero.io/v1
+# Standard Kubernetes Kind declaration. Required.
+kind: Restore
+# Standard Kubernetes metadata. Required.
+metadata:
+  # Restore name. May be any valid Kubernetes object name. Required.
+  name: a-very-special-backup-0000111122223333
+  # Restore namespace. Must be the namespace of the Velero server. Required.
+  namespace: velero
+# Parameters about the restore. Required.
+spec:
+  # BackupName is the unique name of the Velero backup to restore from.
+  backupName: manual-pvc-pv-backup-20251026-002
