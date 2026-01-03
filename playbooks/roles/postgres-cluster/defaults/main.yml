@@ -1,0 +1,17 @@
+# PostgreSQL 設定
+postgres_version: "16"
+postgres_data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
+postgres_bin_path: "/usr/lib/postgresql/{{ postgres_version }}/bin"
+
+# Patroni 設定
+patroni_cluster_name: "postgres-cluster"
+patroni_rest_api_port: 8008
+patroni_postgresql_port: 5432
+
+# ネットワーク・VIP設定
+vip_address: "192.168.5.155/24"
+network_interface: "eth0"
+
+# etcd 設定
+etcd_client_port: 2379
+etcd_peer_port: 2380

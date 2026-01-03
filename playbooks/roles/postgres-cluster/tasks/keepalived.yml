@@ -1,0 +1,22 @@
+- name: Copy patroni leader check script
+  ansible.builtin.template:
+    src: check_patroni.sh.j2
+    dest: /usr/local/bin/check_patroni.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure keepalived
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart keepalived
+
+- name: Ensure keepalived is started and enabled
+  ansible.builtin.systemd:
+    name: keepalived
+    state: started
+    enabled: true

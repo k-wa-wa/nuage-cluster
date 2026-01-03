@@ -1,0 +1,49 @@
+- name: Add PostgreSQL APT repository key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /usr/share/keyrings/postgresql-archive-keyring.asc
+    mode: '0644'
+
+- name: Add PostgreSQL APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] \
+      http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+
+- name: Prevent services from starting during apt install
+  ansible.builtin.copy:
+    content: |
+      #!/bin/sh
+      exit 101
+    dest: /usr/sbin/policy-rc.d
+    mode: '0755'
+
+- name: Install PostgreSQL, etcd, and dependencies
+  ansible.builtin.apt:
+    name:
+      - "postgresql-{{ postgres_version }}"
+      - etcd-server
+      - etcd-client
+      - keepalived
+      - curl
+      - python3-pip
+      - python3-psycopg2
+    state: present
+    update_cache: true
+
+- name: Remove the start prevention script
+  ansible.builtin.file:
+    path: /usr/sbin/policy-rc.d
+    state: absent
+
+- name: Install Patroni via pip
+  ansible.builtin.pip:
+    name: patroni[etcd]
+    executable: pip3
+    extra_args: --break-system-packages
+
+- name: Stop PostgreSQL service (Patroni will manage it)
+  ansible.builtin.systemd:
+    name: postgresql
+    state: stopped
+    enabled: false

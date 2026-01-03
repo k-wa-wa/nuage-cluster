@@ -1,0 +1,29 @@
+vrrp_script check_patroni {
+    script "/usr/local/bin/check_patroni.sh"
+    script_user root
+    interval 2
+    fall 2
+    rise 2
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface {{ network_interface }}
+    virtual_router_id 51
+    priority 100
+    advert_int 1
+    
+    # 複数のクラスターがある場合は認証を設定
+    authentication {
+        auth_type PASS
+        auth_pass 1234
+    }
+
+    virtual_ipaddress {
+        {{ vip_address }}
+    }
+
+    track_script {
+        check_patroni
+    }
+}

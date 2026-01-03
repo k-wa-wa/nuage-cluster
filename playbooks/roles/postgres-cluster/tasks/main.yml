@@ -1,0 +1,11 @@
+- name: Execute installation tasks
+  ansible.builtin.include_tasks: install.yml
+
+- name: Execute etcd configuration tasks
+  ansible.builtin.include_tasks: etcd.yml
+
+- name: Execute patroni configuration tasks
+  ansible.builtin.include_tasks: patroni.yml
+
+- name: Execute keepalived configuration tasks
+  ansible.builtin.include_tasks: keepalived.yml

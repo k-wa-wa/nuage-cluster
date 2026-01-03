@@ -1,0 +1,15 @@
+ETCD_NAME="{{ inventory_hostname }}"
+ETCD_DATA_DIR="/var/lib/etcd/default"
+
+# クライアントおよびピアからの通信を待ち受けるURL
+ETCD_LISTEN_PEER_URLS="http://{{ ansible_host }}:{{ etcd_peer_port }}"
+ETCD_LISTEN_CLIENT_URLS="http://127.0.0.1:{{ etcd_client_port }},http://{{ ansible_host }}:{{ etcd_client_port }}"
+
+# 他のノードに通知するURL
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ ansible_host }}:{{ etcd_peer_port }}"
+ETCD_ADVERTISE_CLIENT_URLS="http://127.0.0.1:{{ etcd_client_port }},http://{{ ansible_host }}:{{ etcd_client_port }}"
+
+# クラスタリング設定 (Ansibleのループで全ノードを記述)
+ETCD_INITIAL_CLUSTER="{% for host in groups['postgres-servers'] %}{{ hostvars[host]['inventory_hostname'] }}=http://{{ hostvars[host]['ansible_host'] }}:{{ etcd_peer_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="patroni-etcd-token"

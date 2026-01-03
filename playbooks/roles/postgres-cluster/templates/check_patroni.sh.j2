@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Patroni の REST API ポート (defaults/main.yml の変数を使用)
+PORT={{ patroni_rest_api_port }}
+
+# 自身が Leader (RW) かどうかをチェック
+# -s: 静音モード, -o /dev/null: 出力を捨てる, -w: HTTPステータスコードのみ取得
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://{{ ansible_host }}:${PORT}/master)
+
+if [ "$HTTP_STATUS" -eq 200 ]; then
+    # リーダーであれば正常終了 (KeepalivedがVIPを付与する)
+    exit 0
+else
+    # リーダーでなければ異常終了 (KeepalivedがVIPを外す)
+    exit 1
+fi

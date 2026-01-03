@@ -1,0 +1,16 @@
+[Unit]
+Description=Run Patroni to manage specialized PostgreSQL game
+After=network.target etcd.service
+
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+ExecStart=/usr/local/bin/patroni /etc/patroni/patroni.yml
+# PatroniがPostgresを安全に停止できるようにする
+KillMode=process
+TimeoutSec=30
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

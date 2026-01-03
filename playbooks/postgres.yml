@@ -1,0 +1,5 @@
+- name: Setup postgres cluster
+  hosts: postgres-servers
+  become: true
+  roles:
+    - postgres-cluster
