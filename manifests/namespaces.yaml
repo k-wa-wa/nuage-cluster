@@ -40,3 +40,10 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: nuage-monitoring # secret作成のためあらかじめ作成しておく
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pg-cluster
+  labels:
+    istio-injection: enabled
