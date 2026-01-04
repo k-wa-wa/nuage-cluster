@@ -3,6 +3,7 @@ kind: PersistentVolume
 metadata:
   name: nfs-bluray-pv
 spec:
+  storageClassName: ""
   capacity:
     storage: 1Gi # 必須のため最小容量を設定
   volumeMode: Filesystem
@@ -20,6 +21,7 @@ kind: PersistentVolume
 metadata:
   name: nfs-hls-pv
 spec:
+  storageClassName: ""
   capacity:
     storage: 1Gi # 必須のため最小容量を設定
   volumeMode: Filesystem
@@ -37,6 +39,7 @@ kind: PersistentVolume
 metadata:
   name: nfs-hls-readonly-pv
 spec:
+  storageClassName: ""
   capacity:
     storage: 1Gi # 必須のため最小容量を設定
   volumeMode: Filesystem
@@ -54,6 +57,7 @@ kind: PersistentVolume
 metadata:
   name: nfs-youtube-pv
 spec:
+  storageClassName: ""
   capacity:
     storage: 1Gi # 必須のため最小容量を設定
   volumeMode: Filesystem
