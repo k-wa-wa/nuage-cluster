@@ -54,28 +54,3 @@ module "oc1-dns" {
   }
   depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
 }
-
-module "oc1-omada-controller" {
-  source = "../../modules/ubuntu-vm"
-  vm_config = {
-    vm_id = 1100
-    vm_name = "oc1-omada-controller"
-    node_name = "server-1"
-    cores = 1
-    memory = 4096
-    network_devices = [
-      {
-        bridge = "vmbr1"
-      }
-    ]
-    ip_config = [
-      {
-        address = "192.168.1.100/24"
-        gateway = "192.168.1.1"
-      }
-    ]
-    ci_user = "ubuntu"
-    disk_size = 20
-  }
-  depends_on = [ proxmox_virtual_environment_download_file.ubuntu_cloud_image ]
-}
