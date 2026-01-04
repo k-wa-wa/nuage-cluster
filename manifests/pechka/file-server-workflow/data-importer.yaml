@@ -27,7 +27,7 @@ spec:
             - name: HLS_RESOURCE_DIR
               value: /mnt/hls
             - name: DB_HOST
-              value: postgres.default.svc.cluster.local
+              value: primary.pg-cluster.svc.cluster.local
             - name: DB_PORT
               value: "5432"
             - name: DB_USER

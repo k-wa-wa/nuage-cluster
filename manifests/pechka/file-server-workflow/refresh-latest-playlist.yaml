@@ -22,7 +22,7 @@ spec:
           image: ghcr.io/k-wa-wa/pechka-file-server-refresh-latest-playlist
           env:
             - name: DB_HOST
-              value: postgres.default.svc.cluster.local
+              value: primary.pg-cluster.svc.cluster.local
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
