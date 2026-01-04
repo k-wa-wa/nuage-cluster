@@ -1,0 +1,63 @@
+- name: LAN network configuration
+  ansible.builtin.template:
+    src: templates/99-lan-config.yaml.j2
+    dest: /etc/netplan/99-lan-config.yaml
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Apply Netplan
+
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - isc-dhcp-server
+      - iptables-persistent
+      - netfilter-persistent
+    state: present
+
+- name: Enable IPv4 forwarding (Kernel level)
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Configure DHCP server to listen on LAN interface
+  ansible.builtin.lineinfile:
+    path: /etc/default/isc-dhcp-server
+    regexp: '^INTERFACESv4='
+    line: 'INTERFACESv4="{{ lan_interface }}"'
+
+- name: Define DHCP subnet in dhcpd.conf
+  ansible.builtin.template:
+    src: dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart DHCP server
+
+- name: Set iptables rules for isolation
+  ansible.builtin.shell: |
+    # 既存のForwardルールをクリア（必要に応じて調整）
+    iptables -F FORWARD
+
+    # lanからwan（インターネット側）への転送を明示的に拒否
+    iptables -A FORWARD -i {{ lan_interface }} -o {{ wan_interface }} -j REJECT
+
+    # lanネットワーク内同士の通信、またはルーター自身への通信はデフォルトで許可（INPUT/FORWARDの別ルール）
+    iptables -A FORWARD -i {{ lan_interface }} -o {{ lan_interface }} -j ACCEPT
+
+    # 状態保持（既存の接続を許可）
+    iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+    # ルーターのIPのポート 8043 へのアクセスを拒否 (REJECT)
+    iptables -A INPUT -p tcp -d {{ lan_ip }} --dport 8043 -j REJECT
+
+    # セカンダリIPのポート 8043 へのアクセスを許可 (ACCEPT)
+    iptables -A INPUT -p tcp -d {{ lan_ip_secondary }} --dport 8043 -j ACCEPT
+
+    # iptablesの保存
+    netfilter-persistent save
+  changed_when: false

@@ -1,0 +1,12 @@
+wan_interface: "wlan0"
+lan_interface: "eth0"
+
+lan_network: "172.16.0.0"
+lan_netmask: "255.255.255.0"
+lan_ip: "172.16.0.1"
+lan_ip_secondary: "172.16.0.2"
+dhcp_range_start: "172.16.0.10"
+dhcp_range_end: "172.16.0.200"
+
+lan_ip_with_cidr: "{{ lan_ip }}/24"
+lan_ip_secondary_with_cidr: "{{ lan_ip_secondary }}/24"

@@ -1,0 +1,8 @@
+network:
+  version: 2
+  ethernets:
+    {{ lan_interface }}:
+      # 既存のIP設定を上書き、または追加します
+      addresses:
+        - {{ lan_ip_with_cidr}}
+        - {{ lan_ip_secondary_with_cidr }}

@@ -1,0 +1,9 @@
+- name: Apply Netplan
+  ansible.builtin.command: netplan apply
+  changed_when: true
+
+- name: Restart DHCP server
+  ansible.builtin.service:
+    name: isc-dhcp-server
+    state: restarted
+    enabled: true

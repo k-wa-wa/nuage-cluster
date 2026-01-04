@@ -1,0 +1,9 @@
+option domain-name-servers 8.8.8.8, 8.8.4.4;
+
+default-lease-time 600;
+max-lease-time 7200;
+
+subnet {{ lan_network }} netmask {{ lan_netmask }} {
+  range {{ dhcp_range_start }} {{ dhcp_range_end }};
+  option routers {{ lan_ip }};
+}
