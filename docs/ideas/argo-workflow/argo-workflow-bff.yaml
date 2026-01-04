@@ -1,3 +1,4 @@
+# istioの設定で回避できたため、bffは不要になった
 apiVersion: v1
 kind: ConfigMap
 metadata:
