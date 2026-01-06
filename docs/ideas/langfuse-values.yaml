@@ -1,28 +1,34 @@
-# Optional, but highly recommended. Generate via `openssl rand -hex 32`.
-#  langfuse:
-#    encryptionKey:
-#      value: ""
+global:
+  defaultStorageClass: "local-path"
+
 langfuse:
   salt:
-    value: secureSalt
+    value: 7b4898216a76804f186770ec4c2175f781f7d16be68311aa138cc7a71f0204a1
   nextauth:
     secret:
-      value: "secret"
+      secretKeyRef:
+        key: nextauth-secret
+        name: litellm-credentials
+  additionalEnv:
+    - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+      value:	lf_pk_1234567890aaa
+    - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+      value:	lf_sk_1234567890aaa
 
 postgresql:
   auth:
     # If you want to use `postgres` as the username, you need to provide postgresPassword instead of password.
     username: langfuse
-    password: "langfuse"
+    password: langfuse
 
 clickhouse:
   auth:
-    password: "langfuse"
+    password: langfuse
 
 redis:
   auth:
-    password: "langfuse"
+    password: langfuse
 
 s3:
   auth:
-    rootPassword: "langfuse"
+    rootPassword: langfuse
