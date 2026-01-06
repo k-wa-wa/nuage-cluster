@@ -5,7 +5,6 @@ export KUBECONFIG=playbooks/admin.conf
 
 #################### nodes ####################
 ./k apply -f manifests/node-labels.yaml
-./k apply -f manifests/namespaces.yaml
 
 ./k apply -k manifests/bootstrap/
 
