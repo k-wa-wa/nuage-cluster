@@ -1,0 +1,11 @@
+# argocd の管理外になるため、手動でapplyする
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: primary
+  namespace: pg-cluster
+subsets:
+- addresses:
+  - ip: 192.168.5.155
+  ports:
+  - port: 5432

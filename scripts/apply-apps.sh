@@ -5,6 +5,7 @@ export KUBECONFIG=playbooks/admin.conf
 
 #################### namespace, argocd, secrets, ... ####################
 ./k apply -k manifests/bootstrap/
+./k apply -f manifests/apps/pg-cluster/base/endpoint.yaml
 
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
