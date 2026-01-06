@@ -13,6 +13,7 @@ if ! ./k get ns istio-system &> /dev/null; then
 fi
 ./k apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.0/cert-manager.yaml
 ./k apply -f istio-1.26.2/samples/addons
+./k apply -f ./manifests/base/ingress/
 
 #################### argocd ####################
 ./k apply -f manifests/argocd/apps/
