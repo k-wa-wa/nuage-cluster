@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: applications-infra
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - git:
+        repoURL: https://github.com/k-wa-wa/nuage-cluster
+        revision: master
+        directories:
+          - path: manifests/infra/*
+          - path: manifests/infra/pvs
+            exclude: true
+  template:
+    metadata:
+      name: '{{ index .path.segments 2 }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/nuage-cluster
+        targetRevision: HEAD
+        path: '{{ .path.path }}' # 検知したディレクトリ（apps/app-A/overlays/prod等）
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ index .path.segments 2 }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - ServerSideApply=true

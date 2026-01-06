@@ -6,4 +6,5 @@ resources:
   - node-labels.yaml
   - argocd/
   - secrets/
+  - appset-infra.yaml
   - appset-prod.yaml
