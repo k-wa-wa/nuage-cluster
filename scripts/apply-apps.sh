@@ -18,12 +18,12 @@ fi
 ./k apply -f manifests/infra/pvs/ # TODO: argocdでの管理を検討
 ./k apply -f manifests/infra/ingress/
 
-#################### argocd ####################
-./k apply -f manifests/argocd/apps/
-
-#################### apps: dashboard ####################
-./k apply -f manifests/dashboard-v2
-
 #################### apps: pechka ####################
 # ./k scale -n pechka deployment file-server-api --replicas=2
 # ./k scale -n pechka deployment file-server-ui --replicas=2
+
+####################
+# 以下は monitoring-stack にまとめる想定のため、今はこのままとする
+####################
+./k apply -f manifests/argocd/apps/
+./k apply -f manifests/dashboard-v2
