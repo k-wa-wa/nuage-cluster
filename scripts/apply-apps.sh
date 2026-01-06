@@ -20,12 +20,6 @@ fi
 #################### apps: dashboard ####################
 ./k apply -f manifests/dashboard-v2
 
-#################### apps: pechka ####################
-# argo workflow
-curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml \
-  | sed 's/namespace: argo/namespace: pechka/g' \
-  | ./k apply -n pechka -f -
-
 # apps
 ./k apply -f manifests/infra/pvs/ # TODO: argocdでの管理を検討
 
