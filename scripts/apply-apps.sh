@@ -8,15 +8,14 @@ export KUBECONFIG=playbooks/admin.conf
 ./k apply -f manifests/apps/pg-cluster/base/endpoint.yaml
 
 #################### istio ####################
-if ! ./k get ns istio-system &> /dev/null; then
-  ./istio-1.26.2/bin/istioctl install -y -f istio-1.26.2/istio-custom.yaml
-fi
-./k apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.0/cert-manager.yaml
-./k apply -f istio-1.26.2/samples/addons
+# if ! ./k get ns istio-system &> /dev/null; then
+#   ./istio-1.26.2/bin/istioctl install -y -f istio-1.26.2/istio-custom.yaml
+# fi
+# ./k apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.0/cert-manager.yaml
+# ./k apply -f istio-1.26.2/samples/addons
 
-#################### infra ####################
-./k apply -f manifests/infra/pvs/ # TODO: argocdでの管理を検討
-./k apply -f manifests/infra/ingress/
+#################### infra #################### TODO: argocdでの管理を検討
+./k apply -f manifests/infra/pvs/
 
 #################### apps: pechka ####################
 # ./k scale -n pechka deployment file-server-api --replicas=2
