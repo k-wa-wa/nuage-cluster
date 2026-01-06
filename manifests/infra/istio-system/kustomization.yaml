@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+helmCharts:
+  - name: base
+    releaseName: istio-base
+    version: 1.26.2
+    repo: https://istio-release.storage.googleapis.com/charts
+    namespace: istio-system
+  - name: istiod
+    releaseName: istiod
+    version: 1.26.2
+    repo: https://istio-release.storage.googleapis.com/charts
+    namespace: istio-system
+    valuesFile: values-istiod.yaml
+  - name: gateway
+    releaseName: istio-ingressgateway
+    version: 1.26.2
+    repo: https://istio-release.storage.googleapis.com/charts
+    namespace: istio-system
+    valuesFile: values-gateway.yaml
+
+resources:
+- https://raw.githubusercontent.com/k-wa-wa/nuage-cluster/refs/heads/master/istio-1.26.2/samples/addons/grafana.yaml
+- https://raw.githubusercontent.com/k-wa-wa/nuage-cluster/refs/heads/master/istio-1.26.2/samples/addons/jaeger.yaml
+- https://raw.githubusercontent.com/k-wa-wa/nuage-cluster/refs/heads/master/istio-1.26.2/samples/addons/kiali.yaml
+- https://raw.githubusercontent.com/k-wa-wa/nuage-cluster/refs/heads/master/istio-1.26.2/samples/addons/loki.yaml
+- https://raw.githubusercontent.com/k-wa-wa/nuage-cluster/refs/heads/master/istio-1.26.2/samples/addons/prometheus.yaml
+
+- cert.yaml
+- rules.yaml
+- gateway.yaml
