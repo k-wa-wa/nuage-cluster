@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: applications-prod
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/k-wa-wa/nuage-cluster
+        revision: master
+        directories:
+          - path: apps/*/overlays/prod
+  template:
+    metadata:
+      name: '{{path.basename.parent.parent}}-{{path.basename}}' # アプリ名-環境名
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/nuage-cluster
+        targetRevision: HEAD
+        path: '{{path}}' # 検知したディレクトリ（apps/app-A/overlays/prod等）
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path.basename.parent.parent}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - ServerSideApply=true
