@@ -16,12 +16,6 @@ fi
 #################### argocd ####################
 ./k apply -f manifests/argocd/apps/
 
-#################### postgres ####################
-./k apply -f manifests/postgres/
-./k wait --for=condition=Ready --timeout=300s pod/postgres-0
-./k cp ./db/postgres/init.sh postgres-0:/tmp/init.sh
-./k exec -it postgres-0 -- bash /tmp/init.sh
-
 #################### apps: dashboard ####################
 ./k apply -f manifests/dashboard-v2
 
