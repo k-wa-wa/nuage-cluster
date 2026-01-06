@@ -28,8 +28,6 @@ curl -L https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quic
 
 # apps
 ./k apply -n pechka -f manifests/pechka
-./k apply -f manifests/pechka/file-server
-./k apply -f manifests/pechka/file-server-workflow
 
 # ./k scale -n pechka deployment file-server-api --replicas=2
 # ./k scale -n pechka deployment file-server-ui --replicas=2
