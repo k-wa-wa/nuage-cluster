@@ -5,3 +5,4 @@ resources:
   - namespaces.yaml
   - node-labels.yaml
   - argocd/
+  - secrets/

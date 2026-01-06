@@ -16,8 +16,6 @@ fi
 #################### argocd ####################
 ./k apply -f manifests/argocd/apps/
 
-./k apply -k manifests/secrets
-
 #################### postgres ####################
 ./k apply -f manifests/postgres/
 ./k wait --for=condition=Ready --timeout=300s pod/postgres-0
