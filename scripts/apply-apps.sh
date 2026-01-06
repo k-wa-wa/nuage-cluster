@@ -7,6 +7,8 @@ export KUBECONFIG=playbooks/admin.conf
 ./k apply -f manifests/node-labels.yaml
 ./k apply -f manifests/namespaces.yaml
 
+./k apply -k manifests/bootstrap/
+
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
   ./istio-1.26.2/bin/istioctl install -y -f istio-1.26.2/istio-custom.yaml
@@ -15,7 +17,6 @@ fi
 ./k apply -f istio-1.26.2/samples/addons
 
 #################### argocd ####################
-helm upgrade --install -n argocd argocd argo/argo-cd -f manifests/argocd/argocd-values.yaml
 ./k apply -f manifests/argocd/apps/
 
 ./k apply -k manifests/secrets
