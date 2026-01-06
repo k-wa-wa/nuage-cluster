@@ -3,9 +3,7 @@
 set -e
 export KUBECONFIG=playbooks/admin.conf
 
-#################### nodes ####################
-./k apply -f manifests/node-labels.yaml
-
+#################### namespace, argocd, secrets, ... ####################
 ./k apply -k manifests/bootstrap/
 
 #################### istio ####################
