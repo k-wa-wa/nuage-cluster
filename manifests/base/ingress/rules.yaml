@@ -13,7 +13,7 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: argo-workflow-dr
+  name: argocd-dr
   namespace: istio-system
 spec:
   host: argocd-server.argocd.svc.cluster.local
