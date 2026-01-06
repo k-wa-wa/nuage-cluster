@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: setup-config-script
-  namespace: platform
+  namespace: ai-platform
 data:
   setup-config.sh: |
     #!/bin/bash
@@ -53,7 +53,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: litellm-deployment
-  namespace: platform
+  namespace: ai-platform
 spec:
   selector:
     matchLabels:
@@ -96,7 +96,7 @@ spec:
               name: litellm-credentials
               key: LITELLM_SALT_KEY
         - name: DATABASE_URL
-          value: "postgresql://llmproxy:dbpassword9090@litellm-db.platform.svc.cluster.local:5432/litellm"
+          value: "postgresql://llmproxy:dbpassword9090@litellm-db.ai-platform.svc.cluster.local:5432/litellm"
         - name: UI_USERNAME
           value: admin
         - name: UI_PASSWORD
@@ -116,7 +116,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: litellm-service
-  namespace: platform
+  namespace: ai-platform
 spec:
   selector:
     app: litellm
@@ -133,7 +133,7 @@ metadata:
   name: litellm-db
   labels:
     app: litellm-db
-  namespace: platform
+  namespace: ai-platform
 spec:
   serviceName: "litellm-db"
   replicas: 1
@@ -165,7 +165,7 @@ metadata:
   name: litellm-db
   labels:
     app: litellm-db
-  namespace: platform
+  namespace: ai-platform
 spec:
   ports:
     - port: 5432

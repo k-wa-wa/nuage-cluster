@@ -42,3 +42,10 @@ metadata:
   name: pg-cluster
   labels:
     istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-platform
+  labels:
+    istio-injection: enabled
