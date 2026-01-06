@@ -5,6 +5,8 @@ export KUBECONFIG=playbooks/admin.conf
 
 #################### namespace, argocd, secrets, ... ####################
 ./k apply -k manifests/bootstrap/
+./k wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
+./k apply -f manifests/
 ./k apply -f manifests/apps/pg-cluster/base/endpoint.yaml
 
 # TODO:
