@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: pechka # ArgoリソースがあるNamespace
+spec:
+  nats:
+    native:
+      replicas: 1 # 開発用なら1、本番なら3を推奨
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: bluray-events
+  namespace: pechka
+spec:
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  webhook:
+    mkv-ready:
+      port: "12000"
+      endpoint: "/mkv-ready"
+      method: "POST"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: mkv-sensor
+  namespace: pechka
+spec:
+  template:
+    serviceAccountName: argo-workflow-sa # Workflow作成権限があるSA
+  eventBusName: default
+  dependencies:
+    - name: mkv-dep
+      eventSourceName: bluray-events
+      eventName: mkv-ready
+  triggers:
+    - template:
+        name: mkv-workflow-trigger
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                # 実行ごとに名前をユニークにする
+                generateName: mkv-worker-task-
+              spec:
+                entrypoint: process
+                # 共通化した変換用テンプレートを呼び出す
+                workflowTemplateRef:
+                  name: mkv-transform-template
+                arguments:
+                  parameters:
+                    - name: mkv-path
+                      value: "will-be-overridden"
+                    - name: label
+                      value: "will-be-overridden"
+          # Webhookで届いたJSONの値を、上記Workflowの引数にマッピングする
+          parameters:
+            - src:
+                dependencyName: mkv-dep
+                dataKey: body.path # JSON内の {"path": "..."}
+              dest: spec.arguments.parameters.0.value
+            - src:
+                dependencyName: mkv-dep
+                dataKey: body.label # JSON内の {"label": "..."}
+              dest: spec.arguments.parameters.1.value
