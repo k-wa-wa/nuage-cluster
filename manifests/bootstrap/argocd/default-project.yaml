@@ -1,0 +1,16 @@
+# AppProject は自動作成されるが、作成前に applicationset を作成しようとするとエラーになる。
+# そのため、あらかじめ default AppProject を作成しておく。
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+spec:
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  destinations:
+  - namespace: '*'
+    server: '*'
+  sourceRepos:
+  - '*'

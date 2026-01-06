@@ -9,7 +9,6 @@ export KUBECONFIG=playbooks/admin.conf
 
 # TODO:
 # - istio-ingressgateway の作成タイミングによって、ErrImgPullBackOff になる。rollout で解消するが、要調査
-# - applicationset が作成エラーになることがある。このスクリプトを何度か実行すると解消するが依存関係の整理が必要そう
 
 #################### infra #################### TODO: argocdでの管理を検討
 ./k apply -f manifests/infra/pvs/
