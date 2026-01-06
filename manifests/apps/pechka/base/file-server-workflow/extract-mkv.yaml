@@ -1,0 +1,147 @@
+# コピーガードのあるblurayでは実施しないこと
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-config-extract-mkv
+data:
+  get_bluray_label.sh: |
+    #!/bin/sh
+    set -e
+
+    LABEL=$(blkid | grep /dev/sr1 | sed -n 's/.*LABEL="\([^"]*\)".*/\1/p')
+    echo $LABEL
+
+  bluray_to_mkv.sh: |
+    #!/bin/sh
+    set -e
+
+    if [ ! -d /mnt/bluray ]; then
+      echo "no target directory"
+      exit 1
+    fi
+
+    mkdir -p ~/.MakeMKV
+    echo 'app_Key="T-USSm3IxiXEKzraO1BIr0HAlRVzySlsOvlJMknCoq2G1NuNBvDv4xbSgUpueTH5nUdl"' > ~/.MakeMKV/settings.conf
+
+    mkdir -p /mnt/bluray/mkv/$LABEL
+    /opt/makemkv/bin/makemkvcon --progress=-same mkv disc:1 all /mnt/bluray/mkv/$LABEL
+    eject /dev/sr1
+
+  list_mkv_files.sh: |
+    #!/bin/sh
+    set -e
+
+    if [ -z $LABEL ]; then
+      echo '[]'
+      exit 0
+    fi
+
+    find /mnt/bluray/mkv -type f -name "*.mkv" | jq -R '{"mkv-path": ., "label": "'$LABEL'"}' | jq -s -c .
+
+  list_mkv_files.py: |
+    import os, json, glob
+
+    label = os.getenv("LABEL")
+    if not label:
+        print("[]")
+    else:
+        files = glob.glob(f"/mnt/bluray/mkv/{label}/*.mkv")
+        print(json.dumps([{"mkv-path": f, "label": label} for f in files], ensure_ascii=False))
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: extract-mkv
+spec:
+  templates:
+    - name: main
+      dag:
+        tasks:
+          - name: detect-bluray
+            template: detect-bluray
+          - name: bluray-to-mkv
+            template: bluray-to-mkv
+            dependencies: [detect-bluray]
+            arguments:
+              parameters:
+                - name: bluray-label
+                  value: "{{tasks.detect-bluray.outputs.parameters.bluray-label}}"
+            when: "'{{tasks.detect-bluray.outputs.parameters.bluray-label}}' != ''"
+          - name: list-mkv-files
+            template: list-mkv-files
+            dependencies: [bluray-to-mkv]
+            arguments:
+              parameters:
+                - name: bluray-label
+                  value: "{{tasks.detect-bluray.outputs.parameters.bluray-label}}"
+
+      outputs:
+        parameters:
+          - name: bluray-label
+            valueFrom:
+              parameter: "{{tasks.detect-bluray.outputs.parameters.bluray-label}}"
+          - name: mkv-files-json
+            valueFrom:
+              parameter: "{{tasks.list-mkv-files.outputs.parameters.mkv-files-json}}"
+
+    - name: detect-bluray
+      container:
+        image: busybox
+        volumeMounts:
+          - name: script-volume
+            mountPath: /scripts
+        securityContext:
+          privileged: true
+        command: [ "/bin/sh", "-c", "/bin/sh /scripts/get_bluray_label.sh > /tmp/LABEL.txt" ]
+      outputs:
+        parameters:
+          - name: bluray-label
+            valueFrom:
+              path: /tmp/LABEL.txt
+      nodeSelector:
+        bluray-disk-device: "true"
+
+    - name: bluray-to-mkv
+      container:
+        image: jlesage/makemkv
+        volumeMounts:
+          - name: mnt-bluray
+            mountPath: "/mnt/bluray"
+          - name: script-volume
+            mountPath: /scripts
+        securityContext:
+          privileged: true
+        command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} /bin/sh /scripts/bluray_to_mkv.sh" ]
+      inputs:
+        parameters:
+          - name: bluray-label
+      nodeSelector:
+        bluray-disk-device: "true"
+
+    - name: list-mkv-files
+      container:
+        image: python:3.12.12-slim-trixie
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: mnt-bluray
+            mountPath: "/mnt/bluray"
+          - name: script-volume
+            mountPath: /scripts
+        command: [ "/bin/sh", "-c", "LABEL={{inputs.parameters.bluray-label}} python /scripts/list_mkv_files.py > /tmp/mkv_files.json" ]
+      inputs:
+        parameters:
+          - name: bluray-label
+      outputs:
+        parameters:
+          - name: mkv-files-json
+            valueFrom:
+              path: /tmp/mkv_files.json
+
+  volumes:
+    - name: mnt-bluray
+      persistentVolumeClaim:
+        claimName: nfs-bluray-pvc
+    - name: script-volume
+      configMap:
+        name: script-config-extract-mkv
