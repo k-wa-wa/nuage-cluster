@@ -3,9 +3,8 @@
 set -e
 export KUBECONFIG=playbooks/admin.conf
 
-#################### nodes ####################
-./k apply -f manifests/node-labels.yaml
-./k apply -f manifests/namespaces.yaml
+#################### namespace, argocd, secrets, ... ####################
+./k apply -k manifests/bootstrap/
 
 #################### istio ####################
 if ! ./k get ns istio-system &> /dev/null; then
@@ -15,10 +14,7 @@ fi
 ./k apply -f istio-1.26.2/samples/addons
 
 #################### argocd ####################
-helm upgrade --install -n argocd argocd argo/argo-cd -f manifests/argocd/argocd-values.yaml
 ./k apply -f manifests/argocd/apps/
-
-./k apply -k manifests/secrets
 
 #################### postgres ####################
 ./k apply -f manifests/postgres/

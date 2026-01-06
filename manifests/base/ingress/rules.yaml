@@ -9,3 +9,15 @@ spec:
     tls:
       mode: SIMPLE
       insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: argo-workflow-dr
+  namespace: istio-system
+spec:
+  host: argocd-server.argocd.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
