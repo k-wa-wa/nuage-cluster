@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: transform-mkv
+  namespace: pechka
+spec:
+  templates:
+    - name: main
+      inputs:
+        parameters:
+          - name: mkv-path
+          - name: label
+      dag:
+        tasks:
+          - name: mkv-to-hls-video
+            template: mkv-to-hls-video
+            arguments:
+              parameters:
+                - name: mkv-path
+                  value: "{{inputs.parameters.mkv-path}}"
+                - name: label
+                  value: "{{inputs.parameters.label}}"
+
+          - name: mkv-to-hls-audio
+            template: mkv-to-hls-audio
+            arguments:
+              parameters:
+                - name: mkv-path
+                  value: "{{inputs.parameters.mkv-path}}"
+                - name: label
+                  value: "{{inputs.parameters.label}}"
+
+    - name: mkv-to-hls-video
+      inputs:
+        parameters:
+          - name: mkv-path
+          - name: label
+      container:
+        image: ghcr.io/k-wa-wa/pechka-file-server-transform-mkv
+        args: [
+          "to-hls",
+          "-input", "{{inputs.parameters.mkv-path}}",
+          "-output", "/mnt/hls/{{inputs.parameters.label}}",
+          "-mode", "video"
+        ]
+        volumeMounts:
+          - name: mnt-bluray
+            mountPath: "/mnt/bluray"
+          - name: mnt-hls
+            mountPath: "/mnt/hls"
+
+    - name: mkv-to-hls-audio
+      inputs:
+        parameters:
+          - name: mkv-path
+          - name: label
+      container:
+        image: ghcr.io/k-wa-wa/pechka-file-server-transform-mkv
+        args: [
+          "to-hls",
+          "-input", "{{inputs.parameters.mkv-path}}",
+          "-output", "/mnt/hls/audio_{{inputs.parameters.label}}",
+          "-mode", "audio"
+        ]
+        volumeMounts:
+          - name: mnt-bluray
+            mountPath: "/mnt/bluray"
+          - name: mnt-hls
+            mountPath: "/mnt/hls"
+  # PVCなどはここで定義または参照
+  volumes:
+    - name: mnt-bluray
+      persistentVolumeClaim:
+        claimName: nfs-bluray-pvc
+    - name: mnt-hls
+      persistentVolumeClaim:
+        claimName: nfs-hls-pvc
