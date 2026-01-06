@@ -4,24 +4,25 @@ metadata:
   name: applications-prod
   namespace: argocd
 spec:
+  goTemplate: true
   generators:
     - git:
         repoURL: https://github.com/k-wa-wa/nuage-cluster
         revision: master
         directories:
-          - path: apps/*/overlays/prod
+          - path: manifests/apps/*/overlays/prod
   template:
     metadata:
-      name: '{{path.basename.parent.parent}}-{{path.basename}}' # アプリ名-環境名
+      name: '{{ index .path.segments 2 }}-{{ index .path.segments 4 }}' # アプリ名-環境名
     spec:
       project: default
       source:
         repoURL: https://github.com/k-wa-wa/nuage-cluster
         targetRevision: HEAD
-        path: '{{path}}' # 検知したディレクトリ（apps/app-A/overlays/prod等）
+        path: '{{ .path.path }}' # 検知したディレクトリ（apps/app-A/overlays/prod等）
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{path.basename.parent.parent}}'
+        namespace: '{{ index .path.segments 2 }}' # アプリ名と同じnamespaceにデプロイ
       syncPolicy:
         automated:
           prune: true
