@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-clients-config
+data:
+  mcp-clients-config.json: |
+    {
+      "mcp-k8s": {
+          "transport": "streamable_http",
+          "url": "http://mcp-k8s.default.svc.cluster.local/mcp"
+      },
+      "mcp-grafana": {
+          "transport": "streamable_http",
+          "url": "http://mcp-grafana.default.svc.cluster.local/mcp"
+      }
+    }
