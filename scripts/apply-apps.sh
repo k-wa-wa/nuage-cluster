@@ -4,6 +4,7 @@ set -e
 export KUBECONFIG=playbooks/admin.conf
 
 #################### namespace, argocd, secrets, ... ####################
+cp .ssh/id_ed25519 manifests/bootstrap/secrets/id_ed25519_for_devops_server
 ./k apply -k manifests/bootstrap/
 ./k wait --for=condition=Established crd/appprojects.argoproj.io --timeout=60s
 ./k wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd

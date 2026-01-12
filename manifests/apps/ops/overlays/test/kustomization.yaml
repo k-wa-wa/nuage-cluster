@@ -12,19 +12,9 @@ resources:
 - ../../base
 - ssh-servers.yaml
 
-patches:
-  - path: ssh_config_patch.yaml
-    target:
-      kind: Deployment
-      name: nash
-
-configMapGenerator:
+secretGenerator:
   - name: ssh-config
     files:
       - ssh_config
-
-secretGenerator:
-  - name: ssh-key-secret
-    files:
       - id_ed25519
       - id_ed25519.pub

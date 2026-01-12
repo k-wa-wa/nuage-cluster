@@ -18,6 +18,16 @@ spec:
         image: ghcr.io/k-wa-wa/nash
         ports:
         - containerPort: 8080
+        command: ["/nash", "--config", "/root/.ssh/config"]
+        volumeMounts:
+        - name: ssh-config-volume
+          mountPath: /root/.ssh/config
+          subPath: ssh_config
+      volumes:
+      - name: ssh-config-volume
+        secret:
+          secretName: ssh-config
+          defaultMode: 0400
 ---
 apiVersion: v1
 kind: Service
