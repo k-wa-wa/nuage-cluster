@@ -11,9 +11,6 @@ export KUBECONFIG=playbooks/admin.conf
 ./k apply -f manifests/
 ./k apply -f manifests/apps/pg-cluster/base/endpoint.yaml
 
-# TODO:
-# - istio-ingressgateway の作成タイミングによって、ErrImgPullBackOff になる。rollout で解消するが、要調査
-
 #################### infra #################### TODO: argocdでの管理を検討
 ./k apply -f manifests/infra/pvs/
 
@@ -26,3 +23,18 @@ export KUBECONFIG=playbooks/admin.conf
 ####################
 ./k apply -f manifests/argocd/apps/
 ./k apply -f manifests/dashboard-v2
+
+# istio-ingressgateway の作成タイミングによって、ErrImgPullBackOff になるため、rollout で対応する
+COUNT=0
+while [ $COUNT -lt 5 ]; do
+  ((COUNT++))
+  if ./k rollout status deployment/istio-ingressgateway -n istio-system --watch=false > /dev/null 2>&1; then
+    break
+  fi
+
+  if ./k get pods -n istio-system -l app=istio-ingressgateway | grep -E "ErrImagePull|ImagePullBackOff" > /dev/null; then
+    ./k rollout restart -n istio-system deployment/istio-ingressgateway
+  fi
+
+  sleep 10
+done
