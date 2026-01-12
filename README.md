@@ -43,11 +43,12 @@ IPアドレスの範囲等は任意に変更可能。
 
 1. 物理ノードのセットアップ
 
-   1. 各ノードに配置する ssh key を作成する
+   1. ssh key を作成する
 
       ```sh
-      mkdir .ssh
+      # 各ノードへ配置するキー
       ssh-keygen -f ./.ssh/id_rsa # その他のオプション
+      ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
       ```
 
    1. Raspberry Pi Imager を使用して Raspberry Pi ノードをセットアップする

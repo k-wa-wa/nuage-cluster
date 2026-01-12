@@ -8,7 +8,6 @@
   become: true
   become_user: "{{ devops_user }}"
 
-
 - name: Ensure Nix configuration directory exists
   ansible.builtin.file:
     path: "{{ devops_user_home }}/.config/nix"
@@ -41,5 +40,13 @@
   changed_when: "'No change' not in hm_switch.stdout"
   # 初回インストール時、またはリポジトリ更新時に実行
   # when: nix_install_result.changed or git_clone.changed
+  become: true
+  become_user: "{{ devops_user }}"
+
+- name: Deploy SSH public key to authorized_keys
+  ansible.builtin.authorized_key:
+    user: "{{ devops_user }}"
+    state: present
+    key: "{{ lookup('file', '../.ssh/id_ed25519.pub') }}"
   become: true
   become_user: "{{ devops_user }}"
