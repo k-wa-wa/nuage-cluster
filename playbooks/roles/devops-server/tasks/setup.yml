@@ -1,0 +1,45 @@
+- name: Clone nix-config repository
+  ansible.builtin.git:
+    repo: "https://github.com/k-wa-wa/nix-config.git"
+    dest: "{{ devops_user_home }}/nix-config"
+    version: master
+    update: true
+  register: git_clone
+  become: true
+  become_user: "{{ devops_user }}"
+
+
+- name: Ensure Nix configuration directory exists
+  ansible.builtin.file:
+    path: "{{ devops_user_home }}/.config/nix"
+    state: directory
+    mode: '0755'
+  become: true
+  become_user: "{{ devops_user }}"
+
+- name: Enable Flakes and Nix-command (Optional but recommended)
+  ansible.builtin.copy:
+    dest: "{{ devops_user_home }}/.config/nix/nix.conf"
+    content: |
+      experimental-features = nix-command flakes
+    mode: '0644'
+    owner: "{{ devops_user }}"
+    group: "{{ devops_user }}"
+
+- name: Run home-manager switch as target user
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      # マルチユーザーインストールの場合は、プロファイルをロードする必要がある
+      . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+      # home-manager switchの実行
+      nix run home-manager -- switch --flake .#{{ home_manager_profile }}
+    chdir: "{{ devops_user_home }}/nix-config"
+    executable: /bin/bash
+  register: hm_switch
+  changed_when: "'No change' not in hm_switch.stdout"
+  # 初回インストール時、またはリポジトリ更新時に実行
+  # when: nix_install_result.changed or git_clone.changed
+  become: true
+  become_user: "{{ devops_user }}"

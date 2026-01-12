@@ -1,0 +1,3 @@
+devops_user: watanabekouhei
+devops_user_home: "/home/{{ devops_user }}"
+home_manager_profile: watanabekouhei@ubuntu

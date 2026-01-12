@@ -1,0 +1,33 @@
+- name: Create the target user
+  ansible.builtin.user:
+    name: "{{ devops_user }}"
+    shell: "{{ devops_user_home }}/.nix-profile/bin/zsh"
+    groups: sudo
+    append: true
+    create_home: true
+
+- name: Setup passwordless sudo for Nix setup
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ devops_user }}"
+    content: "{{ devops_user }} ALL=(ALL) NOPASSWD:ALL"
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
+
+- name: Install Git using apt
+  ansible.builtin.apt:
+    name:
+      - git
+    state: present
+    update_cache: true
+
+- name: Check if Nix is already installed
+  ansible.builtin.stat:
+    path: /nix
+  register: nix_stat
+
+- name: Install Nix (Multi-user installation) # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell:
+    cmd: curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
+  when: not nix_stat.stat.exists
+  register: nix_install_result
+  changed_when: nix_install_result.rc == 0
