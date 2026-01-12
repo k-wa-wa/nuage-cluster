@@ -1,0 +1,5 @@
+- name: Setup devops servers
+  hosts: devops-servers
+  become: true
+  roles:
+    - devops-server
