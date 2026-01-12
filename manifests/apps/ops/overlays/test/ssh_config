@@ -1,0 +1,14 @@
+# パスワードあり
+Host test-pass
+    HostName ssh-service-pass-test
+    User testuser
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+# SSH鍵認証
+Host test-key
+    HostName ssh-service-key-test
+    User testuser
+    IdentityFile /root/.ssh/id_ed25519
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null

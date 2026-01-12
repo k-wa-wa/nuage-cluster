@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nash
+spec:
+  template:
+    spec:
+      containers:
+      - name: nash
+        command: ["/nash", "--config", "/root/.ssh/config"]
+        volumeMounts:
+        - name: ssh-config-volume
+          mountPath: /root/.ssh/config
+          subPath: ssh_config
+      volumes:
+      - name: ssh-config-volume
+        configMap:
+          name: ssh-config
+          defaultMode: 0600
