@@ -3,3 +3,6 @@
 
 - name: Execute setup tasks
   ansible.builtin.include_tasks: setup.yml
+
+- name: Setup OTP-based SSH authentication
+  ansible.builtin.include_tasks: otp-ssh.yml

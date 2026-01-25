@@ -1,0 +1,48 @@
+- name: Google Authenticatorのインストール
+  ansible.builtin.apt:
+    name: libpam-google-authenticator
+    state: present
+    update_cache: true
+
+- name: PAMから標準パスワード認証を除去（全体で鍵認証必須の場合）
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sshd
+    regexp: '^@include common-auth'
+    line: '#@include common-auth'
+    state: present
+
+- name: PAM設定の更新
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sshd
+    # どのユーザーでもOTPモジュール自体は通るようにする（Matchブロックで制御するため）
+    line: "auth required pam_google_authenticator.so"
+    insertafter: EOF
+    state: present
+
+- name: SSHD共通設定の最適化
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?KbdInteractiveAuthentication', line: 'KbdInteractiveAuthentication yes' }
+    - { regexp: '^#?UsePAM', line: 'UsePAM yes' }
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?AuthenticationMethods', line: 'AuthenticationMethods publickey' }
+
+- name: SSHD設定の変更（共通設定とMatchブロック）
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} ANSIBLE MANAGED SSHD MFA"
+    block: |
+      # --- 特定ユーザー専用設定 ---
+      Match User {{ devops_user }}
+          # 鍵認証を通した後に、OTP(keyboard-interactive)を求める
+          AuthenticationMethods publickey,keyboard-interactive
+
+- name: SSHサービス再起動
+  ansible.builtin.service:
+    name: ssh
+    state: restarted

@@ -48,5 +48,6 @@
     user: "{{ devops_user }}"
     state: present
     key: "{{ lookup('file', '../.ssh/id_ed25519.pub') }}"
+    exclusive: true
   become: true
   become_user: "{{ devops_user }}"
