@@ -8,3 +8,7 @@ secretGenerator:
   - name: ssh-config
     files:
       - ssh_config
+
+configurations:
+- kustomizeconfig.yaml
+
