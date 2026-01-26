@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: nash-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "nash.dev.nuage"
+  gateways:
+  - nuage-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: nash
+        port:
+          number: 80
