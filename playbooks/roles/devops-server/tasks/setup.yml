@@ -51,3 +51,24 @@
     exclusive: true
   become: true
   become_user: "{{ devops_user }}"
+
+###
+- name: Ensure Working Directory
+  ansible.builtin.file:
+    path: "{{ devops_user_home }}/workspace"
+    state: directory
+    mode: '0755'
+  become: true
+  become_user: "{{ devops_user }}"
+
+- name: Clone repos
+  ansible.builtin.git:
+    repo: "https://github.com/k-wa-wa/{{ item }}.git"
+    dest: "{{ devops_user_home }}/workspace/{{ item }}"
+    version: master
+    update: true
+  become: true
+  become_user: "{{ devops_user }}"
+  loop:
+    - nuage-cluster
+    - nash
