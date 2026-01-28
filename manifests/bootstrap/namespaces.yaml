@@ -18,6 +18,11 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: keel
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: ops
 ---
 apiVersion: v1
