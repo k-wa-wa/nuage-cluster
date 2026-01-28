@@ -34,7 +34,7 @@ spec:
                   keel.sh/pollSchedule: "@every 1m"
               - op: add
                 path: /spec/template/spec/containers/0/imagePullPolicy
-                value: Never
+                value: Always
           - target:
               kind: VirtualService
               name: nash-virtualservice
