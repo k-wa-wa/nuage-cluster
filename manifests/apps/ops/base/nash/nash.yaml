@@ -4,8 +4,9 @@ metadata:
   name: nash
   labels:
     app: nash
-  keel.sh/policy: force
-  keel.sh/pollSchedule: "@every 1m"
+  annotations:
+    keel.sh/policy: force
+    keel.sh/pollSchedule: "@every 1m"
 spec:
   selector:
     matchLabels:
