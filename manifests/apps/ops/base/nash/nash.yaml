@@ -4,6 +4,8 @@ metadata:
   name: nash
   labels:
     app: nash
+  keel.sh/policy: force
+  keel.sh/pollSchedule: "@every 1m"
 spec:
   selector:
     matchLabels:
@@ -15,7 +17,8 @@ spec:
     spec:
       containers:
       - name: nash
-        image: ghcr.io/k-wa-wa/nash
+        image: ghcr.io/k-wa-wa/nash:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         command: ["/nash", "--config", "/root/.ssh/config"]

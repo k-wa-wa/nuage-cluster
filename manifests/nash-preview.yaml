@@ -24,18 +24,6 @@ spec:
             - 'ghcr.io/k-wa-wa/nash:pr-{{number}}'
           patches:
           - target:
-              kind: Deployment
-              name: nash
-            patch: |-
-              - op: add
-                path: /metadata/annotations
-                value:
-                  keel.sh/policy: force
-                  keel.sh/pollSchedule: "@every 1m"
-              - op: add
-                path: /spec/template/spec/containers/0/imagePullPolicy
-                value: Always
-          - target:
               kind: VirtualService
               name: nash-virtualservice
             patch: |-
