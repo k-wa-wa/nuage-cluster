@@ -26,16 +26,8 @@ cp .ssh/id_ed25519 manifests/bootstrap/secrets/id_ed25519_for_devops_server
 ./k apply -f manifests/dashboard-v2
 
 # istio-ingressgateway の作成タイミングによって、ErrImgPullBackOff になるため、rollout で対応する
-COUNT=0
-while [ $COUNT -lt 5 ]; do
-  ((COUNT++))
-  if ./k rollout status deployment/istio-ingressgateway -n istio-system --watch=false > /dev/null 2>&1; then
-    break
-  fi
-
-  if ./k get pods -n istio-system -l app=istio-ingressgateway | grep -E "ErrImagePull|ImagePullBackOff" > /dev/null; then
+if ! ./k wait --for=condition=Available --timeout=60s -n istio-system deployment/istio-ingressgateway 2>/dev/null; then
+  if ./k get pods -n istio-system -l app=istio-ingressgateway | grep -E "ErrImagePull|ImagePullBackOff"; then
     ./k rollout restart -n istio-system deployment/istio-ingressgateway
   fi
-
-  sleep 10
-done
+fi
