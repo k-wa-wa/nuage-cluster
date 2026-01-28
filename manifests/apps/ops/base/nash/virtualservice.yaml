@@ -14,6 +14,6 @@ spec:
         prefix: /
     route:
     - destination:
-        host: nash
+        host: nash.ops.svc.cluster.local
         port:
           number: 80
