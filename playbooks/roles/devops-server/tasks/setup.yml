@@ -81,3 +81,10 @@
     owner: "{{ devops_user }}"
     group: "{{ devops_user }}"
     mode: '0600'
+- name: Copy admin.conf to ~/.kube/config
+  ansible.builtin.copy:
+    src: ./admin.conf
+    dest: "{{ devops_user_home }}/.kube/config"
+    owner: "{{ devops_user }}"
+    group: "{{ devops_user }}"
+    mode: '0600'
