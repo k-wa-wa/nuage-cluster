@@ -72,3 +72,12 @@
   loop:
     - nuage-cluster
     - nash
+
+###
+- name: Copy admin.conf to workspace
+  ansible.builtin.copy:
+    src: ./admin.conf
+    dest: "{{ devops_user_home }}/workspace/nuage-cluster/playbooks/admin.conf"
+    owner: "{{ devops_user }}"
+    group: "{{ devops_user }}"
+    mode: '0600'
