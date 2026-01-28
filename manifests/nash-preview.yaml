@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nash-previews
+  namespace: argocd
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: k-wa-wa
+        repo: nash
+      requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: 'nash-pr-{{number}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/nuage-cluster
+        targetRevision: master
+        path: manifests/apps/ops/overlays/preview
+        kustomize:
+          images:
+            - 'ghcr.io/k-wa-wa/nash:pr-{{number}}'
+          patches:
+          - target:
+              kind: Deployment
+              name: nash
+            patch: |-
+              - op: add
+                path: /metadata/annotations
+                value:
+                  keel.sh/policy: force
+                  keel.sh/pollSchedule: "@every 1m"
+              - op: add
+                path: /spec/template/spec/containers/0/imagePullPolicy
+                value: Never
+          - target:
+              kind: VirtualService
+              name: nash-virtualservice
+            patch: |-
+              - op: replace
+                path: /metadata/name
+                value: nash-pr-{{number}}-virtualservice
+              - op: replace
+                path: /spec/hosts/0
+                value: nash-pr-{{number}}.dev.nuage
+              - op: replace
+                path: /spec/http/0/route/0/destination/host
+                value: nash.nash-pr-{{number}}.svc.cluster.local
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'nash-pr-{{number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
