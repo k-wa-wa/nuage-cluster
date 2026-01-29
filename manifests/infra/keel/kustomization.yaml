@@ -11,4 +11,4 @@ helmCharts:
       image:
         repository: keelhq/keel
         tag: latest
-      debug: true
+      # debug: true
