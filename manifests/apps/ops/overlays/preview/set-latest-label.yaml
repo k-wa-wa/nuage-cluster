@@ -1,0 +1,53 @@
+# 最新のpodに version=latest ラベルを付与し、nash-latest.dev.nuage からアクセス可能にする
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-label-editor # replace it
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: label-manager-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: label-manager-binding # replace it
+subjects:
+- kind: ServiceAccount
+  name: label-manager-sa
+  namespace: xxx # replace it
+roleRef:
+  kind: ClusterRole
+  name: pod-label-editor  # replace it
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: set-latest-label
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      serviceAccountName: label-manager-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: kubectl
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # 1. 共通ラベルを持つ全Podから version=latest を剥がす
+          kubectl label pods -l app=nash-preview version- --all-namespaces --overwrite
+          # 2. 自分のNamespace内のPodに version=latest を付与する
+          MY_NS=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+          kubectl label pods -l app=nash-preview version=latest -n $MY_NS --overwrite

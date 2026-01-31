@@ -20,6 +20,8 @@ spec:
         targetRevision: master
         path: manifests/apps/ops/overlays/preview
         kustomize:
+          commonLabels:
+            app: nash-preview
           images:
             - 'ghcr.io/k-wa-wa/nash:pr-{{number}}'
           patches:
@@ -36,6 +38,34 @@ spec:
               - op: replace
                 path: /spec/http/0/route/0/destination/host
                 value: nash.nash-pr-{{number}}.svc.cluster.local
+
+          - target:
+              kind: ClusterRole
+              name: pod-label-editor
+            patch: |-
+              - op: replace
+                path: /metadata/name
+                value: pod-label-editor-{{number}}
+          - target:
+              kind: ClusterRoleBinding
+              name: label-manager-binding
+            patch: |-
+              - op: replace
+                path: /metadata/name
+                value: label-manager-binding-{{number}}
+              - op: replace
+                path: /subjects/0/namespace
+                value: nash-pr-{{number}}
+              - op: replace
+                path: /roleRef/name
+                value: pod-label-editor-{{number}}
+          - target:
+              kind: Job
+              name: set-latest-label
+            patch: |-
+              - op: replace
+                path: /metadata/name
+                value: set-latest-label-{{number}}
       destination:
         server: https://kubernetes.default.svc
         namespace: 'nash-pr-{{number}}'

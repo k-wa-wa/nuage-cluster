@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
 - ../../base
+- ./set-latest-label.yaml
 
 secretGenerator:
   - name: ssh-config
