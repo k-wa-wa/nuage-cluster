@@ -22,11 +22,11 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr1" {
   ]
 }
 
-resource "proxmox_virtual_environment_network_linux_bridge" "vmbr2" {
+resource "proxmox_virtual_environment_network_linux_bridge" "vmbr999" {
   node_name = "server-1"
-  name      = "vmbr2"
+  name      = "vmbr999"
 
-  address = "10.1.0.11/16"
+  address = "192.168.0.10/24"
 
   ports = [
     "enp41s0f1"

@@ -2,5 +2,4 @@
   hosts: omada-controllers
   become: true
   roles:
-    - network-manager
     - omada-controller
