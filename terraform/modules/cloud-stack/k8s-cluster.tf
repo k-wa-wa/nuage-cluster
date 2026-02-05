@@ -83,7 +83,6 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
 
   network_device {
     bridge      = each.value.bridge
-    mac_address = each.value.mac_address
   }
 
   initialization {

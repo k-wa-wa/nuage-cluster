@@ -29,6 +29,6 @@ variable "bastion_config" {
     bridge                             = string
     ip_address                         = string
     gateway                            = string
-    enable_access_from_private_network = bool
+    enable_access_from_private_network = optional(bool, false)
   })
 }
