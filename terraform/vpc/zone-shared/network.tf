@@ -3,6 +3,8 @@ resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_shared" {
   nodes      = ["nuc-1", "nuc-2", "server-1"]
   controller = "bgp-evpn"
   vrf_vxlan  = 4000
+  mtu = 1450
+  exit_nodes = ["nuc-1", "nuc-2", "server-1"]
 
   depends_on = [
     proxmox_virtual_environment_sdn_applier.finalizer
@@ -27,6 +29,7 @@ resource "proxmox_virtual_environment_sdn_vnet" "database_services" {
 resource "proxmox_virtual_environment_sdn_subnet" "database_services" {
   vnet = proxmox_virtual_environment_sdn_vnet.database_services.id
   cidr = "10.10.2.0/24"
+  gateway = "10.10.2.1"
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "storage_services" {
