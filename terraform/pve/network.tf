@@ -1,3 +1,39 @@
+resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc1" {
+  node_name  = "nuc-1"
+  name       = "vmbr0"
+
+  address = "192.168.5.21/24"
+  gateway = "192.168.5.1"
+
+  ports = [
+    "enp89s0"
+  ]
+}
+
+resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc2" {
+  node_name  = "nuc-2"
+  name       = "vmbr0"
+
+  address = "192.168.5.22/24"
+  gateway = "192.168.5.1"
+
+  ports = [
+    "enp89s0"
+  ]
+}
+
+resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_server1" {
+  node_name  = "server-1"
+  name       = "vmbr0"
+
+  address = "192.168.5.25/24"
+  gateway = "192.168.5.1"
+
+  ports = [
+    "enp42s0"
+  ]
+}
+
 resource "proxmox_virtual_environment_network_linux_bridge" "vmbr10_nuc1" {
   node_name  = "nuc-1"
   name       = "vmbr10"
