@@ -19,6 +19,7 @@ resource "proxmox_virtual_environment_sdn_vnet" "core_services" {
 resource "proxmox_virtual_environment_sdn_subnet" "core_services" {
   vnet = proxmox_virtual_environment_sdn_vnet.core_services.id
   cidr = "10.10.1.0/24"
+  snat = true
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "database_services" {
@@ -30,6 +31,7 @@ resource "proxmox_virtual_environment_sdn_subnet" "database_services" {
   vnet = proxmox_virtual_environment_sdn_vnet.database_services.id
   cidr = "10.10.2.0/24"
   gateway = "10.10.2.1"
+  snat = true
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "storage_services" {
@@ -40,6 +42,7 @@ resource "proxmox_virtual_environment_sdn_vnet" "storage_services" {
 resource "proxmox_virtual_environment_sdn_subnet" "storage_services" {
   vnet = proxmox_virtual_environment_sdn_vnet.storage_services.id
   cidr = "10.10.3.0/24"
+  snat = true
 }
 
 resource "proxmox_virtual_environment_sdn_applier" "example_applier" {
