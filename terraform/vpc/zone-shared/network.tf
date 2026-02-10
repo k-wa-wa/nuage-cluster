@@ -3,7 +3,7 @@ resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_shared" {
   nodes      = ["nuc-1", "nuc-2", "server-1"]
   controller = "bgp-evpn"
   vrf_vxlan  = 4000
-  mtu = 1450
+  mtu        = 1450
   exit_nodes = ["nuc-1", "nuc-2", "server-1"]
 
   depends_on = [
@@ -14,30 +14,31 @@ resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_shared" {
 resource "proxmox_virtual_environment_sdn_vnet" "core_services" {
   id   = "core"
   zone = proxmox_virtual_environment_sdn_zone_evpn.zone_shared.id
-  tag = 1001
+  tag  = 1001
 }
 resource "proxmox_virtual_environment_sdn_subnet" "core_services" {
-  vnet = proxmox_virtual_environment_sdn_vnet.core_services.id
-  cidr = "10.10.1.0/24"
-  snat = true
+  vnet    = proxmox_virtual_environment_sdn_vnet.core_services.id
+  cidr    = "10.10.1.0/24"
+  gateway = "10.10.1.1"
+  snat    = true
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "database_services" {
   id   = "database"
   zone = proxmox_virtual_environment_sdn_zone_evpn.zone_shared.id
-  tag = 1002
+  tag  = 1002
 }
 resource "proxmox_virtual_environment_sdn_subnet" "database_services" {
-  vnet = proxmox_virtual_environment_sdn_vnet.database_services.id
-  cidr = "10.10.2.0/24"
+  vnet    = proxmox_virtual_environment_sdn_vnet.database_services.id
+  cidr    = "10.10.2.0/24"
   gateway = "10.10.2.1"
-  snat = true
+  snat    = true
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "storage_services" {
   id   = "storage"
   zone = proxmox_virtual_environment_sdn_zone_evpn.zone_shared.id
-  tag = 1003
+  tag  = 1003
 }
 resource "proxmox_virtual_environment_sdn_subnet" "storage_services" {
   vnet = proxmox_virtual_environment_sdn_vnet.storage_services.id
@@ -59,13 +60,13 @@ resource "proxmox_virtual_environment_sdn_applier" "example_applier" {
   }
 
   depends_on = [
-      proxmox_virtual_environment_sdn_zone_evpn.zone_shared,
-      proxmox_virtual_environment_sdn_vnet.core_services,
-      proxmox_virtual_environment_sdn_subnet.core_services,
-      proxmox_virtual_environment_sdn_vnet.database_services,
-      proxmox_virtual_environment_sdn_subnet.database_services,
-      proxmox_virtual_environment_sdn_vnet.storage_services,
-      proxmox_virtual_environment_sdn_subnet.storage_services,
+    proxmox_virtual_environment_sdn_zone_evpn.zone_shared,
+    proxmox_virtual_environment_sdn_vnet.core_services,
+    proxmox_virtual_environment_sdn_subnet.core_services,
+    proxmox_virtual_environment_sdn_vnet.database_services,
+    proxmox_virtual_environment_sdn_subnet.database_services,
+    proxmox_virtual_environment_sdn_vnet.storage_services,
+    proxmox_virtual_environment_sdn_subnet.storage_services,
   ]
 }
 
