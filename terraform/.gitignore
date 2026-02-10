@@ -1,0 +1,7 @@
+secrets.hcl
+.terraform/
+.terragrunt-cache/
+*.tfstate*
+
+provider.tf
+backend.tf
