@@ -1,9 +1,8 @@
 resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc1" {
-  node_name  = "nuc-1"
-  name       = "vmbr0"
+  node_name = "nuc-1"
+  name      = "vmbr0"
 
   address = "192.168.5.21/24"
-  gateway = "192.168.5.1"
 
   ports = [
     "enp89s0"
@@ -11,11 +10,10 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc1" {
 }
 
 resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc2" {
-  node_name  = "nuc-2"
-  name       = "vmbr0"
+  node_name = "nuc-2"
+  name      = "vmbr0"
 
   address = "192.168.5.22/24"
-  gateway = "192.168.5.1"
 
   ports = [
     "enp89s0"
@@ -23,11 +21,10 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_nuc2" {
 }
 
 resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0_server1" {
-  node_name  = "server-1"
-  name       = "vmbr0"
+  node_name = "server-1"
+  name      = "vmbr0"
 
   address = "192.168.5.25/24"
-  gateway = "192.168.5.1"
 
   ports = [
     "enp42s0"
@@ -101,6 +98,7 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr11_nuc1" {
   vlan_aware = true
 
   address = "10.0.1.10/24"
+  gateway = "10.0.1.1"
 
   ports = [
     "enx9c69d320e0b2"
@@ -113,6 +111,7 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr11_nuc2" {
   vlan_aware = true
 
   address = "10.0.1.11/24"
+  gateway = "10.0.1.1"
 
   ports = [
     "enxc8a362104ed6"
@@ -125,6 +124,7 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr11_server1" {
   vlan_aware = true
 
   address = "10.0.1.12/24"
+  gateway = "10.0.1.1"
 
   ports = [
     "enp6s0"
