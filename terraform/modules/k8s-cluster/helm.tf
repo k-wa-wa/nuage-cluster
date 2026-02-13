@@ -15,6 +15,26 @@ resource "helm_release" "cilium" {
 
   set = [
     {
+      name  = "bgpControlPlane.enabled"
+      value = "false"
+    },
+    {
+      name  = "l2announcements.enabled"
+      value = "true"
+    },
+    {
+      name  = "externalIPs.enabled"
+      value = "true"
+    },
+    {
+      name  = "devices",
+      value = "{ens18}"
+    },
+    {
+      name  = "extraArgs"
+      value = "{--direct-routing-device=ens18}"
+    },
+    {
       name  = "kubeProxyReplacement"
       value = "true"
     },
