@@ -2,10 +2,11 @@ module "k8s-cluster" {
   source = "../../modules/k8s-cluster"
   cluster_config = {
     cluster = {
-      name     = "shared"
-      gateway  = "10.10.1.1"
-      cidr     = 24
-      endpoint = "10.10.1.10"
+      name        = "shared"
+      gateway     = "10.10.1.1"
+      cidr        = 24
+      endpoint    = "10.10.1.10"
+      node_subnet = "10.10.1.0/24"
     }
     nodes = {
       "controlplane-01" = {

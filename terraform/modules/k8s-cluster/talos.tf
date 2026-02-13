@@ -10,6 +10,11 @@ data "talos_machine_configuration" "this" {
   config_patches = [
     yamlencode({
       machine = {
+        kubelet = {
+          nodeIP = {
+            validSubnets = ["${var.cluster_config.cluster.node_subnet}"]
+          }
+        }
         network = {
           nameservers = [
             "1.1.1.1",
