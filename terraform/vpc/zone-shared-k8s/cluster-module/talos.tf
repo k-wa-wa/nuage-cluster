@@ -1,3 +1,35 @@
+data "http" "talos_schematic" {
+  for_each = var.cluster_config.nodes
+  url      = "https://factory.talos.dev/schematics"
+  method   = "POST"
+  request_headers = {
+    "Content-Type" = "application/json"
+  }
+  # ここでノードごとの設定（IPなど）を動的に流し込む
+  request_body = jsonencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = ["siderolabs/iscsi-tools", "siderolabs/util-linux-tools"]
+      }
+      extraKernelArgs = [
+      ]
+    }
+  })
+}
+
+resource "proxmox_virtual_environment_download_file" "talos_image" {
+  for_each = var.cluster_config.nodes
+
+  content_type = "iso"
+  datastore_id = "local"
+  node_name    = each.value.node_name
+
+  file_name = "talos-${each.value.vm_id}.iso"
+  url       = "https://factory.talos.dev/image/${jsondecode(data.http.talos_schematic[each.key].response_body).id}/v1.12.2/nocloud-amd64.iso"
+}
+
+###
+
 resource "talos_machine_secrets" "this" {}
 
 data "talos_machine_configuration" "this" {
@@ -80,7 +112,7 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
 
   disk {
     datastore_id = "local-zfs"
-    file_id      = "local:iso/talos-nocloud-amd64.iso"
+    file_id      = proxmox_virtual_environment_download_file.talos_image[each.key].id
     interface    = "scsi0"
     size         = each.value.disk_size
   }
