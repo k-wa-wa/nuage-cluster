@@ -1,5 +1,5 @@
 module "k8s-cluster" {
-  source = "../../modules/k8s-cluster"
+  source = "./cluster-module"
   cluster_config = {
     cluster = {
       name        = "shared"
