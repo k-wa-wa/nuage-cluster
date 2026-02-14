@@ -3,27 +3,9 @@
 {
   imports = [
     (modulesPath + "/virtualisation/proxmox-lxc.nix")
+    ../common/configuration.nix
+    ./haproxy.nix
   ];
-
-  users.users.nixos = {
-    isNormalUser = true;
-    extraGroups = [ ];
-    hashedPassword = "!";
-    openssh.authorizedKeys.keys = [
-      (builtins.readFile ../../../.ssh/id_ed25519_nixos.pub)
-    ];
-  };
-
-  security.sudo.enable = false;
-
-  services.openssh = {
-    enable = true;
-    settings = {
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PermitRootLogin = "no";
-    };
-  };
 
   networking = {
     hostName = "shared-lb";
@@ -38,6 +20,4 @@
     };
     nameservers = [ "8.8.8.8" ];
   };
-
-  system.stateVersion = "24.11";
 }
