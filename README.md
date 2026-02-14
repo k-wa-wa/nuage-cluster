@@ -49,6 +49,8 @@ IPアドレスの範囲等は任意に変更可能。
       # 各ノードへ配置するキー
       ssh-keygen -f ./.ssh/id_rsa # その他のオプション
       ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
+      ssh-keygen -t ed25519 -f ./.ssh/id_devops -N ""
+      ssh-keygen -t ed25519 -f ./.ssh/id_ed25519_nixos -C "nixos-sever" -N ""
       ```
 
    1. Raspberry Pi Imager を使用して Raspberry Pi ノードをセットアップする
@@ -77,3 +79,5 @@ IPアドレスの範囲等は任意に変更可能。
    bash scripts/setup-cluster.sh
    bash scripts/apply-apps.sh
    ```
+
+SDN Controllerを手動で作成する必要あり。
