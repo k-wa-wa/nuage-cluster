@@ -53,6 +53,38 @@
   become_user: "{{ devops_user }}"
 
 ###
+- name: Ensure /etc/nix directory exists
+  ansible.builtin.file:
+    path: /etc/nix
+    state: directory
+    mode: '0755'
+
+- name: Configure nix.conf for trusted users and features
+  ansible.builtin.copy:
+    dest: /etc/nix/nix.conf
+    content: |
+      trusted-users = root ubuntu
+
+      system-features = kvm benchmark big-parallel nixos-test
+
+      experimental-features = nix-command flakes
+    mode: '0644'
+  notify: Restart Nix daemon
+
+- name: Restart Nix daemon to apply changes
+  ansible.builtin.systemd:
+    name: nix-daemon
+    state: restarted
+    enabled: true
+
+- name: Ensure ubuntu user can use nix-daemon via SSH
+  ansible.builtin.lineinfile:
+    path: /home/ubuntu/.bashrc
+    line: 'if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh; fi'
+    state: present
+###
+
+###
 - name: Ensure Working Directory
   ansible.builtin.file:
     path: "{{ devops_user_home }}/workspace"
