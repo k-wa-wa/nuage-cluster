@@ -5,7 +5,6 @@ data "http" "talos_schematic" {
   request_headers = {
     "Content-Type" = "application/json"
   }
-  # ここでノードごとの設定（IPなど）を動的に流し込む
   request_body = jsonencode({
     customization = {
       systemExtensions = {
@@ -42,6 +41,9 @@ data "talos_machine_configuration" "this" {
   config_patches = [
     yamlencode({
       machine = {
+        install = {
+          image = "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic[each.key].response_body).id}:v1.12.2"
+        }
         kubelet = {
           nodeIP = {
             validSubnets = ["${var.cluster_config.cluster.node_subnet}"]
@@ -71,6 +73,19 @@ data "talos_machine_configuration" "this" {
         }
         time = {
           servers = ["/dev/ptp0"]
+        }
+        kernel = {
+          modules = [{ name = "iscsi_tcp" }]
+        }
+        kubelet = {
+          extraMounts = [
+            {
+              destination = "/var/lib/longhorn"
+              type        = "bind"
+              source      = "/var/lib/longhorn"
+              options     = ["bind", "rshared"]
+            }
+          ]
         }
       }
       cluster = {
