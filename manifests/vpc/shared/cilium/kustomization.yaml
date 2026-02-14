@@ -9,3 +9,6 @@ helmCharts:
     repo: https://helm.cilium.io/
     version: 1.15.0
     valuesFile: values.yaml
+
+resources:
+  - rbac.yaml
