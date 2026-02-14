@@ -7,24 +7,25 @@
 
   users.users.nixos = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ];
-    initialPassword = "nixos";
+    extraGroups = [ ];
+    hashedPassword = "!";
     openssh.authorizedKeys.keys = [
       (builtins.readFile ../../../.ssh/id_ed25519_nixos.pub)
     ];
   };
 
-  security.sudo.wheelNeedsPassword = false;
+  security.sudo.enable = false;
 
   services.openssh = {
     enable = true;
     settings = {
-      PasswordAuthentication = true;
+      PasswordAuthentication = false;
+      KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
     };
   };
 
-networking = {
+  networking = {
     hostName = "shared-lb";
     useDHCP = false;
     interfaces.eth0.ipv4.addresses = [{
