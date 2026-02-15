@@ -15,6 +15,10 @@ data "http" "talos_schematic" {
   })
 }
 
+output "talos_schematic_id" {
+  value = jsondecode(data.http.talos_schematic.response_body).id
+}
+
 resource "proxmox_virtual_environment_download_file" "talos_iscsi_image" {
   for_each = toset(["nuc-1", "nuc-2", "server-1"])
 
