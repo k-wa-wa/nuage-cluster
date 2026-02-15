@@ -1,11 +1,32 @@
-resource "proxmox_virtual_environment_download_file" "talos_image" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
+data "http" "talos_schematic" {
+  url    = "https://factory.talos.dev/schematics"
+  method = "POST"
+  request_headers = {
+    "Content-Type" = "application/json"
+  }
+  request_body = jsonencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = ["siderolabs/iscsi-tools", "siderolabs/util-linux-tools"]
+      }
+      extraKernelArgs = [
+      ]
+    }
+  })
+}
+
+resource "proxmox_virtual_environment_download_file" "talos_iscsi_image" {
+  for_each = toset(["nuc-1", "nuc-2", "server-1"])
+
   content_type = "iso"
   datastore_id = "local"
   node_name    = each.key
-  file_name    = "talos-nocloud-amd64.iso"
-  url          = "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.12.2/nocloud-amd64.iso"
+
+  file_name = "talos-iscsi.iso"
+  url       = "https://factory.talos.dev/image/${jsondecode(data.http.talos_schematic.response_body).id}/v1.12.2/nocloud-amd64.iso"
 }
+
+###
 
 resource "proxmox_virtual_environment_download_file" "lxc_ubuntu_2504" {
   for_each     = toset(["nuc-1", "nuc-2", "server-1"])
