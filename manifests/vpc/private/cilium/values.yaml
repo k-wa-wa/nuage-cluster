@@ -4,6 +4,12 @@ extraArgs:
   - --direct-routing-device=ens18
 
 routingMode: native
+
+ipam:
+  mode: "cluster-pool"
+  operator:
+    clusterPoolIPv4PodCIDRList: ["10.244.0.0/16"]
+    clusterPoolIPv4MaskSize: 24
 ipv4NativeRoutingCIDR: 10.244.0.0/16
 autoDirectNodeRoutes: true
 
@@ -12,8 +18,8 @@ kubeProxyReplacement: true
 l2announcements:
   enabled: true
 
-k8sServiceHost: 10.20.1.10
-k8sServicePort: 6443
+k8sServiceHost: localhost
+k8sServicePort: 7445
 
 ingressController:
   enabled: true
