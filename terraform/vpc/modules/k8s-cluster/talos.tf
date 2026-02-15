@@ -88,7 +88,7 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
   for_each = var.cluster_config.nodes
 
   vm_id     = each.value.vm_id
-  name      = "${var.cluster_config.cluster.name}-${each.value.vm_name}"
+  name      = "${var.cluster_config.cluster.name}-${each.key}"
   node_name = each.value.node_name
 
   cpu {

@@ -10,7 +10,6 @@ variable "cluster_config" {
     nodes = map(object({
       type                  = string // "controlplane" or "worker_node"
       vm_id                 = number
-      vm_name               = string
       node_name             = string
       cores                 = number
       memory                = number

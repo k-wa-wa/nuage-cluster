@@ -16,7 +16,6 @@ module "k8s-cluster" {
       "controlplane-01" = {
         type                  = "controlplane"
         vm_id                 = 201
-        vm_name               = "controlplane-01"
         node_name             = "nuc-1"
         cores                 = 2
         memory                = 2048
@@ -29,7 +28,6 @@ module "k8s-cluster" {
       "worker-01" = {
         type                  = "worker"
         vm_id                 = 202
-        vm_name               = "worker-01"
         node_name             = "nuc-2"
         cores                 = 2
         memory                = 2048
