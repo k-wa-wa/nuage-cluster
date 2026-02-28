@@ -3,8 +3,8 @@ namespace: /service/
 name: {{ inventory_hostname }}
 
 restapi:
-  listen: {{ ansible_host }}:{{ patroni_rest_api_port }}
-  connect_address: {{ ansible_host }}:{{ patroni_rest_api_port }}
+  listen: {{ service_host }}:{{ patroni_rest_api_port }}
+  connect_address: {{ service_host }}:{{ patroni_rest_api_port }}
 
 etcd3:
   hosts: 127.0.0.1:{{ etcd_client_port }}
@@ -33,7 +33,7 @@ bootstrap:
 
 postgresql:
   listen: 0.0.0.0:{{ patroni_postgresql_port }}
-  connect_address: {{ ansible_host }}:{{ patroni_postgresql_port }}
+  connect_address: {{ service_host }}:{{ patroni_postgresql_port }}
   data_dir: {{ postgres_data_dir }}
   bin_dir: {{ postgres_bin_path }}
   pgpass: /tmp/pgpass
@@ -48,8 +48,8 @@ postgresql:
     unix_socket_directories: '/var/run/postgresql'
   pg_hba:
     - host all all 127.0.0.1/32 trust        # ローカル接続を許可
-    - host all all 192.168.5.0/24 md5        # 192.168.5.x セグメントからの全DB接続を許可
-    - host replication replicator 192.168.5.0/24 md5  # レプリケーション用の接続を許可
+    - host all all 0.0.0.0/0 md5             # 全DB接続を許可
+    - host replication replicator 0.0.0.0/0 md5  # レプリケーション用の接続を許可
 
 tags:
   nosql: false
