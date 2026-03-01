@@ -1,6 +1,10 @@
-{ ... }:
+{ modulesPath, ... }:
 
 {
+  imports = [
+    (modulesPath + "/virtualisation/proxmox-lxc.nix")
+  ];
+
   users.users.nixos = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];

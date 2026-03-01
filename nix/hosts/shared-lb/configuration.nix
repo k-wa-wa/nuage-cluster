@@ -1,8 +1,7 @@
-{ modulesPath, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 
 {
   imports = [
-    (modulesPath + "/virtualisation/proxmox-lxc.nix")
     ../common/configuration.nix
     ./dns.nix
     ./haproxy.nix
