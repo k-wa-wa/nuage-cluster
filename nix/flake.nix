@@ -32,7 +32,7 @@
             targetUser = "nixos";
           };
           imports = [
-            ./hosts/shared-lb/configuration.nix
+            ./hosts/loadbalancer/configuration.nix
           ];
         };
       };
