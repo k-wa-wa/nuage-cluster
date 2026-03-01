@@ -6,6 +6,6 @@ metadata:
   namespace: pg-cluster
 subsets:
 - addresses:
-  - ip: 192.168.5.155
+  - ip: 10.20.1.28
   ports:
   - port: 5432
