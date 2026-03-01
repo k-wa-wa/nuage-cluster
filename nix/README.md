@@ -18,10 +18,4 @@ nix build ./nix#shared-lb \
 
 
 nix profile install nixpkgs#colmena
-
-nix build ./nix#lxc-image \
-  --builders "ssh://nix-builder x86_64-linux" \
-  --max-jobs 0 -o ./nix/result
-
-NIX_CONFIG="builders = ssh://nix-builder x86_64-linux" \
-colmena -f nix/flake.nix build --on lb-1
+colmena apply -f nix/hive.nix

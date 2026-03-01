@@ -2,12 +2,8 @@
 
 {
   nix.settings = {
-    # 1. リモートからビルド済みのパスを送り込めるようにする
-    # root と、デプロイ時に使用するユーザー（nixosなど）を必ず入れる
     trusted-users = [ "root" "nixos" "@wheel" ];
 
-    # 2. 最初の一歩（初回デプロイ）で署名エラーを出さないための設定
-    # これを true にしておくと、署名チェックをバイパスして受け入れます
     trusted-public-keys = [ ];
     substituters = [ "https://cache.nixos.org" ];
   };
@@ -21,7 +17,7 @@
     extraGroups = [ "wheel" ];
     hashedPassword = "!";
     openssh.authorizedKeys.keys = [
-      (builtins.readFile ../../../.ssh/id_ed25519_nixos.pub)
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIi6KgfT6hU8CWl7Xm7bnKen80++7lHrQ+OqvEuAe+80 nixos-sever"
     ];
   };
 
