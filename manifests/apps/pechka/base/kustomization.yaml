@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - pvc.yaml
 - file-server/
+- ingress.yaml
 
 - https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
 - file-server-workflow/
