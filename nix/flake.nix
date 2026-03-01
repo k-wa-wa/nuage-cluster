@@ -1,9 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    
     colmena.url = "github:zhaofengli/colmena";
-    
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -15,12 +13,11 @@
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
 
-      mkLxc = hostName: confPath: nixos-generators.nixosGenerate {
+      mkBaseLxc = nixos-generators.nixosGenerate {
         system = "x86_64-linux";
         format = "proxmox-lxc";
         modules = [
           ./hosts/common/configuration.nix
-          confPath
         ];
       };
     in {
@@ -40,15 +37,8 @@
         };
       };
 
-      nixosConfigurations.lb-1 = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [
-          ./hosts/shared-lb/configuration.nix
-        ];
-      };
-
       packages = forAllSystems (system: {
-        shared-lb = mkLxc "shared-lb" ./hosts/shared-lb/configuration.nix;
+        base-lxc = mkBaseLxc;
       });
     };
 }
