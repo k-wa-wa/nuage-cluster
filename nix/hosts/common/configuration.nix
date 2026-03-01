@@ -1,12 +1,23 @@
-{ ... }:
+{ modulesPath, ... }:
 
 {
+  nix.settings = {
+    trusted-users = [ "root" "nixos" "@wheel" ];
+
+    trusted-public-keys = [ ];
+    substituters = [ "https://cache.nixos.org" ];
+  };
+
+  imports = [
+    (modulesPath + "/virtualisation/proxmox-lxc.nix")
+  ];
+
   users.users.nixos = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
     hashedPassword = "!";
     openssh.authorizedKeys.keys = [
-      (builtins.readFile ../../../.ssh/id_ed25519_nixos.pub)
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIi6KgfT6hU8CWl7Xm7bnKen80++7lHrQ+OqvEuAe+80 nixos-sever"
     ];
   };
 

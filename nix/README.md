@@ -1,5 +1,4 @@
 
-
 /etc/ssh/ssh_config に以下を追加する
 ```
 Host nix-builder
@@ -10,8 +9,18 @@ Host nix-builder
     UserKnownHostsFile /dev/null
 ```
 
+mac
+
 ```bash
-nix build ./nix#shared-lb \
+nix build ./nix#base-lxc \
   --builders "ssh://nix-builder x86_64-linux" \
   --max-jobs 0 -o ./nix/result
+```
+
+linux
+
+```
+nix profile install nixpkgs#colmena
+
+colmena apply -f nix/hive.nix
 ```

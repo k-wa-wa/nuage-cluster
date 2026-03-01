@@ -54,6 +54,9 @@ data "talos_machine_configuration" "this" {
           modules = [{ name = "iscsi_tcp" }]
         }
         kubelet = {
+          extraArgs = {
+            "node-ip" = each.value.ip_address
+          },
           extraMounts = [
             {
               destination = "/var/lib/longhorn"

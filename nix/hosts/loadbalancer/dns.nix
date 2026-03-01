@@ -7,16 +7,14 @@
     config = ''
       . {
         bind 0.0.0.0
-        
-        # ワイルドカード設定
-        template ANY ANY cluster.wpc {
-          answer "{{ .Name }} 60 IN A 10.0.1.2"
+        log
+
+        template ANY ANY nuage.cluster.wpc {
+          answer "{{ .Name }} 60 IN A 192.168.5.200"
           fallthrough
         }
 
         forward . 8.8.8.8
-        log
-        errors
       }
     '';
   };
