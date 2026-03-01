@@ -1,6 +1,17 @@
 { modulesPath, ... }:
 
 {
+  nix.settings = {
+    # 1. リモートからビルド済みのパスを送り込めるようにする
+    # root と、デプロイ時に使用するユーザー（nixosなど）を必ず入れる
+    trusted-users = [ "root" "nixos" "@wheel" ];
+
+    # 2. 最初の一歩（初回デプロイ）で署名エラーを出さないための設定
+    # これを true にしておくと、署名チェックをバイパスして受け入れます
+    trusted-public-keys = [ ];
+    substituters = [ "https://cache.nixos.org" ];
+  };
+
   imports = [
     (modulesPath + "/virtualisation/proxmox-lxc.nix")
   ];

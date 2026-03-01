@@ -25,7 +25,10 @@
       mkLxc = hostName: confPath: nixos-generators.nixosGenerate {
         system = "x86_64-linux";
         format = "proxmox-lxc";
-        modules = [ confPath ];
+        modules = [
+          ./hosts/common/configuration.nix
+          confPath
+        ];
       };
     in {
       # 1. Colmena 設定 (Hive)
@@ -45,14 +48,18 @@
             # sshKeyPath = "/home/youruser/.ssh/id_ed25519";
           };
           # configuration.nix を読み込む
-          imports = [ ./hosts/shared-lb/configuration.nix ];
+          imports = [
+            ./hosts/shared-lb/configuration.nix
+          ];
         };
       };
 
       # 2. 標準の NixOS 設定 (nixos-rebuild や deploy-rs 用)
       nixosConfigurations.lb-1 = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        modules = [ ./hosts/shared-lb/configuration.nix ];
+        modules = [
+          ./hosts/shared-lb/configuration.nix
+        ];
       };
 
       # 3. 既存のパッケージ出力 (ビルド用)
