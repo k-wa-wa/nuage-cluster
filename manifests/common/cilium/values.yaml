@@ -23,7 +23,12 @@ k8sServicePort: 7445
 
 ingressController:
   enabled: true
+  default: true
   loadbalancerMode: shared
+  secretsNamespace:
+    sync: true
+    create: true
+    name: cilium-secrets
   service:
     type: NodePort
     insecureNodePort: 30080
