@@ -5,7 +5,7 @@ module "oc1-devops" {
     vm_name = "oc1-devops"
     node_name = "server-1"
     cores = 4
-    memory = 16384
+    memory = 32768
     network_devices = [
       {
         bridge = "vmbr0"
