@@ -8,3 +8,18 @@ resources:
 
 - https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
 - file-server-workflow/
+
+patches:
+  - target:
+      kind: Deployment
+      name: argo-server
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/args
+        value:
+          - server
+          - --secure=false
+          - --auth-mode=server
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/scheme
+        value: HTTP

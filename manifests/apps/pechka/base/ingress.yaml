@@ -10,6 +10,7 @@ spec:
   tls:
   - hosts:
     - file-server.nuage.cluster.wpc
+    - workflow.nuage.cluster.wpc
     secretName: pechka-tls-secret
   rules:
   - host: file-server.nuage.cluster.wpc
@@ -22,3 +23,13 @@ spec:
             name: file-server-ui
             port:
               number: 80
+  - host: workflow.nuage.cluster.wpc
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argo-server
+            port:
+              number: 2746
