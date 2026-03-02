@@ -3,8 +3,6 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr0" {
   name      = "vmbr0"
 
   address = "192.168.5.25/24"
-  gateway = "192.168.5.1"
-
 
   ports = [
     "enp42s0"
