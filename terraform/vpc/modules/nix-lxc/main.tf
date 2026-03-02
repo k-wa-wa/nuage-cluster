@@ -1,15 +1,3 @@
-resource "proxmox_virtual_environment_file" "nixos_image" {
-  content_type = "vztmpl"
-  datastore_id = "local"
-  node_name    = var.lxc_config.node_name
-
-  source_file {
-    file_name = "nixos-${var.lxc_config.vm_name}.tar.xz"
-    path     = "../../../nix/result/tarball/nixos-system-x86_64-linux.tar.xz"
-    checksum = filesha256("../../../nix/result/tarball/nixos-system-x86_64-linux.tar.xz")
-  }
-}
-
 resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
@@ -42,7 +30,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 
   operating_system {
-    template_file_id = proxmox_virtual_environment_file.nixos_image.id
+    template_file_id = "local:vztmpl/nixos-base.tar.xz"
     type             = "nixos"
   }
 
