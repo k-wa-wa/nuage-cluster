@@ -20,6 +20,14 @@
           ./hosts/base-lxc/configuration.nix
         ];
       };
+
+      mkBaseVm = nixos-generators.nixosGenerate {
+        system = "x86_64-linux";
+        format = "iso"; # terraform (bpg/proxmox) で扱いやすい iso 形式とする
+        modules = [
+          ./hosts/base-vm/configuration.nix
+        ];
+      };
     in {
       colmena = {
         meta = {
@@ -39,6 +47,7 @@
 
       packages = forAllSystems (system: {
         base-lxc = mkBaseLxc;
+        base-vm = mkBaseVm;
       });
     };
 }

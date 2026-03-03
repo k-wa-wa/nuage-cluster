@@ -15,6 +15,10 @@ mac
 nix build ./nix#base-lxc \
   --builders "ssh://nix-builder x86_64-linux" \
   --max-jobs 0 -o ./nix/result
+
+nix build ./nix#base-vm \
+  --builders "ssh://nix-builder x86_64-linux" \
+  --max-jobs 0 -o ./nix/result
 ```
 
 linux
