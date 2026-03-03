@@ -1,4 +1,4 @@
-{ modulesPath, ... }:
+{ ... }:
 
 {
   nix.settings = {
@@ -7,10 +7,6 @@
     trusted-public-keys = [ ];
     substituters = [ "https://cache.nixos.org" ];
   };
-
-  imports = [
-    (modulesPath + "/virtualisation/proxmox-lxc.nix")
-  ];
 
   users.users.nixos = {
     isNormalUser = true;
@@ -31,6 +27,10 @@
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
     };
+  };
+
+  networking = {
+    useDHCP = false;
   };
 
   system.stateVersion = "24.11";

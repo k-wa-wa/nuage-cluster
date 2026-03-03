@@ -17,7 +17,7 @@
         system = "x86_64-linux";
         format = "proxmox-lxc";
         modules = [
-          ./hosts/common/configuration.nix
+          ./hosts/base-lxc/configuration.nix
         ];
       };
     in {
