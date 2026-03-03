@@ -3,7 +3,7 @@
 {
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
-    ../base-common/configuration.nix
+    ../../modules/common.nix
   ];
 
   services.cloud-init.enable = true;

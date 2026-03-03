@@ -2,7 +2,6 @@
 
 {
   imports = [
-    ../common/configuration.nix
     ./dns.nix
     ./haproxy.nix
     ./keepalived.nix

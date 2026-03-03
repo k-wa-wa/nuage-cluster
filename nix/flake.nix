@@ -40,6 +40,7 @@
             targetUser = "nixos";
           };
           imports = [
+            ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
           ];
         };
