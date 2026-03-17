@@ -77,6 +77,10 @@
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
                 package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama-rocm;
                 acceleration = "rocm";
+                loadModels = [ "qwen3.5:35b-a3b" ];
+                environmentVariables = {
+                  HSA_OVERRIDE_GFX_VERSION = "11.0.0";
+                };
               };
             }
           ];
