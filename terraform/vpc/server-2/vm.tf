@@ -35,13 +35,13 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
   }
 
   disk {
-    //datastore_id = "local-zfs"
+    datastore_id = "local-thinpool"
     file_id      = "local:iso/nixos.iso"
     interface    = "scsi0"
   }
 
   disk {
-    //datastore_id = "local-zfs"
+    datastore_id = "local-thinpool"
     size         = 100
     interface    = "virtio0"
   }
