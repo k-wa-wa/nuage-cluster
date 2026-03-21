@@ -4,6 +4,11 @@
   imports = [
   ];
 
+  environment.systemPackages = with pkgs; [
+    pciutils  # lspci を含むパッケージ
+    radeontop
+  ];
+
   # rocm を使用できるようにする
   nixpkgs.config.allowUnfree = true;
   hardware.enableAllFirmware = true;
@@ -17,4 +22,6 @@
       rocmPackages.clr.icd
     ];
   };
+
+  networking.firewall.allowedTCPPorts = [ 11434 ];
 }

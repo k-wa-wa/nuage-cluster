@@ -92,9 +92,12 @@
                 package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama-rocm;
                 acceleration = "rocm";
                 loadModels = [ "qwen3.5:35b-a3b" ];
+                host = "0.0.0.0";
                 environmentVariables = {
+                  OLLAMA_KEEP_ALIVE = "-1";
                   HSA_OVERRIDE_GFX_VERSION = "11.0.0";
                 };
+                # curl -s http://localhost:11434/api/generate -d '{"model": "qwen3.5:35b-a3b", "keep_alive": -1}'
               };
             }
           ];
