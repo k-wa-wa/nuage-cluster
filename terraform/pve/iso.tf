@@ -62,3 +62,16 @@ resource "proxmox_virtual_environment_file" "nixos_image" {
     checksum = filesha256("../../nix/result/tarball/nixos-system-x86_64-linux.tar.xz")
   }
 }
+
+resource "proxmox_virtual_environment_file" "nixos_base_vm" {
+  for_each = toset(["nuc-1", "nuc-2", "server-1"])
+
+  content_type = "iso"
+  datastore_id = "local"
+  node_name    = each.key
+
+  source_file {
+    path     = "../../nix/result-base-vm/nixos.iso"
+    checksum = filesha256("../../nix/result-base-vm/nixos.iso")
+  }
+}
