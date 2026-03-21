@@ -21,7 +21,7 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
         }
     }
     user_account {
-      username = "ubuntu"
+      username = "nixos"
       keys     = [trimspace(data.local_file.id_rsa_pub.content)]
     }
   }
