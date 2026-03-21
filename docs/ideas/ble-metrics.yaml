@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ble-metrics
+  namespace: pechka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ble-metrics
+  template:
+    metadata:
+      labels:
+        app: ble-metrics
+    spec:
+      containers:
+      - name: ble-metrics
+        image: ghcr.io/k-wa-wa/home-automation-ble-metrics
+        env:
+        - name: SWITCHBOT_SCAN_INTERVAL_SECS
+          value: "5"
+        volumeMounts:
+        - mountPath: "/var/run/dbus"
+          name: dbus
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: dbus
+        hostPath:
+          path: "/var/run/dbus"
+
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "edge"
+        effect: "NoSchedule"
