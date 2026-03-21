@@ -49,6 +49,20 @@
           nixpkgs = import nixpkgs { system = "x86_64-linux"; };
         };
 
+        dev-server = {
+          deployment = {
+            targetHost = "192.168.5.199";
+            targetUser = "nixos";
+            tags = [ "dev-server" ];
+          };
+          imports = [
+            disko.nixosModules.disko
+            ./hosts/base-vm/disko-config.nix
+            ./hosts/base-vm/configuration.nix
+            ./hosts/dev-server/configuration.nix
+          ];
+        };
+
         lb-1 = {
           deployment = {
             targetHost = "192.168.5.201";
