@@ -35,7 +35,7 @@ for entry in "${NODES[@]}"; do
     # 2. SSH Config への書き出し
     # IdentityFile を $SCRIPT_DIR ベースに変更
     cat <<EOF >> "$CONF_FILE"
-Host $host
+Host $host $ip
     HostName $ip
     User $USER_NAME
     IdentityFile $KEY_DIR/$host
