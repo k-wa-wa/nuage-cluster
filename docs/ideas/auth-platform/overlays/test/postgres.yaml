@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+  namespace: auth-platform
+spec:
+  serviceName: "postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        env:
+        - name: POSTGRES_DB
+          value: "authentik"
+        - name: POSTGRES_USER
+          value: "authentik"
+        - name: POSTGRES_PASSWORD
+          value: "authentik" # 本番環境では Secret を推奨
+        ports:
+        - containerPort: 5432
+          name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+  namespace: auth-platform
+spec:
+  ports:
+    - port: 5432
+      name: postgres
+  # ヘッドレスサービスにする
+  clusterIP: None
+  selector:
+    app: postgres
