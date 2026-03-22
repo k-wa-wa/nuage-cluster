@@ -6,6 +6,7 @@
 
     trusted-public-keys = [ ];
     substituters = [ "https://cache.nixos.org" ];
+    experimental-features = [ "nix-command" "flakes" ];
   };
 
   users.users.nixos = {
