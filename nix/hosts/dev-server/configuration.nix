@@ -14,4 +14,12 @@
   programs.zsh.enable = true;
   users.users.nixos.shell = pkgs.zsh;
 
+  virtualisation.docker = {
+    enable = true;
+    rootless = {
+      enable = true;
+      setSocketVariable = true;
+    };
+  };
+  users.users.nixos.extraGroups = [ "docker" ];
 }

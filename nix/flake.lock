@@ -122,11 +122,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1774200719,
-        "narHash": "sha256-Jbfiq0D1kYsLshlhRIsO7AAyB4LF/Te9Y/b07Flol9c=",
+        "lastModified": 1774201870,
+        "narHash": "sha256-Whqanza4wxNISEAJqubDRcLQLvU+VGkjlgqUSUfpQzs=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "09c4377b4de743191178784c82cb309bdce2332e",
+        "rev": "6ca5d565296435f7ee5cd6f38171143db7507be4",
         "type": "github"
       },
       "original": {
