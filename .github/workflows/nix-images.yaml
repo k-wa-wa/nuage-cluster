@@ -1,0 +1,131 @@
+name: Build and Release NixOS Images
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - nix/**
+
+jobs:
+  base-lxc:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Get Nix output hash (before build)
+        id: hash
+        run: |
+          OUT_PATH=$(nix eval ./nix#packages.x86_64-linux.base-lxc.outPath --raw)
+          echo "value=$(basename "$OUT_PATH" | cut -c1-32)" >> $GITHUB_OUTPUT
+
+      - name: Check existing release hash
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGED=true
+          if gh release view nix-images-lxc --repo ${{ github.repository }} > /dev/null 2>&1; then
+            if gh release download nix-images-lxc --pattern nix-hash.txt --output existing-hash.txt --repo ${{ github.repository }} 2>/dev/null; then
+              grep -q "${{ steps.hash.outputs.value }}" existing-hash.txt && CHANGED=false
+            fi
+          fi
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Build
+        if: steps.check.outputs.changed == 'true'
+        run: nix build ./nix#base-lxc --out-link result-base-lxc
+
+      - name: Upload to release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LXC_SRC=$(readlink -f result-base-lxc)
+          if [ -d "$LXC_SRC" ]; then
+            cp "$(find "$LXC_SRC" -mindepth 1 -type f -name '*.tar.xz' | head -1)" base-lxc.tar.xz
+          else
+            cp "$LXC_SRC" base-lxc.tar.xz
+          fi
+          echo "${{ steps.hash.outputs.value }}" > nix-hash.txt
+
+          if gh release view nix-images-lxc --repo ${{ github.repository }} > /dev/null 2>&1; then
+            gh release upload nix-images-lxc base-lxc.tar.xz nix-hash.txt --clobber --repo ${{ github.repository }}
+          else
+            gh release create nix-images-lxc \
+              --title "NixOS base-lxc (Proxmox LXC template)" \
+              --notes "NixOS LXC container template for Proxmox" \
+              --latest=false \
+              base-lxc.tar.xz nix-hash.txt \
+              --repo ${{ github.repository }}
+          fi
+
+  base-vm:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Get Nix output hash (before build)
+        id: hash
+        run: |
+          OUT_PATH=$(nix eval ./nix#packages.x86_64-linux.base-vm.outPath --raw)
+          echo "value=$(basename "$OUT_PATH" | cut -c1-32)" >> $GITHUB_OUTPUT
+
+      - name: Check existing release hash
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGED=true
+          if gh release view nix-images-vm --repo ${{ github.repository }} > /dev/null 2>&1; then
+            if gh release download nix-images-vm --pattern nix-hash.txt --output existing-hash.txt --repo ${{ github.repository }} 2>/dev/null; then
+              grep -q "${{ steps.hash.outputs.value }}" existing-hash.txt && CHANGED=false
+            fi
+          fi
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Build
+        if: steps.check.outputs.changed == 'true'
+        run: nix build ./nix#base-vm --out-link result-base-vm
+
+      - name: Upload to release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VM_SRC=$(readlink -f result-base-vm)
+          if [ -d "$VM_SRC" ]; then
+            cp "$(find "$VM_SRC" -mindepth 1 -type f -name '*.iso' | head -1)" base-vm.iso
+          else
+            cp "$VM_SRC" base-vm.iso
+          fi
+          echo "${{ steps.hash.outputs.value }}" > nix-hash.txt
+
+          if gh release view nix-images-vm --repo ${{ github.repository }} > /dev/null 2>&1; then
+            gh release upload nix-images-vm base-vm.iso nix-hash.txt --clobber --repo ${{ github.repository }}
+          else
+            gh release create nix-images-vm \
+              --title "NixOS base-vm (ISO)" \
+              --notes "NixOS VM installer ISO for Proxmox" \
+              --latest=false \
+              base-vm.iso nix-hash.txt \
+              --repo ${{ github.repository }}
+          fi
