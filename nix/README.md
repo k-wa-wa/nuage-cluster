@@ -42,4 +42,7 @@ nix run github:numtide/nixos-anywhere -- \
   --target-host nixos@192.168.5.222
 
 colmena apply -f nix/hive.nix --on @lm-server
+
+# update
+nix flake update nix-config --flake ./nix
 ```
