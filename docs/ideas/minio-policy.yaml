@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-policy
+  namespace: nuage-monitoring
+spec:
+  ttlSecondsAfterFinished: 100
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: minio-policy
+          image: minio/mc:latest
+          command: ["/bin/bash"]
+          args: [
+            "-c", "mc alias set myminio http://192.168.5.151:9000 admin password && mc anonymous set public myminio/assets"
+          ]
+          resources:
+            requests:
+              cpu: "0.25"
+              memory: "512Mi"
+            limits:
+              cpu: "0.25"
+              memory: "512Mi"
