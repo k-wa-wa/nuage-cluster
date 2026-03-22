@@ -80,11 +80,8 @@
               home-manager.useUserPackages = true;
               home-manager.users.nixos = {
                 imports = [
-                  "${nix-config}/modules/home-manager/common.nix"
+                  "${nix-config}/hosts/nixos/home.nix"
                 ];
-                home.username = "nixos";
-                home.homeDirectory = "/home/nixos";
-                home.stateVersion = "24.11";
               };
             }
           ];
