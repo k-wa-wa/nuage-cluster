@@ -12,9 +12,20 @@
     };
 
     nixpkgs-ollama.url = "github:nixos/nixpkgs/5b2c2d84341b2afb5647081c1386a80d7a8d8605";
+
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+    nix-config = {
+      url = "github:k-wa-wa/nix-config";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
-  outputs = { self, nixpkgs, colmena, disko,nixos-generators, nixpkgs-ollama,... }:
+  outputs = { self, nixpkgs, colmena, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -47,6 +58,9 @@
       colmena = {
         meta = {
           nixpkgs = import nixpkgs { system = "x86_64-linux"; };
+          nodeNixpkgs = {
+            dev-server = import nixpkgs-unstable { system = "x86_64-linux"; };
+          };
         };
 
         dev-server = {
@@ -56,10 +70,23 @@
             tags = [ "dev-server" ];
           };
           imports = [
+            home-manager.nixosModules.home-manager
             disko.nixosModules.disko
             ./hosts/base-vm/disko-config.nix
             ./hosts/base-vm/configuration.nix
             ./hosts/dev-server/configuration.nix
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.nixos = {
+                imports = [
+                  "${nix-config}/modules/home-manager/common.nix"
+                ];
+                home.username = "nixos";
+                home.homeDirectory = "/home/nixos";
+                home.stateVersion = "24.11";
+              };
+            }
           ];
         };
 
