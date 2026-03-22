@@ -3,6 +3,12 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
   node_name = "server-1"
   vm_id     = 1152
 
+  machine = "q35"
+  bios = "ovmf"
+  efi_disk {
+  }
+  boot_order = [ "virtio0", "scsi0", "net0" ]
+
   cpu {
     cores = 8
     type = "host"
