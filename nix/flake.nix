@@ -16,12 +16,12 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      url = "github:nix-community/home-manager/release-24.11";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-config = {
       url = "github:k-wa-wa/nix-config";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -58,9 +58,6 @@
       colmena = {
         meta = {
           nixpkgs = import nixpkgs { system = "x86_64-linux"; };
-          nodeNixpkgs = {
-            dev-server = import nixpkgs-unstable { system = "x86_64-linux"; };
-          };
         };
 
         dev-server = {
@@ -79,6 +76,12 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.extraSpecialArgs = {
+                unstablePkgs = import nixpkgs-unstable {
+                  system = "x86_64-linux";
+                  config.allowUnfree = true;
+                };
+              };
               home-manager.users.nixos = {
                 imports = [
                   "${nix-config}/hosts/nixos/home.nix"
