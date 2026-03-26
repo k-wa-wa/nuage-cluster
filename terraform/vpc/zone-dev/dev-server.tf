@@ -40,7 +40,7 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
 
   disk {
     datastore_id = "local-zfs"
-    size         = 100
+    size         = 300
     interface    = "virtio0"
   }
 
