@@ -10,13 +10,13 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
   boot_order = [ "virtio0", "scsi0", "net0" ]
 
   cpu {
-    cores = 8
+    cores = 16
     type = "host"
   }
 
   memory {
-    dedicated = 16384
-    floating  = 16384
+    dedicated = 32768
+    floating  = 32768
   }
 
   initialization {
