@@ -67,6 +67,7 @@
           deployment = {
             targetHost = "192.168.5.199";
             targetUser = "nixos";
+            allowLocalDeployment = true;
             tags = [ "dev-server" ];
           };
           imports = [

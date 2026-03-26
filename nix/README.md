@@ -11,6 +11,7 @@ nix run github:numtide/nixos-anywhere -- \
   --target-host nixos@192.168.5.199
 
 colmena apply -f nix/hive.nix --on @dev-server
+sudo colmena apply-local -f nix/hive.nix --node dev-server
 
 # lm-server
 nix run github:numtide/nixos-anywhere -- \
