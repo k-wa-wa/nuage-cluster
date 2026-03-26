@@ -1,3 +1,7 @@
 ## コード生成
 
 `python -m grpc_tools.protoc -I./proto --pyi_out=./src/pb --python_out=./src/pb --grpc_python_out=./src/pb ./proto/ai_service.proto`
+
+## テスト
+
+uv run pytest

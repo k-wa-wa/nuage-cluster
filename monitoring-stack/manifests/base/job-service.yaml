@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "job-service"
+  labels:
+    app: "job-service"
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: "job-service"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: job-generate-report
+        image: job-generate-report
+        imagePullPolicy: Never
+        env:
+        - name: AI_SERVICE_ADDRESS
+          value: ai-service:80
+        - name: REPORT_SERVICE_ADDRESS
+          value: report-service:80
+        - name: INSTRUCTIONS
+          value: |
+            mcp-grafana, mcp-k8sを使用してノード、ポッドの一覧とその状態、リソース使用率（CPU、メモリ、ディスク）、ネットワークの状態、イベントログなどを含むkubernetesクラスターの現在の状態に関する詳細なレポートを生成してください。
+            ツールの使用ができなければエラー原因を調査してください。
