@@ -21,3 +21,10 @@ spec:
             name: user-service
             port:
               number: 80
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80

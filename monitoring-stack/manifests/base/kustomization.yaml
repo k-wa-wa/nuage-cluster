@@ -20,6 +20,7 @@ helmCharts:
   version: 78.2.1
   repo: https://prometheus-community.github.io/helm-charts
   includeCRDs: true
+  valuesFile: helm/prometheus-stack-custom.yaml
 
 - name: loki-stack
   releaseName: loki-stack
