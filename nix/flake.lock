@@ -76,19 +76,20 @@
     "home-manager": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs-unstable"
+          "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1774007980,
-        "narHash": "sha256-FOnZjElEI8pqqCvB6K/1JRHTE8o4rer8driivTpq2uo=",
+        "lastModified": 1747688870,
+        "narHash": "sha256-ypL9WAZfmJr5V70jEVzqGjjQzF0uCkz+AFQF7n9NmNc=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "9670de2921812bc4e0452f6e3efd8c859696c183",
+        "rev": "d5f1f641b289553927b3801580598d200a501863",
         "type": "github"
       },
       "original": {
         "owner": "nix-community",
+        "ref": "release-24.11",
         "repo": "home-manager",
         "type": "github"
       }
@@ -119,16 +120,16 @@
       "inputs": {
         "home-manager": "home-manager_2",
         "nixpkgs": [
-          "nixpkgs-unstable"
+          "nixpkgs"
         ],
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1774521975,
-        "narHash": "sha256-7PKg9jvIa94aQQJdxe4c7bcB5C1/dMuCHK8yxkB/fz4=",
+        "lastModified": 1774533396,
+        "narHash": "sha256-dK4c2lwL+CiUsBsYl3cy2FGkjnBANT7eO5Y1qKj4GHM=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "4b6fc99c79f6c86e3db5b368b69281f52c462746",
+        "rev": "04d5b4b3b2ebb80e920c0aae814b8309ccb8447b",
         "type": "github"
       },
       "original": {
