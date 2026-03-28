@@ -39,3 +39,4 @@ Thumbs.db
 # Kubernetes secrets (never commit real secrets)
 *-secret.yaml
 secrets.yaml
+.kubeconfig

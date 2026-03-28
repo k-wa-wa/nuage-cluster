@@ -1,23 +1,26 @@
 # Use rootful Docker socket to allow BPF operations inside kind nodes.
 export DOCKER_HOST = unix:///run/docker.sock
 
-CLUSTER_NAME = monitoring-cluster
-KUBE_CONTEXT = kind-$(CLUSTER_NAME)
-KUBECTL = kubectl --context $(KUBE_CONTEXT)
-HELM = helm --kube-context $(KUBE_CONTEXT)
+CLUSTER_NAME := monitoring-cluster
+KUBECONFIG := $(CURDIR)/.kubeconfig
+export KUBECONFIG
+
+KUBECTL := kubectl
+HELM := helm
 
 CILIUM_VERSION = v1.16.2
 CILIUM_HELM_VERSION = 1.16.2
 CILIUM_ENVOY_TAG = v1.29.9-1726784081-a90146d13b4cd7d168d573396ccf2b3db5a3b047
 
-.PHONY: up cluster prefetch-cilium setup-cilium setup-infra deploy down clean load-images
+.PHONY: up cluster prefetch-cilium setup-cilium setup-infra deploy down load-images
 
 up: cluster prefetch-cilium setup-cilium setup-infra deploy
 
 cluster:
 	@if ! kind get clusters | grep -q $(CLUSTER_NAME); then \
-		kind create cluster --name $(CLUSTER_NAME) --config kind-config.yaml; \
+		kind create cluster --name $(CLUSTER_NAME) --config kind-config.yaml --kubeconfig $(KUBECONFIG); \
 	fi
+	@echo "Setup complete. Use 'export KUBECONFIG=$(KUBECONFIG)' to work here."
 
 prefetch-cilium:
 	@echo "Pulling Cilium images on host..."
@@ -111,6 +114,5 @@ load-images: load
 
 down:
 	@echo "Deleting kind cluster..."
-	kind delete cluster --name $(CLUSTER_NAME)
-
-clean: down
+	kind delete cluster --name $(CLUSTER_NAME) --kubeconfig $(KUBECONFIG)
+	rm -f $(KUBECONFIG)
