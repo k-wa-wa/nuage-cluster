@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  labels:
+    app: report-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: report-service
+  template:
+    metadata:
+      labels:
+        app: report-service
+    spec:
+      containers:
+      - name: report-service
+        image: report-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5051
+        env:
+        - name: ES_URL
+          value: http://elasticsearch:9200
+        - name: ES_USERNAME
+          value: ""
+        - name: ES_PASSWORD
+          value: ""
+        - name: EMBEDDING_URL
+          value: http://ollama:11434/v1
+        - name: EMBEDDING_MODEL
+          value: nomic-embed-text
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+spec:
+  selector:
+    app: report-service
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5051
+  type: ClusterIP

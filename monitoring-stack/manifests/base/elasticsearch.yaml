@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  labels:
+    app: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+        ports:
+        - containerPort: 9200
+        command:
+        - sh
+        - -c
+        - |
+          if ! bin/elasticsearch-plugin list | grep -q analysis-kuromoji; then
+            bin/elasticsearch-plugin install --batch analysis-kuromoji
+          fi
+          exec /usr/local/bin/docker-entrypoint.sh elasticsearch
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: xpack.security.enabled
+          value: "false"
+        - name: ES_JAVA_OPTS
+          value: "-Xms1g -Xmx1g"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: es-data
+          mountPath: /usr/share/elasticsearch/data
+      volumes:
+      - name: es-data
+        emptyDir: {}
+---
+# ExternalName service "elasticsearch" in this namespace points to this service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-master
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    targetPort: 9200
+  type: ClusterIP

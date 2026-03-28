@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"report-service/internal/elasticsearch"
-	"report-service/internal/gemini"
+	"report-service/internal/embedding"
 	"report-service/internal/pb"
 )
 
@@ -14,19 +14,14 @@ import (
 type ReportService struct {
 	pb.UnimplementedReportServiceServer // 埋め込み（前方互換性のため）
 	esClient                            *elasticsearch.Client
-	geminiClient                        *gemini.Client
+	embeddingClient                     *embedding.Client
 }
 
 // NewReportService は ReportService のインスタンスを作成
 func NewReportService(ctx context.Context) (*ReportService, error) {
-	geminiClient, err := gemini.NewClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ReportService{
-		esClient:     elasticsearch.NewClient(),
-		geminiClient: geminiClient,
+		esClient:        elasticsearch.NewClient(),
+		embeddingClient: embedding.NewClient(),
 	}, nil
 }
 
@@ -34,8 +29,8 @@ func NewReportService(ctx context.Context) (*ReportService, error) {
 func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRequest) (*pb.CreateReportResponse, error) {
 	log.Printf("Received CreateReport request for ID: %s", req.GetReportId())
 
-	// 1. ベクトル化 (Gemini API 呼び出し)
-	vector, err := s.geminiClient.GenerateEmbedding(ctx, req.GetReportBody())
+	// 1. ベクトル化 (OpenAI互換 embedding API 呼び出し)
+	vector, err := s.embeddingClient.GenerateEmbedding(ctx, req.GetReportBody())
 	if err != nil {
 		log.Printf("Error generating embedding: %v", err)
 		return &pb.CreateReportResponse{Success: false, Message: "Embedding failed"}, err
@@ -48,7 +43,7 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 	doc := elasticsearch.ReportDocument{
 		ReportID:     req.GetReportId(),
 		ReportText:   req.GetReportBody(),
-		ReportVector: vector, // 768次元のベクトル
+		ReportVector: vector,
 		UserID:       req.GetUserId(),
 		ReportTitle:  req.GetReportTitle(),
 		ReportType:   req.GetReportType(),
@@ -101,7 +96,7 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 			ReportTitle:   doc.ReportTitle,
 			ReportType:    doc.ReportType,
 			Status:        doc.Status,
-			Severity:      pb.Severity(pb.Severity_value[doc.Severity]), // 文字列からenumに変換
+			Severity:      pb.Severity(pb.Severity_value[doc.Severity]),
 			CreatedAtUnix: doc.CreatedAt,
 		},
 		Success: true,
@@ -113,8 +108,6 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequest) (*pb.ListReportsResponse, error) {
 	log.Printf("Received ListReports request for PageSize: %d, PageToken: %s", req.GetPageSize(), req.GetPageToken())
 
-	// ページネーションとフィルタリングのロジックをESクライアントに渡す
-	// TODO: page_token の実装は後回し。今回は単純なページングのみ
 	docs, total, err := s.esClient.SearchReports(ctx, req.GetUserId(), int(req.GetPageSize()), req.GetPageToken())
 	if err != nil {
 		log.Printf("Error searching reports in ES: %v", err)
@@ -130,19 +123,16 @@ func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequ
 			ReportTitle:   doc.ReportTitle,
 			ReportType:    doc.ReportType,
 			Status:        doc.Status,
-			Severity:      pb.Severity(pb.Severity_value[doc.Severity]), // 文字列からenumに変換
+			Severity:      pb.Severity(pb.Severity_value[doc.Severity]),
 			CreatedAtUnix: doc.CreatedAt,
 		})
 	}
 
-	// TODO: next_page_token の生成ロジックを実装
 	nextPageToken := ""
 	if int(req.GetPageSize()) > 0 && len(docs) == int(req.GetPageSize()) {
-		// 簡単な例: 最後のレポートIDをトークンとする
-		// 実際には、より堅牢なページネーション戦略が必要 (例: search_after)
 		nextPageToken = docs[len(docs)-1].ReportID
 	}
-	_ = total // total は現時点では使用しないが、将来的に必要になる可能性
+	_ = total
 
 	return &pb.ListReportsResponse{
 		Reports:       reports,

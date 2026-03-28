@@ -1,0 +1,41 @@
+# Go
+bin/
+vendor/
+*.exe
+*.test
+*.out
+
+# Compiled trigger-service binary (if built locally)
+trigger-service/trigger-service
+
+# Rust
+api-gateway-service/target/
+
+# Dart / Flutter
+user-service/.dart_tool/
+user-service/build/
+user-service/.packages
+user-service/.pub-cache/
+user-service/pubspec.lock
+
+# Python
+ai-service/__pycache__/
+ai-service/.venv/
+ai-service/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+
+# Kubernetes secrets (never commit real secrets)
+*-secret.yaml
+secrets.yaml

@@ -1,0 +1,8 @@
+resources:
+  - ../../base
+
+secretGenerator:
+- name: genai-credentials
+  literals:
+  - OPENAI_API_KEY=sk-placeholder
+  - OPENAI_BASE_URL=http://ollama.default.svc.cluster.local:11434/v1

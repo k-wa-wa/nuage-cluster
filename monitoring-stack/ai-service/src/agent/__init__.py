@@ -48,6 +48,7 @@ class Agent:
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=os.getenv("OPENAI_BASE_URL"),
         )
+        self.model_name = os.getenv("AI_MODEL_NAME", "gemini-2.5-flash")
 
     async def build_system_prompt(
         self, *, mcp_clients: MCPClients
@@ -183,7 +184,7 @@ markdownをxmlタグ内に含める際には、不要なタブやスペースを
             print("====== New Iteration ======")
             print(messages)
             res_content = self.openai_client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model=self.model_name,
                 messages=messages
             ).choices[0].message.content
             messages: Iterable[ChatCompletionMessageParam] = [

@@ -1,12 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# resources:
-#   - mcp/mcp-chart.yaml
-#   - mcp/mcp-grafana.yaml
-#   - mcp/mcp-k8s.yaml
-#   - mcp/config.yaml
-#   - ai-service.yaml
+resources:
+  - mcp/config.yaml
+  - ai-service.yaml
+  - ollama.yaml
+  - postgres.yaml
+  - elasticsearch.yaml
+  - user-service.yaml
+  - report-service.yaml
+  - api-gateway-service.yaml
+  - trigger-service.yaml
+  - notification-service.yaml
+  - ingress.yaml
 
 helmCharts:
 - name: kube-prometheus-stack

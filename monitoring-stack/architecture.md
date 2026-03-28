@@ -1,25 +1,26 @@
-## アーキテクチャ: Istio + k8s RBAC + GraphQLベースのAI監視システム
+## アーキテクチャ: Cilium + k8s RBAC + GraphQLベースのAI監視システム
 
 ### コアコンセプト
 
 * **信頼の基点 (SoT):** アプリケーションの**権限（誰が何できるか）**は、Kubernetesの`ClusterRole`と`RoleBinding`によって**宣言的に定義**されます。これが唯一の信頼の基点です。
 * **認証と権限のキャッシュ:** ログイン時に**一度だけ**k8s RBACを`SubjectAccessReview` (SAR) で確認し、許可された権限リストを**JWTクレームに埋め込み**ます。
-* **実行とゼロスト:**
-    1.  **Istio**がシステム全体の入り口（Ingress）として動作し、**JWT署名検証（認証）**と、`APIGateway Service`への大枠のアクセス制御を行います。
-    2.  **APIGateway Service (GraphQL)**が、JWTの`permissions`クレームを**ロジックとして検証**し、フィールドレベルの高速な**認可**を実行します。
-    3.  内部サービス（gRPC）はロジックに専念し、Istio mTLSによって保護されます。
+* **実行とゼロトラスト:**
+    1.  **Cilium Ingress**がシステム全体の入り口として動作し、外部からのL7トラフィック制御を行います。
+    2.  **Cilium L7 Policy / BPF** により、サービス間の通信をカーネルレベルで効率的に制御・可視化します。
+    3.  **APIGateway Service (GraphQL)**が、JWTの`permissions`クレームを**ロジックとして検証**し、フィールドレベルの高速な**認可**を実行します。
+    4.  内部サービス（gRPC）はロジックに専念し、Ciliumによるネットワークポリシーによって保護されます。
 
 ---
 
 ## 主要コンポーネント
 
-1.  **Istio (Ingress Gateway + Service Mesh)**
-    * **役割:** システムの「神経網」兼「中央ゲート」。
+1.  **Cilium (Ingress + L7 Policy + Network Visibility)**
+    * **役割:** システムの「神経網」兼「高性能セキュリティゲート」。
     * **機能:**
-        * **ルーティング:** `APIGateway Service`へのHTTP/S (GraphQL) および内部gRPCのリクエストを転送します。
-        * **認証 (`RequestAuthentication`):** すべての着信リクエストのJWT署名を検証します。
-        * **認可 (`AuthorizationPolicy`):** `/graphql` エンドポイントへのアクセスを、**認証済みユーザーのみに限定**します。（フィールドレベルの認可は行わない）
-        * **mTLS:** サービス間のすべてのgRPC通信を自動的に暗号化し、ゼロストな内部ネットワークを実現します。
+        * **ルーティング:** `Cilium Ingress` を通じて `APIGateway Service` (GraphQL) および Frontend へのトラフィックを転送します。
+        * **eBPFベースの認可:** ホストのカーネルレベルで高速なパケットフィルタリングとL7ポリシー（HTTP等）を適用します。
+        * **可視化 (Hubble):** システム全体の通信フローをリアルタイムで監視・監査可能です。
+        * **ネットワークポリシー:** `CiliumNetworkPolicy` により、サービス間の通信を最小権限原則 (Least Privilege) で制限します。
 
 2.  **User Service (gRPC, 常駐)**
     * **役割:** 認証、「権限キャッシュJWT」の発行、およびユーザープロファイル管理。
@@ -116,10 +117,10 @@
 
 ## このアーキテクチャのメリット
 
-* **大袈裟（学習に最適）:** マイクロサービス、gRPC、GraphQL、Argo、Istio、k8s RBACの連携という、非常に高度でモダンなスタック全体を学習・検証できます。
+* **大袈裟（学習に最適）:** マイクロサービス、gRPC、GraphQL、Argo、Cilium、k8s RBACの連携という、非常に高度でモダンなスタック全体を学習・検証できます。
 * **宣言的な権限管理:** アプリの「誰が何できるか」を、コードではなくk8sのRBAC (YAML) で一元管理できます。
 * **効率的なデータ取得:** `APIGateway Service` (GraphQL) により、UIは必要なデータを一度のリクエストで効率的に取得できます。
-* **厳格なゼロスト:** IstioがJWT認証とmTLSによるサービス間暗号化を強制します。
+* **高性能なセキュリティ:** Cilium (eBPF) により、カーネルレベルでの高速なネットワーク制御と可視化を両立します。
 * **柔軟な認可:** `APIGateway Service`がGraphQLリゾルバ内でクレームを検証することで、フィールドレベルの柔軟な認可制御を実現します。
 * **スケーラビリティ:** 各コンポーネント（特に`AI Service`やArgoのWorkflow実行Pod）を個別にスケールできます。
 * **信頼性:** Argo Workflowが非同期処理、リトライ、可観測性を担保します。
