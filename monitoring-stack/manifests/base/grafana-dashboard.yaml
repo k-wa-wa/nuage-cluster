@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-summary-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  ai-summary-dashboard.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Graphics --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-reports"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "footer": {
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "title": "AI Summary Reports",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "infinity-reports"
+              },
+              "refId": "A",
+              "type": "uql",
+              "source": "url",
+              "url": "http://report-service:5052/api/v1/reports",
+              "url_options": { "data": "", "method": "GET" },
+              "parser": "backend",
+              "global_query_id": "",
+              "root_selector": "",
+              "columns": [],
+              "filters": [],
+              "uql": "parse-json | project \"Report ID\"=\"report_id\", \"Title\"=\"report_title\", \"Severity\"=\"severity\", \"Status\"=\"status\", \"Time\"=\"created_at\", \"Content\"=\"report_text\"",
+              "format": "table"
+            }
+          ]
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": [],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "AI Summary Dashboard",
+      "uid": "ai-summary-dashboard",
+      "version": 1,
+      "weekStart": ""
+    }

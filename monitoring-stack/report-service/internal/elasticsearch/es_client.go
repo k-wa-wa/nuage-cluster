@@ -44,7 +44,6 @@ type ReportDocument struct {
 	ReportID     string    `json:"report_id"`
 	ReportText   string    `json:"report_text"`
 	ReportVector []float32 `json:"report_vector"` // Geminiから取得したベクトル
-	UserID       string    `json:"user_id"`
 	ReportTitle  string    `json:"report_title"`
 	ReportType   string    `json:"report_type"`
 	Status       string    `json:"status"`
@@ -127,7 +126,7 @@ func (c *Client) GetReportByID(ctx context.Context, reportID string) (*ReportDoc
 }
 
 // SearchReports はレポートを検索し、ページネーションを適用
-func (c *Client) SearchReports(ctx context.Context, userID string, pageSize int, pageToken string) ([]ReportDocument, int, error) {
+func (c *Client) SearchReports(ctx context.Context, pageSize int, pageToken string) ([]ReportDocument, int, error) {
 	if pageSize <= 0 {
 		pageSize = 10 // デフォルトのページサイズ
 	}
@@ -137,14 +136,6 @@ func (c *Client) SearchReports(ctx context.Context, userID string, pageSize int,
 			{"created_at": "desc"}, // 最新のレポートから取得
 		},
 		"size": pageSize,
-	}
-
-	if userID != "" {
-		query["query"] = map[string]interface{}{
-			"term": map[string]interface{}{
-				"user_id.keyword": userID,
-			},
-		}
 	}
 
 	// pageToken (今回は report_id を想定) を使ったページネーション
@@ -204,3 +195,68 @@ func (c *Client) SearchReports(ctx context.Context, userID string, pageSize int,
 
 	return reports, esResponse.Hits.Total.Value, nil
 }
+
+// SearchSimilarReports は与えられたベクトルに類似するレポートを検索
+func (c *Client) SearchSimilarReports(ctx context.Context, vector []float32, limit int) ([]ReportDocument, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	// kNN 検索クエリ (ES 8.x 以降を想定)
+	query := map[string]interface{}{
+		"knn": map[string]interface{}{
+			"field":         "report_vector",
+			"query_vector":  vector,
+			"k":             limit,
+			"num_candidates": 100,
+		},
+		"_source": map[string]interface{}{
+			"excludes": []string{"report_vector"}, // ベクトルデータは重いので除外
+		},
+	}
+
+	queryJSON, err := json.Marshal(query)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/%s/_search", c.esURL, indexName)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(queryJSON))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if c.username != "" && c.password != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("ES returned error status: %s", resp.Status)
+	}
+
+	var esResponse struct {
+		Hits struct {
+			Hits []struct {
+				Source ReportDocument `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&esResponse); err != nil {
+		return nil, err
+	}
+
+	var reports []ReportDocument
+	for _, hit := range esResponse.Hits.Hits {
+		reports = append(reports, hit.Source)
+	}
+
+	return reports, nil
+}
+

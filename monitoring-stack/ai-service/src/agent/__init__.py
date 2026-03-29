@@ -1,33 +1,26 @@
 import os
 import json
+import re
+import asyncio
+import xml.etree.ElementTree as ET
 from typing import Iterable, TypedDict
-
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam, ChatCompletionSystemMessageParam,
     ChatCompletionAssistantMessageParam, ChatCompletionUserMessageParam
 )
 from dotenv import load_dotenv
-import xml.etree.ElementTree as ET
-from pydantic import BaseModel, ValidationError
-
-from agent.mcp_client import MCPClients
+from pydantic import BaseModel
 
 load_dotenv(".env")
 
-
-type ParseErrorMessage = str
-
-
 class _AgentResponse_McpToolCall_ToolCall(BaseModel):
     name: str
-    parameters: str  # JSON string
-
+    parameters: str
 
 class _AgentResponse_McpToolCall(BaseModel):
     name: str
     tool_call: _AgentResponse_McpToolCall_ToolCall
-
 
 class _AgentResponse(BaseModel):
     tasks: str
@@ -35,232 +28,144 @@ class _AgentResponse(BaseModel):
     mcp_tool_call: _AgentResponse_McpToolCall | None
     completed: str | None
 
-
 class AgentState(TypedDict):
     tasks: str
     thinking: str
     completed: str | None
 
-
 class Agent:
-    def __init__(self, openai_client: OpenAI | None = None):
-        self.openai_client = openai_client if openai_client else OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
+    def __init__(self, openai_client: AsyncOpenAI | None = None):
+        self.openai_client = openai_client if openai_client else AsyncOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY") or "dummy",
             base_url=os.getenv("OPENAI_BASE_URL"),
         )
-        self.model_name = os.getenv("AI_MODEL_NAME", "gemini-2.5-flash")
+        self.model_name = os.getenv("AI_MODEL_NAME", "llama3.2:3b")
 
-    async def build_system_prompt(
-        self, *, mcp_clients: MCPClients
-    ) -> Iterable[ChatCompletionSystemMessageParam]:
-        prompt = f"""
-あなたはkubernetesクラスターの監視をするエンジニアです。ユーザーの指示に従って、kubernetesクラスターの状態に関するレポートを生成してください。
-レポートは<completed></completed>タグ内に出力してください。
+    async def _format_mcp_tools(self, mcp_clients) -> str:
+        formatted = ""
+        for client in mcp_clients:
+            print(f"DEBUG: Listing tools for {client.name}...")
+            try:
+                tools_res = await asyncio.wait_for(client.list_tools(), timeout=10.0)
+                names = [t.name for t in tools_res.tools]
+                formatted += f"### Client: {client.name}\nTools: {', '.join(names)}\n"
+            except Exception as e:
+                print(f"DEBUG: Error listing tools for {client.name}: {e}")
+                formatted += f"### Client: {client.name} (Error: {e})\n"
+        return formatted
 
-# ツール使用
-あなたは必要に応じて以下のツールを使用して、kubernetesクラスターの状態を調査できます。
+    async def build_system_prompt(self, *, mcp_clients) -> Iterable[ChatCompletionSystemMessageParam]:
+        tools_summary = await self._format_mcp_tools(mcp_clients)
+        prompt = f"""あなたはK8s監視エンジニアです。以下の指示に従い、ツールを活用して状況を調査し、原因と対策を分かりやすい日本語のレポート（1000文字程度）にまとめて出力してください。
 
-## mcp_tool_call
-mcpクライアントを使用して、kubernetesクラスターの情報を取得します。
-- 存在しないツールは絶対に使用しないでください。
-- parametersはJSON形式で指定してください。
+# 重要ルールの遵守
+- 出力は必ず以下の形式に従ってください。フォーマット以外の文字を直接出力してはいけません。
+- 考える過程は必ず詳細に書き下してください。
+- 調査が完了しレポートを出力するときは <completed> タグ内に Markdown 形式で詳細なレポート（インシデントの発生状況、エラー内容、対応方針など）を記載してください。決して「最終レポート（完了時のみ）」といった単語だけを出力してはいけません。
 
-例:
+# 応答形式（必ずこの通りにすること）
+<tasks>
+[現在のタスク一覧]
+</tasks>
+<thinking>
+[あなたの考えと分析]
+</thinking>
+
+# ツールを使用する場合（必要に応じて）
 <mcp_tool_call>
-    <name>mcp_client_1</name>
-    <tool_call>
-        <name>list_tools</name>
-        <parameters>
-            {{
-                "param1": "value1",
-                "param2": "value2"
-            }}
-        </parameters>
-    </tool_call>
+  <name>クライアント名</name>
+  <tool_call>
+    <name>ツール名</name>
+    <parameters>{{"key": "value"}}</parameters>
+  </tool_call>
 </mcp_tool_call>
 
-以下のmcpクライアントが利用可能です。
+# 調査が完了し最終報告を行う場合
+<completed>
+# インシデント調査レポート
+## 概要
+(インシデントの概要を記載)
+## 詳細
+(ログやメトリクスの詳細を記載)
+## 対策
+(対応方針を記載)
+</completed>
 
-{[f"### {c.name}\n{await c.list_tools()}\n" for c in mcp_clients]}
-
-# ゴール
-与えられたタスクを明確なステップに分解し、反復的にタスクを実行します。
-
-1. ユーザーの指示を分析し、明確で達成可能なサブタスクに分解します。
-2. 必要に応じてツールを利用しながら、各サブタスクを順番に実行します。
-3. 各応答では<tasks></tasks>タグで現在のタスク状況を提供し、<thinking></thinking>タグで次に行うステップを説明してください。
-4. タスクを完了したら、<completed></completed>タグで完了を宣言します。
-
-# 出力形式
-必ずxml形式で出力してください。```等で囲わず、xmlタグのみで出力してください。
-tasksやcompletedタグ内の内容はmarkdown形式で記述してください。
-markdownをxmlタグ内に含める際には、不要なタブやスペースを入れないでください。
-
-## 例: ツール呼び出し
-
-<response>
-    <tasks>
-1. [ ] ノードとポッドの一覧を取得する
-2. [ ] 各ノードとポッドの状態を確認する
-3. [ ] 各ノードとポッドのリソース使用率を収集する
-4. [ ] ネットワークの状態を確認する
-5. [ ] イベントログを収集する
-6. [ ] レポートを生成する
-    </tasks>
-
-    <thinking>まず、ノードとポッドの一覧を取得します。</thinking>
-
-    <tool_call>
-        <name>execute_command</name>
-        <parameters>
-            <command>kubectl get nodes -o wide</command>
-        </parameters>
-    </tool_call>
-</response>
-
-## 例: タスク完了
-
-<response>
-    <tasks>
-省略
-    </tasks>
-    <thinking>全てのタスクが完了しました。レポートを生成します。</thinking>
-    <completed>
-# Kubernetesクラスターの状態レポート
-以下は、現在のKubernetesクラスターの状態に関する詳細なレポートです。
-省略
-    </completed>
-</response>
-
+利用可能ツール:
+{tools_summary}
 """
-        return [
-            {
-                "role": "system",
-                "content": prompt,
-            },
-        ]
+        return [{"role": "system", "content": prompt}]
 
-    def build_user_prompt(self, *, user_instructions: str) -> Iterable[ChatCompletionUserMessageParam]:
-        return [
-            {
-                "role": "user",
-                "content": f"{user_instructions}",
-            },
-        ]
+    def parse_response(self, response_str: str) -> tuple[_AgentResponse, str | None]:
+        t = re.search(r"<(?:tasks|task)>(.*?)</(?:tasks|task)>", response_str, re.DOTALL | re.IGNORECASE)
+        th = re.search(r"<(?:thinking|thought)>(.*?)</(?:thinking|thought)>", response_str, re.DOTALL | re.IGNORECASE)
+        c = re.search(r"<(?:completed|report|answer|final)>(.*?)</(?:completed|report|answer|final)>", response_str, re.DOTALL | re.IGNORECASE)
+        m_n = re.search(r"<name>(.*?)</name>", response_str, re.IGNORECASE)
+        t_n = re.search(r"<tool_call>.*?<name>(.*?)</name>", response_str, re.DOTALL | re.IGNORECASE)
+        t_p = re.search(r"<parameters>(.*?)</parameters>", response_str, re.DOTALL | re.IGNORECASE)
 
-    def parse_response(
-        self, response_str: str
-    ) -> tuple[_AgentResponse, None] | tuple[None, ParseErrorMessage]:
-        try:
-            response_xml = ET.fromstring(response_str)
-        except ET.ParseError as e:
-            return None, f"XMLのパースに失敗しました: {e}"
-
-        try:
-            agent_response = _AgentResponse.model_validate({
-                "tasks": response_xml.findtext("tasks"),
-                "thinking": response_xml.findtext("thinking"),
-                "mcp_tool_call": _AgentResponse_McpToolCall.model_validate({
-                    "name": response_xml.findtext("mcp_tool_call/name"),
-                    "tool_call": _AgentResponse_McpToolCall_ToolCall.model_validate({
-                        "name": response_xml.findtext("mcp_tool_call/tool_call/name"),
-                        "parameters": response_xml.findtext("mcp_tool_call/tool_call/parameters"),
-                    }),
-                }) if response_xml.find("mcp_tool_call") is not None else None,
-                "completed": response_xml.findtext("completed"),
-            })
-        except ValidationError as e:
-            return None, f"レスポンスの解析に失敗しました: {e}"
-
-        return agent_response, None
-
-    async def generate(self, *, user_instructions: str, mcp_clients: MCPClients):
-        messages: Iterable[ChatCompletionMessageParam] = [
-            *(await self.build_system_prompt(mcp_clients=mcp_clients)),
-            *self.build_user_prompt(user_instructions=user_instructions),
-        ]
-
-        for i in range(30):
-            print("====== New Iteration ======")
-            print(messages)
-            res_content = self.openai_client.chat.completions.create(
-                model=self.model_name,
-                messages=messages
-            ).choices[0].message.content
-            messages: Iterable[ChatCompletionMessageParam] = [
-                *messages,
-                ChatCompletionAssistantMessageParam(
-                    name="agent",
-                    role="assistant",
-                    content=res_content
+        mcp_tool_call = None
+        if m_n and t_n:
+            mcp_tool_call = _AgentResponse_McpToolCall(
+                name=m_n.group(1).strip(),
+                tool_call=_AgentResponse_McpToolCall_ToolCall(
+                    name=t_n.group(1).strip(),
+                    parameters=t_p.group(1).strip() if t_p else "{}"
                 )
-            ]
-            print(res_content)
-            agent_response, parse_error = self.parse_response(f"{res_content}")
-            if parse_error or not agent_response:
-                messages.append(ChatCompletionUserMessageParam(
-                    role="user",
-                    content=f"レスポンスの解析に失敗しました。正しく解析できるようエラーを修正してください。\n{parse_error}"
-                ))
-                continue
-
-            state = AgentState(
-                tasks=agent_response.tasks,
-                thinking=agent_response.thinking,
-                completed=agent_response.completed,
             )
-            yield state
 
-            if state["completed"] is not None:
-                print("====== Task Completed ======")
-                return
+        # フォールバック：タグがないが十分な長さがあれば完了とみなす
+        if not (t or th or c or mcp_tool_call) and len(response_str.strip()) > 100:
+            print("DEBUG: Fallback to completed due to no tags but long text")
+            return _AgentResponse(tasks="", thinking="", mcp_tool_call=None, completed=response_str.strip()), None
 
-            if mcp_tool_call := agent_response.mcp_tool_call:
-                try:
-                    mcp_client = mcp_clients.get_client(mcp_tool_call.name)
-                except KeyError:
-                    messages.append(ChatCompletionUserMessageParam(
-                        role="user",
-                        content=f"Invalid tool_name: '{mcp_tool_call.name}'"
-                    ))
+        if t or th or c or mcp_tool_call:
+            return _AgentResponse(
+                tasks=t.group(1).strip() if t else "",
+                thinking=th.group(1).strip() if th else "",
+                mcp_tool_call=mcp_tool_call,
+                completed=c.group(1).strip() if c else None
+            ), None
+        return None, "No valid tags found"
+
+    async def generate(self, *, user_instructions: str, mcp_clients):
+        messages = [
+            *(await self.build_system_prompt(mcp_clients=mcp_clients)),
+            {"role": "user", "content": user_instructions}
+        ]
+        for i in range(10):
+            print(f"====== Iteration {i+1} ======")
+            try:
+                res = await self.openai_client.chat.completions.create(
+                    model=self.model_name, 
+                    messages=messages,
+                    extra_body={"options": {"num_ctx": 8192}}
+                )
+                content = res.choices[0].message.content
+                print(f"DEBUG: AI Output length: {len(content)}")
+                messages.append({"role": "assistant", "content": content})
+                
+                resp, error = self.parse_response(content)
+                if error:
+                    print(f"DEBUG: Parse Error: {error}")
+                    messages.append({"role": "user", "content": "Error: Use tags <tasks>, <thinking>, <completed>."})
                     continue
-                tool_name = mcp_tool_call.tool_call.name
-                tool_parameters = mcp_tool_call.tool_call.parameters
-                try:
-                    tool_response = await mcp_client.call_tool(
-                        name=tool_name,
-                        arguments=json.loads(tool_parameters) if tool_parameters else {},
-                    )
-                    messages.append(ChatCompletionUserMessageParam(
-                        role="user",
-                        content=f"{tool_response}"
-                    ))
-                except Exception as e:
-                    messages.append(ChatCompletionUserMessageParam(
-                        role="user",
-                        content=f"Tool call failed: {e}"
-                    ))
 
+                yield AgentState(tasks=resp.tasks, thinking=resp.thinking, completed=resp.completed)
+                if resp.completed:
+                    print("DEBUG: Agent completed.")
+                    return
 
-if __name__ == '__main__':
-    import asyncio
-
-    async def main():
-        user_instructions = "ノード、ポッドの一覧とその状態、リソース使用率（CPU、メモリ、ディスク）、\
-            ネットワークの状態、イベントログなどを含むkubernetesクラスターの現在の状態に関する詳細なレポートを生成してください。"
-
-        async with MCPClients(
-            mcp_clients_config={
-                "mcp_client_1": {
-                    "transport": "streamable_http",
-                    "url": "http://mcp-k8s.default.svc.cluster.local/mcp"
-                },
-            }
-        ) as mcp_clients:
-            async for state in Agent().generate(
-                user_instructions=user_instructions,
-                mcp_clients=mcp_clients
-            ):
-                print(state)
-
-    asyncio.run(main())
+                if tc := resp.mcp_tool_call:
+                    print(f"DEBUG: Executing tool {tc.name}:{tc.tool_call.name}")
+                    try:
+                        c = mcp_clients.get_client(tc.name)
+                        r = await asyncio.wait_for(c.call_tool(name=tc.tool_call.name, arguments=json.loads(tc.tool_call.parameters)), timeout=20.0)
+                        messages.append({"role": "user", "content": f"Result: {r}"})
+                    except Exception as e:
+                        print(f"DEBUG: Tool Error: {e}")
+                        messages.append({"role": "user", "content": f"Error: {e}"})
+            except Exception as e:
+                print(f"DEBUG: API Error: {e}")
+                yield AgentState(tasks="", thinking="", completed=f"Error: {e}")
+                return

@@ -1,5 +1,22 @@
 grafana:
+  plugins:
+    - yesoreyeram-infinity-datasource
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: default
+  additionalDataSources:
+    - name: infinity-reports
+      uid: infinity-reports
+      type: yesoreyeram-infinity-datasource
+      access: proxy
+      url: http://report-service:5052
+      jsonData:
+        datasource_mode: "advanced"
+
+

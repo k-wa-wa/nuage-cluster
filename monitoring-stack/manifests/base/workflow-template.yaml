@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ai-alert-analyzer
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+    - name: instructions
+      value: "mcp-grafana, mcp-k8sを使用してKubernetesクラスターの状態を調査し、日本語でレポートを生成してください。"
+  
+  templates:
+  - name: main
+    inputs:
+      parameters:
+      - name: instructions
+    steps:
+    - - name: analyze-and-report
+        template: job-node
+        arguments:
+          parameters:
+          - name: instructions
+            value: "{{inputs.parameters.instructions}}"
+
+  - name: job-node
+    inputs:
+      parameters:
+      - name: instructions
+    container:
+      image: job-generate-report:latest
+      command: ["/app/bin"]
+      imagePullPolicy: Never
+      env:
+      - name: AI_SERVICE_ADDRESS
+        value: ai-service:80
+      - name: REPORT_SERVICE_ADDRESS
+        value: report-service:80
+      - name: INSTRUCTIONS
+        value: "{{inputs.parameters.instructions}}"

@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"log"
+	"net/http"
+	"strings"
 	"time"
 
 	"report-service/internal/elasticsearch"
@@ -30,10 +33,11 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 	log.Printf("Received CreateReport request for ID: %s", req.GetReportId())
 
 	// 1. ベクトル化 (OpenAI互換 embedding API 呼び出し)
+	// Embedding が失敗してもレポートの保存自体は継続する
 	vector, err := s.embeddingClient.GenerateEmbedding(ctx, req.GetReportBody())
 	if err != nil {
-		log.Printf("Error generating embedding: %v", err)
-		return &pb.CreateReportResponse{Success: false, Message: "Embedding failed"}, err
+		log.Printf("Warning: failed to generate embedding: %v. Continuing without vector.", err)
+		vector = nil
 	}
 
 	// サーバー側で created_at_unix を設定
@@ -44,7 +48,6 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		ReportID:     req.GetReportId(),
 		ReportText:   req.GetReportBody(),
 		ReportVector: vector,
-		UserID:       req.GetUserId(),
 		ReportTitle:  req.GetReportTitle(),
 		ReportType:   req.GetReportType(),
 		Status:       req.GetStatus(),
@@ -63,7 +66,6 @@ func (s *ReportService) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		Report: &pb.Report{
 			ReportId:      req.GetReportId(),
 			ReportBody:    req.GetReportBody(),
-			UserId:        req.GetUserId(),
 			ReportTitle:   req.GetReportTitle(),
 			ReportType:    req.GetReportType(),
 			Status:        req.GetStatus(),
@@ -92,7 +94,6 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 		Report: &pb.Report{
 			ReportId:      doc.ReportID,
 			ReportBody:    doc.ReportText,
-			UserId:        doc.UserID,
 			ReportTitle:   doc.ReportTitle,
 			ReportType:    doc.ReportType,
 			Status:        doc.Status,
@@ -108,7 +109,7 @@ func (s *ReportService) GetReport(ctx context.Context, req *pb.GetReportRequest)
 func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequest) (*pb.ListReportsResponse, error) {
 	log.Printf("Received ListReports request for PageSize: %d, PageToken: %s", req.GetPageSize(), req.GetPageToken())
 
-	docs, total, err := s.esClient.SearchReports(ctx, req.GetUserId(), int(req.GetPageSize()), req.GetPageToken())
+	docs, total, err := s.esClient.SearchReports(ctx, int(req.GetPageSize()), req.GetPageToken())
 	if err != nil {
 		log.Printf("Error searching reports in ES: %v", err)
 		return &pb.ListReportsResponse{Success: false, Message: "Failed to list reports"}, err
@@ -119,7 +120,6 @@ func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequ
 		reports = append(reports, &pb.Report{
 			ReportId:      doc.ReportID,
 			ReportBody:    doc.ReportText,
-			UserId:        doc.UserID,
 			ReportTitle:   doc.ReportTitle,
 			ReportType:    doc.ReportType,
 			Status:        doc.Status,
@@ -141,3 +141,54 @@ func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequ
 		Message:       "Reports listed successfully",
 	}, nil
 }
+
+// HandleListReports は一覧取得のための HTTP ハンドラ
+func (s *ReportService) HandleListReports(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	// 簡易的に全件取得するように、page_size=100を想定
+	docs, _, err := s.esClient.SearchReports(ctx, 100, "")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(docs)
+}
+
+// HandleGetReportDetails は詳細と類似レポート取得のための HTTP ハンドラ
+func (s *ReportService) HandleGetReportDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	// URL末尾の ID を取得 (/api/v1/reports/report-123/details)
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+	reportID := parts[4]
+
+	doc, err := s.esClient.GetReportByID(ctx, reportID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if doc == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// 類似レポートの検索 (ベクトルを使用)
+	similar, err := s.esClient.SearchSimilarReports(ctx, doc.ReportVector, 5)
+	if err != nil {
+		log.Printf("Warning: failed to fetch similar reports: %v", err)
+	}
+
+	response := map[string]interface{}{
+		"report":         doc,
+		"similar_issues": similar,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+

@@ -40,6 +40,8 @@ spec:
               key: OPENAI_BASE_URL
         - name: AI_MODEL_NAME
           value: "llama3.2:3b"
+        - name: PYTHONUNBUFFERED
+          value: "1"
         volumeMounts:
         - name: mcp-clients-config
           mountPath: "/config"

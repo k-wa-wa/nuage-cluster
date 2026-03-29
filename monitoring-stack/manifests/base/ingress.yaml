@@ -7,20 +7,6 @@ spec:
   rules:
   - http:
       paths:
-      - path: /graphql
-        pathType: Prefix
-        backend:
-          service:
-            name: api-gateway-service
-            port:
-              number: 80
-      - path: /user
-        pathType: Prefix
-        backend:
-          service:
-            name: user-service
-            port:
-              number: 80
       - path: /grafana
         pathType: Prefix
         backend:

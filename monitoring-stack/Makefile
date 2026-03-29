@@ -75,8 +75,6 @@ up: cluster prefetch-cilium setup-cilium setup-infra build load deploy
 build:
 	@echo "Building ai-service..."
 	docker build -t ai-service:latest ./ai-service
-	@echo "Building api-gateway-service..."
-	docker build -t api-gateway-service:latest ./api-gateway-service
 	@echo "Building job-service..."
 	docker build --build-arg TARGET=generate_report -t job-generate-report:latest ./job-service
 	@echo "Building notification-service..."
@@ -85,20 +83,13 @@ build:
 	docker build --build-arg TARGET=server -t report-service:latest ./report-service
 	@echo "Building trigger-service..."
 	docker build -t trigger-service:latest ./trigger-service
-	@echo "Building ui..."
-	docker build -t ui:latest ./ui
-	@echo "Building user-service..."
-	docker build -t user-service:latest ./user-service
 
 load:
 	kind load docker-image ai-service:latest --name $(CLUSTER_NAME)
-	kind load docker-image api-gateway-service:latest --name $(CLUSTER_NAME)
 	kind load docker-image job-generate-report:latest --name $(CLUSTER_NAME)
 	kind load docker-image notification-service:latest --name $(CLUSTER_NAME)
 	kind load docker-image report-service:latest --name $(CLUSTER_NAME)
 	kind load docker-image trigger-service:latest --name $(CLUSTER_NAME)
-	kind load docker-image ui:latest --name $(CLUSTER_NAME)
-	kind load docker-image user-service:latest --name $(CLUSTER_NAME)
 	@echo "Loading ollama into kind..."; \
 	docker pull ollama/ollama:latest && kind load docker-image ollama/ollama:latest --name $(CLUSTER_NAME)
 

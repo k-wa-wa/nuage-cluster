@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-error-generator
+  labels:
+    app: test-error-generator
+spec:
+  template:
+    metadata:
+      labels:
+        app: test-error-generator
+    spec:
+      containers:
+      - name: generator
+        image: busybox
+        command: ["sh", "-c", "for i in $(seq 1 100); do echo \"ERROR: something went wrong in iteration $i at $(date)\"; sleep 1; done; exit 1"]
+      restartPolicy: Never
+  backoffLimit: 0

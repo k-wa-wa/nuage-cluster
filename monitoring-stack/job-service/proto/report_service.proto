@@ -15,7 +15,6 @@ service ReportService {
 message CreateReportRequest {
   string report_id = 1;         // レポートを一意に識別するID
   string report_body = 2;       // レポート本文 (ベクトル化の対象)
-  string user_id = 3;           // 作成者/通知先ユーザーID
   string report_title = 4;
   string report_type = 5;
   string status = 6;
@@ -33,7 +32,6 @@ enum Severity {
 message Report {
   string report_id = 1;
   string report_body = 2;
-  string user_id = 3;
   string report_title = 4;
   string report_type = 5;
   string status = 6;
@@ -58,7 +56,6 @@ message GetReportResponse {
 }
 
 message ListReportsRequest {
-  string user_id = 1;
   int32 page_size = 2;
   string page_token = 3;
 }

@@ -19,10 +19,13 @@ spec:
         image: report-service:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 5051
+        - name: grpc
+          containerPort: 5051
+        - name: http
+          containerPort: 5052
         env:
         - name: ES_URL
-          value: http://elasticsearch:9200
+          value: http://elasticsearch-master:9200
         - name: ES_USERNAME
           value: ""
         - name: ES_PASSWORD
@@ -40,7 +43,12 @@ spec:
   selector:
     app: report-service
   ports:
-  - protocol: TCP
+  - name: grpc
+    protocol: TCP
     port: 80
     targetPort: 5051
+  - name: http
+    protocol: TCP
+    port: 5052
+    targetPort: 5052
   type: ClusterIP

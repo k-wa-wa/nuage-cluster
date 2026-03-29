@@ -9,10 +9,10 @@ import (
 	"os"
 	"time"
 
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
@@ -22,7 +22,8 @@ const (
 )
 
 var (
-	k8sClient            *kubernetes.Clientset
+	dynamicClient        dynamic.Interface
+	gvr                  = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
 	aiServiceAddress     = getEnv("AI_SERVICE_ADDRESS", "ai-service:80")
 	reportServiceAddress = getEnv("REPORT_SERVICE_ADDRESS", "report-service:80")
 	defaultInstructions  = getEnv("DEFAULT_INSTRUCTIONS", "mcp-grafana, mcp-k8sを使用してKubernetesクラスターの状態（ノード、Pod、リソース使用率、イベント）を調査し、日本語でレポートを生成してください。")
@@ -40,9 +41,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get in-cluster config: %v", err)
 	}
-	k8sClient, err = kubernetes.NewForConfig(cfg)
+	dynamicClient, err = dynamic.NewForConfig(cfg)
 	if err != nil {
-		log.Fatalf("failed to create k8s client: %v", err)
+		log.Fatalf("failed to create dynamic client: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -64,7 +65,6 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 // TriggerRequest is the payload for POST /trigger.
 type TriggerRequest struct {
 	Instructions string `json:"instructions"`
-	UserID       string `json:"user_id"`
 }
 
 // AlertmanagerWebhook matches the Alertmanager webhook payload format.
@@ -82,14 +82,14 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 		req.Instructions = defaultInstructions
 	}
 
-	jobName, err := createReportJob(r.Context(), req.Instructions)
+	wfName, err := submitArgoWorkflow(r.Context(), req.Instructions)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to create job: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to submit workflow: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"job": jobName, "status": "submitted"})
+	json.NewEncoder(w).Encode(map[string]string{"workflow": wfName, "status": "submitted"})
 }
 
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -106,47 +106,38 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jobName, err := createReportJob(r.Context(), instructions)
+	wfName, err := submitArgoWorkflow(r.Context(), instructions)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to create job: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to submit workflow: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"job": jobName, "status": "submitted"})
+	json.NewEncoder(w).Encode(map[string]string{"workflow": wfName, "status": "submitted"})
 }
 
-func createReportJob(ctx context.Context, instructions string) (string, error) {
-	jobName := fmt.Sprintf("report-job-%d", time.Now().UnixNano())
-	ttl := int32(3600)
-	backoffLimit := int32(0)
-	pullNever := corev1.PullNever
-
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: namespace,
-			Labels:    map[string]string{"app": "report-job", "triggered-by": "trigger-service"},
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit:            &backoffLimit,
-			TTLSecondsAfterFinished: &ttl,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "report-job"},
+func submitArgoWorkflow(ctx context.Context, instructions string) (string, error) {
+	wfName := fmt.Sprintf("ai-report-%d", time.Now().UnixNano()/1e6)
+	
+	workflow := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "argoproj.io/v1alpha1",
+			"kind":       "Workflow",
+			"metadata": map[string]interface{}{
+				"name": wfName,
+				"labels": map[string]interface{}{
+					"triggered-by": "trigger-service",
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers: []corev1.Container{
-						{
-							Name:            "generate-report",
-							Image:           "job-generate-report:latest",
-							ImagePullPolicy: pullNever,
-							Env: []corev1.EnvVar{
-								{Name: "AI_SERVICE_ADDRESS", Value: aiServiceAddress},
-								{Name: "REPORT_SERVICE_ADDRESS", Value: reportServiceAddress},
-								{Name: "INSTRUCTIONS", Value: instructions},
-							},
+			},
+			"spec": map[string]interface{}{
+				"workflowTemplateRef": map[string]interface{}{
+					"name": "ai-alert-analyzer",
+				},
+				"arguments": map[string]interface{}{
+					"parameters": []interface{}{
+						map[string]interface{}{
+							"name":  "instructions",
+							"value": instructions,
 						},
 					},
 				},
@@ -154,11 +145,11 @@ func createReportJob(ctx context.Context, instructions string) (string, error) {
 		},
 	}
 
-	created, err := k8sClient.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
+	result, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(ctx, workflow, metav1.CreateOptions{})
 	if err != nil {
-		return "", fmt.Errorf("create k8s job: %w", err)
+		return "", fmt.Errorf("failed to create workflow: %w", err)
 	}
 
-	log.Printf("created job %s", created.Name)
-	return created.Name, nil
+	log.Printf("Submitted Argo Workflow: %s", result.GetName())
+	return result.GetName(), nil
 }

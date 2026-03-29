@@ -39,7 +39,6 @@ func GenerateReportFromInstructions(instructions string) (*aipb.Report, error) {
 
 	// レポート生成リクエストの作成
 	req := &aipb.GenerateReportRequest{
-		UserId:       "system",
 		Instructions: instructions,
 		Data:         "",
 		Context:      "",
@@ -111,7 +110,6 @@ func main() {
 	createReportReq := &reportpb.CreateReportRequest{
 		ReportId:    fmt.Sprintf("report-%d", time.Now().UnixNano()),
 		ReportBody:  aiReport.GetBody(),
-		UserId:      "system", // AIサービスのUserIdを使用
 		ReportTitle: aiReport.GetTitle(),
 		ReportType:  "job",
 		Status:      "completed",

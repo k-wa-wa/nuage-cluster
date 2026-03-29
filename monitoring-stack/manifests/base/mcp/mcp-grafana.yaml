@@ -18,7 +18,7 @@ spec:
         image: mcp/grafana:latest
         env:
           - name: GRAFANA_URL
-            value: http://prometheus-grafana.default.svc.cluster.local
+            value: http://kube-prometheus-stack-grafana.default.svc.cluster.local
         args:
           - "-t"
           - "streamable-http"

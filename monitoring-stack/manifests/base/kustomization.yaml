@@ -3,15 +3,17 @@ kind: Kustomization
 
 resources:
   - mcp/config.yaml
+  - mcp/mcp-k8s.yaml
+  - mcp/mcp-grafana.yaml
+  - mcp/mcp-chart.yaml
   - ai-service.yaml
   - ollama.yaml
-  - postgres.yaml
   - elasticsearch.yaml
-  - user-service.yaml
   - report-service.yaml
-  - api-gateway-service.yaml
   - trigger-service.yaml
   - notification-service.yaml
+  - workflow-template.yaml
+  - grafana-dashboard.yaml
   - ingress.yaml
 
 helmCharts:
