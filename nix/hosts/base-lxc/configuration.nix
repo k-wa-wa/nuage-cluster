@@ -5,4 +5,7 @@
     (modulesPath + "/virtualisation/proxmox-lxc.nix")
     ../../modules/common.nix
   ];
+
+  services.cloud-init.enable = true;
+  services.cloud-init.network.enable = true;
 }
