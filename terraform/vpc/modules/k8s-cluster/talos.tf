@@ -2,7 +2,7 @@ data "terraform_remote_state" "pve_output" {
   backend = "local"
 
   config = {
-    path = "${path.module}/../../../pve/terraform.tfstate"
+    path = "${path.module}/../../../pve/hosts/terraform.tfstate"
   }
 }
 
