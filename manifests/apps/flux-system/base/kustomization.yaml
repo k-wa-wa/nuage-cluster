@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
 - namespace.yaml
+- flux.yaml
+- https://raw.githubusercontent.com/flux-iac/tofu-controller/main/docs/release.yaml
 
 helmCharts:
 - name: flux-operator
