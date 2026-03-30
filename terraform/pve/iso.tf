@@ -50,28 +50,23 @@ resource "proxmox_virtual_environment_download_file" "lxc_ubuntu_2404" {
 
 ###
 
-resource "proxmox_virtual_environment_file" "nixos_image" {
+resource "proxmox_virtual_environment_download_file" "nixos_base_lxc" {
   for_each     = toset(["nuc-1", "nuc-2", "server-1"])
   content_type = "vztmpl"
   datastore_id = "local"
   node_name    = each.key
 
-  source_file {
-    file_name = "nixos-base.tar.xz"
-    path     = "../../nix/result/tarball/nixos-system-x86_64-linux.tar.xz"
-    checksum = filesha256("../../nix/result/tarball/nixos-system-x86_64-linux.tar.xz")
-  }
+  file_name = "nixos-base-lxc.tar.xz"
+  url       = "https://github.com/k-wa-wa/nuage-cluster/releases/download/nix-images-lxc/base-lxc.tar.xz"
+  overwrite = true
 }
-
-resource "proxmox_virtual_environment_file" "nixos_base_vm" {
-  for_each = toset(["nuc-1", "nuc-2", "server-1"])
-
+resource "proxmox_virtual_environment_download_file" "nixos_base_vm" {
+  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
   content_type = "iso"
   datastore_id = "local"
   node_name    = each.key
 
-  source_file {
-    path     = "../../nix/result-base-vm/nixos.iso"
-    checksum = filesha256("../../nix/result-base-vm/nixos.iso")
-  }
+  file_name = "nixos-base-vm.iso"
+  url       = "https://github.com/k-wa-wa/nuage-cluster/releases/download/nix-images-vm/base-vm.iso"
+  overwrite = true
 }
