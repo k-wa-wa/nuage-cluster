@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- namespace.yaml
 - flux.yaml
 - https://raw.githubusercontent.com/flux-iac/tofu-controller/main/docs/release.yaml
 
