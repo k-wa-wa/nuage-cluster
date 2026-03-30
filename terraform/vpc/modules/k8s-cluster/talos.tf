@@ -169,7 +169,7 @@ resource "local_file" "kubeconfig" {
     "https://${var.cluster_config.cluster.endpoint}:6443",
     "https://${[for k, v in var.cluster_config.nodes : v.management_ip_address if v.type == "controlplane"][0]}:6443"
   )
-  filename = "${path.module}/kubeconfig-${var.cluster_config.cluster.name}"
+  filename = "${path.root}/kubeconfig-${var.cluster_config.cluster.name}"
 }
 /*
 resource "local_file" "talosconfig" {
