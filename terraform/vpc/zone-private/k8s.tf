@@ -54,7 +54,7 @@ module "k8s-cluster" {
         vm_id                 = 206
         node_name             = "nuc-1"
         cores                 = 4
-        memory                = 2048
+        memory                = 8192
         bridge                = proxmox_virtual_environment_sdn_vnet.main_services.id
         management_ip_address = "192.168.5.196"
         ip_address            = "10.20.1.16"
@@ -66,7 +66,7 @@ module "k8s-cluster" {
         vm_id                 = 207
         node_name             = "nuc-2"
         cores                 = 4
-        memory                = 2048
+        memory                = 8192
         bridge                = proxmox_virtual_environment_sdn_vnet.main_services.id
         management_ip_address = "192.168.5.197"
         ip_address            = "10.20.1.17"
@@ -77,7 +77,7 @@ module "k8s-cluster" {
         type                  = "worker"
         vm_id                 = 208
         node_name             = "server-1"
-        cores                 = 4
+        cores                 = 8
         memory                = 16384
         bridge                = proxmox_virtual_environment_sdn_vnet.main_services.id
         management_ip_address = "192.168.5.198"
