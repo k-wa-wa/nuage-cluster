@@ -30,7 +30,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 
   operating_system {
-    template_file_id = "local:vztmpl/nixos-base.tar.xz"
+    template_file_id = "local:vztmpl/nixos-base-lxc.tar.xz"
     type             = "nixos"
   }
 
