@@ -49,4 +49,33 @@ EOF
 
 done
 
+
+# ==========================================
+# 鍵が固定のホスト TODO: 要整理
+# ==========================================
+NODES=(
+    "lb-1:192.168.5.201:nixos"
+    "lb-2:192.168.5.202:nixos"
+    "lb-3:192.168.5.203:nixos"
+)
+for entry in "${NODES[@]}"; do
+    # ホスト名、IP、ユーザーを分割
+    host="${entry%%:*}"
+    rest="${entry#*:}"
+    ip="${rest%%:*}"
+    user="${rest#*:}"
+
+    cat <<EOF >> "$CONF_FILE"
+Host $host $ip
+    HostName $ip
+    User $user
+    IdentityFile $KEY_DIR/../id_ed25519_nixos
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+
+EOF
+
+done
+
 echo "✅ SSH config updated: $CONF_FILE"
