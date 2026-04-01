@@ -7,6 +7,6 @@
   ];
 
   services.cloud-init.enable = true;
-  # services.cloud-init.network.enable = true;
+  services.cloud-init.network.enable = false;
   # systemd.network.networks."10-cloud-init-eth0".enable = false;
 }
