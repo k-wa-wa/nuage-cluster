@@ -13,15 +13,24 @@ module "lb-1" {
     memory    = 2048
     network_devices = [
       {
+        // 10-cloud-init-eth0.network というファイルが勝手に作成され、eth0 は ip が正しく設定されない
+        // そのため、eth0 は dummy に設定する
         name   = "eth0"
+        bridge = "dummy"
+      },
+      {
+        name   = "eth1"
         bridge = "prvmain"
       },
       {
-        name = "eth1"
+        name = "eth2"
         bridge = "vmbr0"
       }
     ]
     ip_config = [
+      {
+        address = "dhcp"
+      },
       {
         address = "10.20.1.21/24"
         gateway = "10.20.1.1"
@@ -50,14 +59,21 @@ module "lb-2" {
     network_devices = [
       {
         name   = "eth0"
+        bridge = "dummy"
+      },
+      {
+        name   = "eth1"
         bridge = "prvmain"
       },
       {
-        name = "eth1"
+        name = "eth2"
         bridge = "vmbr0"
       }
     ]
     ip_config = [
+      {
+        address = "dhcp"
+      },
       {
         address = "10.20.1.22/24"
         gateway = "10.20.1.1"
@@ -86,14 +102,21 @@ module "lb-3" {
     network_devices = [
       {
         name   = "eth0"
+        bridge = "dummy"
+      },
+      {
+        name   = "eth1"
         bridge = "prvmain"
       },
       {
-        name = "eth1"
+        name = "eth2"
         bridge = "vmbr0"
       }
     ]
     ip_config = [
+      {
+        address = "dhcp"
+      },
       {
         address = "10.20.1.23/24"
         gateway = "10.20.1.1"
