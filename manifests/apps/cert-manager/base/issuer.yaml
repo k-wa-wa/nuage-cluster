@@ -20,9 +20,11 @@ spec:
   subject:
     organizations:
       - cert-manager
-  commonName: nuage
+  commonName: cluster.wpc
   dnsNames:
-  - "*.nuage"
+  - "cluster.wpc"
+  - "*.cluster.wpc"
+  - "*.nuage.cluster.wpc"
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
