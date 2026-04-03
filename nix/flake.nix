@@ -95,6 +95,29 @@
           deployment = {
             targetHost = "192.168.5.201";
             targetUser = "nixos";
+            tags = [ "loadbalancer" ];
+          };
+          imports = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/loadbalancer/configuration.nix
+          ];
+        };
+        lb-2 = {
+          deployment = {
+            targetHost = "192.168.5.202";
+            targetUser = "nixos";
+            tags = [ "loadbalancer" ];
+          };
+          imports = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/loadbalancer/configuration.nix
+          ];
+        };
+        lb-3 = {
+          deployment = {
+            targetHost = "192.168.5.203";
+            targetUser = "nixos";
+            tags = [ "loadbalancer" ];
           };
           imports = [
             ./hosts/base-lxc/configuration.nix

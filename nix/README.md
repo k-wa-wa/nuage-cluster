@@ -2,8 +2,8 @@
 ```
 nix profile install nixpkgs#colmena
 
-
-nix build ./nix#base-vm -o ./nix/result
+# loadbalancer
+colmena apply -f nix/hive.nix --on @loadbalancer
 
 # dev-server
 nix run github:numtide/nixos-anywhere -- \
