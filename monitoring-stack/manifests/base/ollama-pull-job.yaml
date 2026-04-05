@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-pull-models
+  annotations:
+    # 再実行する場合: kubectl delete job ollama-pull-models && kubectl apply -f manifests/base/ollama-pull-job.yaml
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      # Ollamaが起動するまで待機
+      - name: wait-for-ollama
+        image: busybox:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Ollama to be ready..."
+          until wget -q -O- http://ollama:11434/api/tags > /dev/null 2>&1; do
+            echo "Ollama not ready yet, retrying in 5s..."
+            sleep 5
+          done
+          echo "Ollama is ready."
+      containers:
+      # gemma4:12b をpull (大きいので時間がかかる)
+      - name: pull-gemma4
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Pulling gemma4:12b..."
+          curl -f -X POST http://ollama:11434/api/pull \
+            -H "Content-Type: application/json" \
+            -d '{"name": "gemma4", "stream": false}' \
+            --max-time 3600
+          echo "Pulling nomic-embed-text..."
+          curl -f -X POST http://ollama:11434/api/pull \
+            -H "Content-Type: application/json" \
+            -d '{"name": "nomic-embed-text", "stream": false}' \
+            --max-time 600
+          echo "All models pulled successfully."

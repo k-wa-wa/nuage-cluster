@@ -1,10 +1,13 @@
 grafana:
   plugins:
     - yesoreyeram-infinity-datasource
+    - marcusolsson-dynamictext-panel
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
+    panels:
+      disable_sanitize_html: true
   sidecar:
     dashboards:
       enabled: true
@@ -18,5 +21,3 @@ grafana:
       url: http://report-service:5052
       jsonData:
         datasource_mode: "advanced"
-
-

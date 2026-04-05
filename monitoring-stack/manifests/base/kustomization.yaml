@@ -8,6 +8,7 @@ resources:
   - mcp/mcp-chart.yaml
   - ai-service.yaml
   - ollama.yaml
+  - ollama-pull-job.yaml
   - elasticsearch.yaml
   - report-service.yaml
   - trigger-service.yaml

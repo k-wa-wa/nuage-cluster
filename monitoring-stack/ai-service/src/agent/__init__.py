@@ -56,42 +56,113 @@ class Agent:
 
     async def build_system_prompt(self, *, mcp_clients) -> Iterable[ChatCompletionSystemMessageParam]:
         tools_summary = await self._format_mcp_tools(mcp_clients)
-        prompt = f"""あなたはK8s監視エンジニアです。以下の指示に従い、ツールを活用して状況を調査し、原因と対策を分かりやすい日本語のレポート（1000文字程度）にまとめて出力してください。
+        prompt = f"""あなたはKubernetes SREです。MCPツールを使ってクラスターを調査し、インシデントレポートを作成します。
 
-# 重要ルールの遵守
-- 出力は必ず以下の形式に従ってください。フォーマット以外の文字を直接出力してはいけません。
-- 考える過程は必ず詳細に書き下してください。
-- 調査が完了しレポートを出力するときは <completed> タグ内に Markdown 形式で詳細なレポート（インシデントの発生状況、エラー内容、対応方針など）を記載してください。決して「最終レポート（完了時のみ）」といった単語だけを出力してはいけません。
+⚠️ 絶対ルール: すべての出力は「日本語」で書くこと。韓国語・英語・中国語は一切使用禁止。
 
-# 応答形式（必ずこの通りにすること）
+# 重要ルール (Important Rules)
+- 出力は必ず以下のXMLタグ形式に従ってください。タグ外に文字を出力しないこと。
+- 調査は複数ステップで行い、各ステップで <thinking> に分析を記録すること。
+- 最終レポートは必ず <completed> タグ内に **Markdown形式** で出力すること。
+- <completed> タグを省略してはいけません。調査完了時は必ず使うこと。
+- レポートは以下のテンプレートを必ず埋めること。セクションを省略しないこと。
+- 言語は必ず日本語。韓国語・中国語・英語は不可。
+
+# 応答形式
+
 <tasks>
-[現在のタスク一覧]
+[現在実行中・予定のタスク一覧]
 </tasks>
 <thinking>
-[あなたの考えと分析]
+[調査の思考過程・ログ/メトリクスの分析・仮説と検証]
 </thinking>
 
-# ツールを使用する場合（必要に応じて）
+# ツール使用時
 <mcp_tool_call>
-  <name>クライアント名</name>
+  <name>クライアント名 (mcp-k8s または mcp-grafana)</name>
   <tool_call>
     <name>ツール名</name>
     <parameters>{{"key": "value"}}</parameters>
   </tool_call>
 </mcp_tool_call>
 
-# 調査が完了し最終報告を行う場合
+# 調査完了・最終レポート出力時（必ずこのMarkdownテンプレートを使うこと）
 <completed>
-# インシデント調査レポート
-## 概要
-(インシデントの概要を記載)
-## 詳細
-(ログやメトリクスの詳細を記載)
-## 対策
-(対応方針を記載)
+# 🚨 インシデント調査レポート
+
+> **重大度:** [CRITICAL / HIGH / MEDIUM / LOW]　|　**ステータス:** [Active / Resolved / Investigating]　|　**発生時刻:** [YYYY-MM-DD HH:MM JST]
+
+---
+
+## 📋 概要
+
+[インシデントの内容を2〜3文で簡潔に説明する。何が起きたか、影響範囲、現在の状態を記載]
+
+---
+
+## ⏰ タイムライン
+
+| 時刻 | イベント |
+|------|---------|
+| HH:MM | [最初に検知されたイベント] |
+| HH:MM | [調査・対応の経緯] |
+| HH:MM | [現在の状態] |
+
+---
+
+## 🔬 根本原因分析
+
+[調査によって特定した根本原因を詳細に説明する。ログの証拠、エラーメッセージ、設定ミスなどを引用して裏付けること]
+
+```
+[関連するログやエラーメッセージをここに貼る]
+```
+
+---
+
+## 📦 影響サービス・リソース
+
+| サービス/リソース | 影響内容 | 重大度 |
+|----------------|---------|--------|
+| [名前] | [影響の説明] | 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW |
+
+---
+
+## 🔄 インシデントフロー
+
+```mermaid
+graph TD
+    A[🚨 アラート発生] --> B[根本原因]
+    B --> C[影響範囲]
+    C --> D[対応アクション]
+    D --> E[解決/監視継続]
+```
+
+---
+
+## ✅ 解決手順
+
+1. **即時対応**: [今すぐ実行すべきこと]
+2. **調査確認**: [確認すべきリソース・ログ]
+3. **恒久対策**: [再発防止のための設定変更・改善策]
+
+```bash
+# 参考コマンド
+kubectl get pods -n <namespace>
+kubectl describe pod <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous
+```
+
+---
+
+## 🔗 参考情報
+
+- **関連ダッシュボード**: [GrafanaダッシュボードURL or パネル名]
+- **関連アラート**: [AlertmanagerルールID]
+- **ドキュメント**: [関連するRunbook or ドキュメントリンク]
 </completed>
 
-利用可能ツール:
+# 利用可能ツール
 {tools_summary}
 """
         return [{"role": "system", "content": prompt}]
@@ -117,38 +188,64 @@ class Agent:
         # フォールバック：タグがないが十分な長さがあれば完了とみなす
         if not (t or th or c or mcp_tool_call) and len(response_str.strip()) > 100:
             print("DEBUG: Fallback to completed due to no tags but long text")
-            return _AgentResponse(tasks="", thinking="", mcp_tool_call=None, completed=response_str.strip()), None
+            fallback_text = response_str.strip()
+            # 先頭の <completed> タグを除去
+            fallback_text = re.sub(r"^\s*<(?:completed|report|answer|final)>\s*", "", fallback_text, flags=re.IGNORECASE)
+            # 末尾の </completed> タグを除去
+            fallback_text = re.sub(r"\s*</(?:completed|report|answer|final)>\s*$", "", fallback_text, flags=re.IGNORECASE)
+            return _AgentResponse(tasks="", thinking="", mcp_tool_call=None, completed=fallback_text.strip()), None
 
         if t or th or c or mcp_tool_call:
+            completed_text = c.group(1).strip() if c else None
+            # モデルが <completed> を二重に出力した場合の後処理
+            if completed_text:
+                inner = re.search(r"<(?:completed|report|answer|final)>(.*?)(?:</(?:completed|report|answer|final)>|$)", completed_text, re.DOTALL | re.IGNORECASE)
+                if inner:
+                    completed_text = inner.group(1).strip()
             return _AgentResponse(
                 tasks=t.group(1).strip() if t else "",
                 thinking=th.group(1).strip() if th else "",
                 mcp_tool_call=mcp_tool_call,
-                completed=c.group(1).strip() if c else None
+                completed=completed_text
             ), None
         return None, "No valid tags found"
 
     async def generate(self, *, user_instructions: str, mcp_clients):
+        MAX_ITER = 10
+        FORCE_COMPLETE_AT = MAX_ITER - 2  # この反復から完了を強制
         messages = [
             *(await self.build_system_prompt(mcp_clients=mcp_clients)),
             {"role": "user", "content": user_instructions}
         ]
-        for i in range(10):
+        for i in range(MAX_ITER):
             print(f"====== Iteration {i+1} ======")
+            # 最後の2回は強制的に完了するよう指示（日本語のみ）
+            if i >= FORCE_COMPLETE_AT:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "⚠️ 残り反復回数が少ないため、今すぐ最終レポートを出力してください。\n"
+                        "・ツール呼び出しは禁止です。\n"
+                        "・これまでに収集した情報に基づいて <completed> タグ内に最終レポートを書いてください。\n"
+                        "・言語は必ず日本語のみ。韓国語・英語は絶対に使わないこと。\n"
+                        "・<completed> タグの中身は下のテンプレート通りに書いてください。\n\n"
+                        "<completed>\n# 🚨 インシデント調査レポート\n> **重大度:** HIGH | **ステータス:** Investigating\n\n## 📋 概要\n（ここに概要）\n\n## ⏰ タイムライン\n| 時刻 | イベント |\n|------|----------|\n| - | - |\n\n## 🔬 根本原因分析\n（ここに原因）\n\n## 📦 影響サービス\n（リスト）\n\n## ✅ 解決手順\n1. （手順1）\n</completed>"
+                    )
+                })
             try:
                 res = await self.openai_client.chat.completions.create(
-                    model=self.model_name, 
+                    model=self.model_name,
                     messages=messages,
-                    extra_body={"options": {"num_ctx": 8192}}
+                    extra_body={"options": {"num_ctx": 16384}}
                 )
                 content = res.choices[0].message.content
                 print(f"DEBUG: AI Output length: {len(content)}")
                 messages.append({"role": "assistant", "content": content})
-                
+
                 resp, error = self.parse_response(content)
                 if error:
                     print(f"DEBUG: Parse Error: {error}")
-                    messages.append({"role": "user", "content": "Error: Use tags <tasks>, <thinking>, <completed>."})
+                    messages.append({"role": "user", "content": "エラー: <tasks>, <thinking>, <completed> タグを使ってください。"})
                     continue
 
                 yield AgentState(tasks=resp.tasks, thinking=resp.thinking, completed=resp.completed)
@@ -164,7 +261,7 @@ class Agent:
                         messages.append({"role": "user", "content": f"Result: {r}"})
                     except Exception as e:
                         print(f"DEBUG: Tool Error: {e}")
-                        messages.append({"role": "user", "content": f"Error: {e}"})
+                        messages.append({"role": "user", "content": f"ツールエラー: {e}"})
             except Exception as e:
                 print(f"DEBUG: API Error: {e}")
                 yield AgentState(tasks="", thinking="", completed=f"Error: {e}")

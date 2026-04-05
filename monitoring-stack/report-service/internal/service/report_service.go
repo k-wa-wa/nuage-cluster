@@ -143,20 +143,50 @@ func (s *ReportService) ListReports(ctx context.Context, req *pb.ListReportsRequ
 }
 
 // HandleListReports は一覧取得のための HTTP ハンドラ
+// Grafana Infinity datasource (変数クエリ含む) から参照される
 func (s *ReportService) HandleListReports(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	// 簡易的に全件取得するように、page_size=100を想定
 	docs, _, err := s.esClient.SearchReports(ctx, 100, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Grafana Infinity UQL で扱いやすいフラット構造に整形
+	type ReportSummary struct {
+		ReportID    string `json:"report_id"`
+		ReportTitle string `json:"report_title"`
+		Severity    string `json:"severity"`
+		Status      string `json:"status"`
+		CreatedAt   int64  `json:"created_at"`
+		// 本文プレビュー (先頭200文字)
+		Preview string `json:"preview"`
+	}
+
+	summaries := make([]ReportSummary, 0, len(docs))
+	for _, doc := range docs {
+		preview := doc.ReportText
+		if len([]rune(preview)) > 200 {
+			runes := []rune(preview)
+			preview = string(runes[:200]) + "..."
+		}
+		summaries = append(summaries, ReportSummary{
+			ReportID:    doc.ReportID,
+			ReportTitle: doc.ReportTitle,
+			Severity:    doc.Severity,
+			Status:      doc.Status,
+			CreatedAt:   doc.CreatedAt,
+			Preview:     preview,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(docs)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(summaries)
 }
 
 // HandleGetReportDetails は詳細と類似レポート取得のための HTTP ハンドラ
+// Grafana Infinity + Business Text パネルから直接使えるようフラットなフィールドも返す
 func (s *ReportService) HandleGetReportDetails(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	// URL末尾の ID を取得 (/api/v1/reports/report-123/details)
@@ -183,12 +213,40 @@ func (s *ReportService) HandleGetReportDetails(w http.ResponseWriter, r *http.Re
 		log.Printf("Warning: failed to fetch similar reports: %v", err)
 	}
 
+	// Grafana Business Text パネルで直接使えるようフラットフィールドも含める
+	type SimilarIssue struct {
+		ReportID    string `json:"report_id"`
+		ReportTitle string `json:"report_title"`
+		Severity    string `json:"severity"`
+		CreatedAt   int64  `json:"created_at"`
+	}
+	var similarIssues []SimilarIssue
+	for _, s := range similar {
+		if s.ReportID != doc.ReportID {
+			similarIssues = append(similarIssues, SimilarIssue{
+				ReportID:    s.ReportID,
+				ReportTitle: s.ReportTitle,
+				Severity:    s.Severity,
+				CreatedAt:   s.CreatedAt,
+			})
+		}
+	}
+
 	response := map[string]interface{}{
-		"report":         doc,
-		"similar_issues": similar,
+		// フラットフィールド (Grafana Infinity + Business Text 用)
+		"report_id":      doc.ReportID,
+		"report_title":   doc.ReportTitle,
+		"report_text":    doc.ReportText,
+		"severity":       doc.Severity,
+		"status":         doc.Status,
+		"created_at":     doc.CreatedAt,
+		"similar_issues": similarIssues,
+		// ネストされた元データ (後方互換性)
+		"report": doc,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(response)
 }
 

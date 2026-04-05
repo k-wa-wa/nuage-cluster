@@ -1,8 +1,39 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-workflow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-workflow-role
+rules:
+# argoexec がPodにステータスをパッチするために必要
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "patch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-workflow-binding
+subjects:
+- kind: ServiceAccount
+  name: argo-workflow
+roleRef:
+  kind: Role
+  name: argo-workflow-role
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
   name: ai-alert-analyzer
 spec:
+  serviceAccountName: argo-workflow
   entrypoint: main
   arguments:
     parameters:

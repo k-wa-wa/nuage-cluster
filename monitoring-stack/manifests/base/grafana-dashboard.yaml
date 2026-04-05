@@ -11,10 +11,7 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": {
-              "type": "grafana",
-              "uid": "-- Graphics --"
-            },
+            "datasource": { "type": "grafana", "uid": "-- Grafana --" },
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -31,53 +28,95 @@ data:
       "liveNow": false,
       "panels": [
         {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 10,
+          "title": "📋 インシデント一覧",
+          "type": "row"
+        },
+        {
           "datasource": {
             "type": "yesoreyeram-infinity-datasource",
             "uid": "infinity-reports"
           },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
+              "color": { "mode": "thresholds" },
               "custom": {
                 "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
-                },
-                "inspect": false
+                "cellOptions": { "type": "auto" },
+                "inspect": false,
+                "minWidth": 50
               },
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 2 },
+                  { "color": "orange", "value": 3 },
+                  { "color": "red", "value": 4 }
                 ]
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Severity" },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": { "type": "color-text" }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      { "options": { "CRITICAL": { "color": "red", "index": 0 } }, "type": "value" },
+                      { "options": { "HIGH": { "color": "orange", "index": 1 } }, "type": "value" },
+                      { "options": { "MEDIUM": { "color": "yellow", "index": 2 } }, "type": "value" },
+                      { "options": { "LOW": { "color": "green", "index": 3 } }, "type": "value" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Time" },
+                "properties": [
+                  { "id": "unit", "value": "dateTimeFromNow" },
+                  { "id": "custom.width", "value": 150 }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Report ID" },
+                "properties": [
+                  { "id": "custom.width", "value": 200 },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": false,
+                        "title": "詳細を表示",
+                        "url": "/grafana/d/ai-summary-dashboard?var-report_id=${__value.raw}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Preview" },
+                "properties": [
+                  { "id": "custom.width", "value": 400 }
+                ]
+              }
+            ]
           },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 0
-          },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 1 },
           "id": 1,
           "options": {
-            "footer": {
-              "fields": "",
-              "reducer": [
-                "sum"
-              ],
-              "show": false
-            },
-            "showHeader": true
+            "footer": { "fields": "", "reducer": ["sum"], "show": false },
+            "showHeader": true,
+            "sortBy": [{ "desc": true, "displayName": "Time" }]
           },
-          "title": "AI Summary Reports",
+          "title": "AI インシデントレポート一覧",
           "type": "table",
           "targets": [
             {
@@ -88,33 +127,170 @@ data:
               "refId": "A",
               "type": "uql",
               "source": "url",
-              "url": "http://report-service:5052/api/v1/reports",
-              "url_options": { "data": "", "method": "GET" },
+              "url": "/api/v1/reports",
+              "url_options": { "method": "GET" },
               "parser": "backend",
-              "global_query_id": "",
+              "uql": "parse-json | project \"Report ID\"=\"report_id\", \"Title\"=\"report_title\", \"Severity\"=\"severity\", \"Status\"=\"status\", \"Time\"=\"created_at\", \"Preview\"=\"preview\"",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 },
+          "id": 11,
+          "title": "🔍 レポート詳細",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-reports"
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": { "h": 30, "w": 24, "x": 0, "y": 12 },
+          "id": 2,
+          "options": {
+            "content": "{{#each data}}{{{report_text}}}{{/each}}",
+            "defaultContent": "<div style=\"text-align:center; padding: 40px; color: #888;\"><h2>📋 レポートを選択してください</h2><p>上のドロップダウン Report からレポートIDを選択すると詳細が表示されます。</p></div>",
+            "contentPartials": [],
+            "editors": [],
+            "renderMode": "markdown",
+            "externalStyles": [],
+            "styles": "/* インシデントレポート スタイル */\n.panel-content h1 { color: #e05252; border-bottom: 2px solid #e05252; padding-bottom: 8px; }\n.panel-content h2 { color: #73b0f4; margin-top: 24px; }\n.panel-content h3 { color: #aaaaaa; }\n.panel-content table { border-collapse: collapse; width: 100%; margin: 12px 0; }\n.panel-content th { background: #333; color: #fff; padding: 8px 12px; text-align: left; }\n.panel-content td { padding: 6px 12px; border-bottom: 1px solid #444; }\n.panel-content tr:hover td { background: #2a2a2a; }\n.panel-content code { background: #1e1e1e; padding: 2px 6px; border-radius: 3px; font-family: monospace; }\n.panel-content pre { background: #1e1e1e; padding: 12px; border-radius: 6px; overflow-x: auto; border-left: 3px solid #73b0f4; }\n.panel-content blockquote { border-left: 4px solid #73b0f4; margin: 0; padding: 8px 16px; background: #1a2332; border-radius: 0 4px 4px 0; }",
+            "javascript": "// Mermaid ダイアグラムの初期化\nconst initMermaid = () => {\n  if (typeof mermaid !== 'undefined') {\n    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });\n    mermaid.run({ querySelector: '.mermaid, [class*=language-mermaid]' });\n  } else {\n    // Mermaid が未ロードの場合はCDNから読み込む\n    const script = document.createElement('script');\n    script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';\n    script.onload = () => {\n      mermaid.initialize({ startOnLoad: false, theme: 'dark' });\n      mermaid.run();\n    };\n    document.head.appendChild(script);\n  }\n};\nsetTimeout(initMermaid, 200);"
+          },
+          "title": "インシデント詳細レポート — ${report_id}",
+          "type": "marcusolsson-dynamictext-panel",
+          "targets": [
+            {
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "infinity-reports"
+              },
+              "refId": "A",
+              "type": "json",
+              "source": "url",
+              "url": "/api/v1/reports/${report_id}/details",
+              "url_options": { "method": "GET" },
+              "parser": "backend",
               "root_selector": "",
               "columns": [],
-              "filters": [],
-              "uql": "parse-json | project \"Report ID\"=\"report_id\", \"Title\"=\"report_title\", \"Severity\"=\"severity\", \"Status\"=\"status\", \"Time\"=\"created_at\", \"Content\"=\"report_text\"",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+          "id": 12,
+          "title": "🔗 類似インシデント",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-reports"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "custom": {
+                "align": "auto",
+                "cellOptions": { "type": "auto" }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Report ID" },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": false,
+                        "title": "詳細を表示",
+                        "url": "/grafana/d/ai-summary-dashboard?var-report_id=${__value.raw}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 43 },
+          "id": 3,
+          "options": {
+            "footer": { "fields": "", "reducer": ["sum"], "show": false },
+            "showHeader": true
+          },
+          "title": "類似インシデント (ベクトル検索)",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "infinity-reports"
+              },
+              "refId": "A",
+              "type": "uql",
+              "source": "url",
+              "url": "/api/v1/reports/${report_id}/details",
+              "url_options": { "method": "GET" },
+              "parser": "backend",
+              "uql": "parse-json | jsonata \"similar_issues\" | project \"Report ID\"=\"report_id\", \"Title\"=\"report_title\", \"Severity\"=\"severity\", \"Time\"=\"created_at\"",
               "format": "table"
             }
           ]
         }
       ],
-      "refresh": "5s",
+      "refresh": "30s",
       "schemaVersion": 39,
-      "tags": [],
+      "tags": ["ai", "incidents", "monitoring"],
       "templating": {
-        "list": []
+        "list": [
+          {
+            "current": {},
+            "datasource": {
+              "type": "yesoreyeram-infinity-datasource",
+              "uid": "infinity-reports"
+            },
+            "definition": "",
+            "hide": 0,
+            "includeAll": false,
+            "multi": false,
+            "name": "report_id",
+            "options": [],
+            "query": {
+              "refId": "A",
+              "type": "uql",
+              "source": "url",
+              "url": "/api/v1/reports",
+              "url_options": { "method": "GET" },
+              "parser": "backend",
+              "uql": "parse-json | order by \"created_at\" desc | project \"Value\"=\"report_id\", \"Text\"=strcat(\"[\", \"severity\", \"] \", \"report_title\")",
+              "format": "table"
+            },
+            "refresh": 2,
+            "regex": "",
+            "sort": 0,
+            "type": "query",
+            "label": "Report"
+          }
+        ]
       },
-      "time": {
-        "from": "now-6h",
-        "to": "now"
-      },
+      "time": { "from": "now-7d", "to": "now" },
       "timepicker": {},
-      "timezone": "",
-      "title": "AI Summary Dashboard",
+      "timezone": "browser",
+      "title": "AI Incident Reports",
       "uid": "ai-summary-dashboard",
-      "version": 1,
+      "version": 2,
       "weekStart": ""
     }

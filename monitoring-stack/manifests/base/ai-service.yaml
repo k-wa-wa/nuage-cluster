@@ -39,7 +39,7 @@ spec:
               name: genai-credentials
               key: OPENAI_BASE_URL
         - name: AI_MODEL_NAME
-          value: "llama3.2:3b"
+          value: "gemma4"
         - name: PYTHONUNBUFFERED
           value: "1"
         volumeMounts:
