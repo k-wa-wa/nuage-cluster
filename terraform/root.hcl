@@ -6,6 +6,23 @@ generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
   contents  = <<EOF
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = "0.94.0"
+    }
+    talos = {
+      source  = "siderolabs/talos"
+      version = "0.10.1"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5"
+    }
+  }
+}
+
 provider "proxmox" {
   insecure = true
   endpoint = "${local.common_secrets.inputs.proxmox_endpoint}"
@@ -27,17 +44,8 @@ provider "proxmox" {
   }
 }
 
-terraform {
-  required_providers {
-    proxmox = {
-      source  = "bpg/proxmox"
-      version = "0.94.0"
-    }
-    talos = {
-      source  = "siderolabs/talos"
-      version = "0.10.1"
-    }
-  }
+provider "cloudflare" {
+  api_token = "${local.common_secrets.inputs.cloudflare_api_token}"
 }
 EOF
 }
