@@ -9,7 +9,7 @@ resource "random_password" "tunnel_secret" {
 
 resource "cloudflare_zero_trust_tunnel_cloudflared" "zero_trust_tunnel" {
   account_id = "${var.cloudflare_account_id}"
-  name = "tunnel-waai"
+  name = "tunnel-common"
   config_src = "cloudflare"
   tunnel_secret = base64encode(random_password.tunnel_secret.result)
 }
@@ -17,14 +17,14 @@ resource "cloudflare_zero_trust_tunnel_cloudflared" "zero_trust_tunnel" {
 resource "cloudflare_zero_trust_tunnel_cloudflared_route" "network_route" {
   account_id = var.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.zero_trust_tunnel.id
-  network    = "192.168.5.0/24"
+  network    = "10.0.0.0/8"
 }
 
 
 resource "proxmox_virtual_environment_file" "cloud_config" {
   content_type = "snippets"
   datastore_id = "local"
-  node_name    = "nuc-1" # あなたの環境のノード名に合わせてください
+  node_name    = "nuc-1"
 
   source_raw {
     file_name = "cloudflared-vm-config.yaml"
@@ -76,7 +76,7 @@ resource "proxmox_virtual_environment_vm" "cloudflared_vm" {
     datastore_id = "local-lvm"
     file_id      = "local:iso/noble-server-cloudimg-amd64.img"
     interface    = "scsi0"
-    size         = 10 # 最小限でOK
+    size         = 5
   }
 
   initialization {
@@ -87,20 +87,13 @@ resource "proxmox_virtual_environment_vm" "cloudflared_vm" {
       }
     }
 
-    user_account {
-      username = "ubuntu"
-      keys     = [trimspace(data.local_file.id_rsa_pub.content)]
-    }
-
-    # ここで作成した snippet を紐付け
     user_data_file_id = proxmox_virtual_environment_file.cloud_config.id
   }
 
   network_device {
     bridge = "vmbr0"
   }
-}
-
-data "local_file" "id_rsa_pub" {
-  filename = "../../../.ssh/keys/dev-server.pub"
+  network_device {
+    bridge = "waaimain"
+  }
 }
