@@ -29,7 +29,10 @@ resource "proxmox_virtual_environment_container" "lxc" {
     }
 
     user_account {
-      keys     = [trimspace(data.local_file.id_rsa_pub.content)]
+      keys = concat(
+        [trimspace(data.local_file.id_rsa_pub.content)],
+        [for k in var.lxc_config.ssh_public_keys : trimspace(k)]
+      )
     }
   }
 

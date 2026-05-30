@@ -17,6 +17,7 @@ variable "lxc_config" {
     usb = optional(list(object({
       host = string
     })))
-    protection = optional(bool)
+    protection      = optional(bool)
+    ssh_public_keys = optional(list(string), [])
   })
 }
