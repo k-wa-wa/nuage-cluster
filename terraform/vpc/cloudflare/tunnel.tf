@@ -86,6 +86,11 @@ resource "proxmox_virtual_environment_vm" "cloudflared_vm" {
         gateway = "192.168.5.1"
       }
     }
+    ip_config {
+      ipv4 {
+        address = "10.30.1.244/24"
+      }
+    }
 
     user_data_file_id = proxmox_virtual_environment_file.cloud_config.id
   }
