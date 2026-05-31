@@ -1,0 +1,44 @@
+apiVersion: virtualenvironmentnetworklinuxbridge.proxmoxbpg.m.crossplane.io/v1alpha1
+kind: EnvironmentNetworkLinuxBridge
+metadata:
+  name: nuc-1-nw-dummy
+  annotations:
+    crossplane.io/external-name: "nuc-1/nw-dummy"
+spec:
+  forProvider:
+    nodeName: "nuc-1"
+    name: "dummy"
+    address: "192.168.99.21/24"
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
+---
+apiVersion: virtualenvironmentnetworklinuxbridge.proxmoxbpg.m.crossplane.io/v1alpha1
+kind: EnvironmentNetworkLinuxBridge
+metadata:
+  name: nuc-2-nw-dummy
+  annotations:
+    crossplane.io/external-name: "nuc-2/nw-dummy"
+spec:
+  forProvider:
+    nodeName: "nuc-2"
+    name: "dummy"
+    address: "192.168.99.22/24"
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
+---
+apiVersion: virtualenvironmentnetworklinuxbridge.proxmoxbpg.m.crossplane.io/v1alpha1
+kind: EnvironmentNetworkLinuxBridge
+metadata:
+  name: server-1-nw-dummy
+  annotations:
+    crossplane.io/external-name: "server-1/nw-dummy"
+spec:
+  forProvider:
+    nodeName: "server-1"
+    name: "dummy"
+    address: "192.168.99.25/24"
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
