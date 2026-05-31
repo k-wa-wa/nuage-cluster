@@ -1,0 +1,33 @@
+apiVersion: virtualenvironmentvm.proxmoxbpg.m.crossplane.io/v1alpha1
+kind: EnvironmentVM
+metadata:
+  name: private-controlplane-01
+  annotations:
+    crossplane.io/external-name: "308"
+spec:
+  forProvider:
+    vmId: 308
+    name: "private-controlplane-01"
+    nodeName: "nuc-1"
+    cpu:
+      - cores: 2
+        type: "host"
+    memory:
+      - dedicated: 2048
+        floating: 2048
+    disk:
+      - datastoreId: "local-zfs"
+        fileId: "local:iso/talos-iscsi.iso"
+        interface: "scsi0"
+        size: 20
+      - datastoreId: "local-zfs"
+        interface: "scsi1"
+        size: 20
+    networkDevice:
+      - bridge: "prvmain"
+      - bridge: "vmbr0"
+    initialization:
+      - userDataFileId: "local:snippets/talos-201.yaml"
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig

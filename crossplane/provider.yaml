@@ -1,0 +1,36 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-proxmox-bpg
+spec:
+  package: xpkg.upbound.io/valkiriaaquaticamendi/provider-proxmox-bpg:v1.0.0
+  runtimeConfigRef:
+    name: provider-proxmox-bpg-runtime
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-proxmox-bpg-runtime
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              env:
+                - name: HOME
+                  value: /tmp
+---
+apiVersion: proxmoxbpg.m.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: proxmox-creds
+      key: credentials
