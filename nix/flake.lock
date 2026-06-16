@@ -125,11 +125,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1781618965,
-        "narHash": "sha256-LK3/mtFSfTQJ6p9LN2RzngMp9ndW6H0j5LBBieL2FxE=",
+        "lastModified": 1781619723,
+        "narHash": "sha256-shDjR5mGJGMAxceoBgjrG2sWxfubqSvWMLJP/JPA/Oo=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "52c79998d3480f9205cb2a97d3b55b03a9e9a40e",
+        "rev": "1b4d7da7b67532f049ea0c311c3f3d969107b8e2",
         "type": "github"
       },
       "original": {
