@@ -64,8 +64,6 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 10
       volumes:
-        - name: data
-          emptyDir: {}
         - name: config
           configMap:
             name: elasticsearch-config
@@ -74,6 +72,14 @@ spec:
                 path: elasticsearch.yml
         - name: plugins
           emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
 ---
 apiVersion: v1
 kind: Service
