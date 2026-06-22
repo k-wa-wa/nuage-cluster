@@ -4,4 +4,16 @@ kind: Kustomization
 namespace: pechka
 
 resources:
-- ../../base
+  - ../../base
+  - minio/
+  - secrets/api-secret.yaml
+  - secrets/benthos-secret.yaml
+  - secrets/mongodb-secret.yaml
+  - secrets/minio-secret.yaml
+  - secrets/pechka-postgres.yaml
+
+images:
+  - name: ghcr.io/k-wa-wa/pechka-api
+    newTag: "8bcd82c"
+  - name: ghcr.io/k-wa-wa/pechka-frontend
+    newTag: "8bcd82c"
