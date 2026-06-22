@@ -12,3 +12,4 @@ resources:
   - mongodb.yaml
   - elasticsearch.yaml
   - ingress.yaml
+  - minio-service.yaml

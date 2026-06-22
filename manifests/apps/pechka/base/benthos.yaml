@@ -8,7 +8,7 @@ data:
     input:
       generate:
         mapping: 'root = {}'
-        interval: 2s
+        interval: 5m
 
     pipeline:
       processors:
@@ -40,7 +40,8 @@ data:
                       ), '[]'::json
                   ) AS variants
               FROM contents c
-              LEFT JOIN discs d ON c.disc_id = d.id;
+              LEFT JOIN discs d ON c.disc_id = d.id
+              WHERE c.updated_at > NOW() - INTERVAL '10 minutes';
         - mapping: |
             root = if this.type() == "object" {
               if this.short_id != null {
