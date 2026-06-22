@@ -1,25 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+namespace: pechka
+
 resources:
-- pvc.yaml
-- file-server/
-- ingress.yaml
-
-- https://github.com/argoproj/argo-workflows/releases/download/v3.6.2/quick-start-minimal.yaml
-- file-server-workflow/
-
-patches:
-  - target:
-      kind: Deployment
-      name: argo-server
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/args
-        value:
-          - server
-          - --secure=false
-          - --auth-mode=server
-      - op: replace
-        path: /spec/template/spec/containers/0/readinessProbe/httpGet/scheme
-        value: HTTP
+  - namespace.yaml
+  - api.yaml
+  - frontend.yaml
+  - nginx.yaml
+  - benthos.yaml
+  - mongodb.yaml
+  - elasticsearch.yaml
+  - ingress.yaml
+  - minio-service.yaml

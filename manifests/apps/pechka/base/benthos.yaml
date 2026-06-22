@@ -1,0 +1,192 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: benthos-streams
+  namespace: pechka
+data:
+  contents.yaml: |
+    input:
+      generate:
+        mapping: 'root = {}'
+        interval: 5m
+
+    pipeline:
+      processors:
+        - sql_raw:
+            driver: postgres
+            dsn: "${POSTGRES_DSN}"
+            query: |
+              SELECT
+                  c.short_id,
+                  c.content_type,
+                  c.title,
+                  c.description,
+                  c.duration_seconds,
+                  c.is_360,
+                  array_to_json(c.tags) AS tags,
+                  c.status,
+                  c.published_at,
+                  c.updated_at,
+                  d.label AS disc_label,
+                  COALESCE(
+                      (SELECT json_agg(json_build_object(
+                          'variant_type', v.variant_type,
+                          'hls_key', v.hls_key,
+                          'bandwidth', v.bandwidth,
+                          'resolution', v.resolution
+                       ))
+                       FROM video_variants v
+                       WHERE v.content_id = c.id
+                      ), '[]'::json
+                  ) AS variants
+              FROM contents c
+              LEFT JOIN discs d ON c.disc_id = d.id
+              WHERE c.updated_at > NOW() - INTERVAL '10 minutes';
+        - mapping: |
+            root = if this.type() == "object" {
+              if this.short_id != null {
+                [{
+                  "short_id": this.short_id,
+                  "content_type": this.content_type,
+                  "title": this.title,
+                  "description": this.description,
+                  "duration_seconds": this.duration_seconds,
+                  "is_360": this.is_360,
+                  "tags": this.tags.parse_json().catch(this.tags),
+                  "status": this.status,
+                  "published_at": this.published_at,
+                  "updated_at": this.updated_at,
+                  "disc_label": this.disc_label,
+                  "variants": this.variants.parse_json().catch(this.variants)
+                }]
+              } else { deleted() }
+            } else if this.type() == "array" {
+              if this.length() == 0 {
+                deleted()
+              } else {
+                this.map_each(item -> {
+                  "short_id": item.short_id,
+                  "content_type": item.content_type,
+                  "title": item.title,
+                  "description": item.description,
+                  "duration_seconds": item.duration_seconds,
+                  "is_360": item.is_360,
+                  "tags": item.tags.parse_json().catch(item.tags),
+                  "status": item.status,
+                  "published_at": item.published_at,
+                  "updated_at": item.updated_at,
+                  "disc_label": item.disc_label,
+                  "variants": item.variants.parse_json().catch(item.variants)
+                })
+              }
+            } else {
+              deleted()
+            }
+        - unarchive:
+            format: json_array
+
+    output:
+      fallback:
+        - retry:
+            max_retries: 5
+            backoff:
+              initial_interval: 1s
+              max_interval: 30s
+              max_elapsed_time: 5m
+            output:
+              broker:
+                pattern: fan_out
+                outputs:
+                  - mongodb:
+                      url: "${MONGO_URL}"
+                      database: pechka
+                      collection: contents
+                      operation: update-one
+                      upsert: true
+                      filter_map: 'root = {"_id": this.short_id}'
+                      document_map: 'root = {"$set": this}'
+                      write_concern:
+                        w: "1"
+                  - elasticsearch:
+                      urls:
+                        - "${ELASTICSEARCH_URL}"
+                      index: pechka_contents
+                      id: '${! json("short_id") }'
+                      action: index
+        - stdout: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: benthos
+  namespace: pechka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: benthos
+  template:
+    metadata:
+      labels:
+        app: benthos
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4195"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: wait-for-mongodb
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z mongodb 27017; do echo "waiting for mongodb..."; sleep 2; done']
+      containers:
+        - name: benthos
+          image: ghcr.io/redpanda-data/connect:latest
+          args:
+            - streams
+            - /streams/contents.yaml
+          envFrom:
+            - secretRef:
+                name: benthos-secret
+          ports:
+            - containerPort: 4195
+              name: http
+          volumeMounts:
+            - name: streams
+              mountPath: /streams
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 4195
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4195
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: streams
+          configMap:
+            name: benthos-streams
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: benthos
+  namespace: pechka
+spec:
+  selector:
+    app: benthos
+  ports:
+    - port: 4195
+      targetPort: 4195
+      name: http
