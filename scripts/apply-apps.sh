@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-export KUBECONFIG=./terraform/vpc/zone-private/kubeconfig-private
+export KUBECONFIG=terraform/vpc/zone-private-k8s/kubeconfig
 
 #################### CNI ####################
 kustomize build --enable-helm manifests/common | kubectl apply -f -

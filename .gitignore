@@ -9,3 +9,6 @@ charts/
 .terraform/
 *.tfstate*
 terraform.tfvars
+
+talosconfig
+kubeconfig
