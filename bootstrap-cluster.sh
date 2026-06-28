@@ -11,9 +11,9 @@ export PATH="$PATH:$HOME/.nix-profile/bin"
 
 SSH_KEY="./.ssh/id_ed25519_nixos"
 LB_EXTERNAL_IP="192.168.5.200"   # lb-1 の HAProxy IP
-TALOSCONFIG="terraform/vpc/zone-private-k8s/talosconfig-private-new"
+TALOSCONFIG="terraform/vpc/zone-private-k8s/talosconfig"
 CP01_IP="10.20.1.11"
-KUBECONFIG_OUT="./kubeconfig-private-new"
+KUBECONFIG_OUT="./kubeconfig"
 MAX_RETRIES=60    # 最大 60 回 × 10 秒 = 10 分
 RETRY_INTERVAL=10
 

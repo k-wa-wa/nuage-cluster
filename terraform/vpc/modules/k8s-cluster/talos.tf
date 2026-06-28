@@ -194,5 +194,5 @@ data "talos_client_configuration" "this" {
 
 resource "local_file" "talosconfig" {
   content  = data.talos_client_configuration.this.talos_config
-  filename = "${path.root}/talosconfig-${var.cluster_config.cluster.name}"
+  filename = "${path.root}/talosconfig"
 }
