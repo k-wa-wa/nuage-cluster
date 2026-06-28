@@ -1,0 +1,31 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: wpc-infra
+  namespace: flux-system
+spec:
+  interval: 30s
+  url: https://github.com/k-wa-wa/wpc-infra
+  ref:
+    branch: master
+---
+apiVersion: infra.contrib.fluxcd.io/v1alpha2
+kind: Terraform
+metadata:
+  name: wpc-infra
+  namespace: flux-system
+spec:
+  interval: 1m
+  approvePlan: auto
+  path: ./
+  sourceRef:
+    kind: GitRepository
+    name: wpc-infra
+    namespace: flux-system
+  vars:
+  - name: proxmox_endpoint
+    value: https://192.168.5.21:8006/
+  - name: proxmox_username
+    value: xxx
+  - name: proxmox_password
+    value: xxx
