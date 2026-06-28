@@ -13,6 +13,10 @@
           answer "{{ .Name }} 60 IN A 192.168.5.200"
           fallthrough
         }
+        template ANY ANY cluster.wpc {
+          answer "{{ .Name }} 60 IN A 192.168.5.200"
+          fallthrough
+        }
 
         forward . 8.8.8.8
       }
