@@ -99,10 +99,25 @@ data "talos_machine_configuration" "this" {
         kernel = {
           modules = [{ name = "iscsi_tcp" }]
         }
+        # lb-1 HAProxy 経由で talosctl を使用するため、
+        # Talos API 証明書の SAN に lb-1 の IP を追加
+        certSANs = [
+          "192.168.5.200",
+          "192.168.5.201",
+          each.value.ip_address
+        ]
       }
       cluster = {
         network       = { cni = { name = "none" } }
         proxy         = { disabled = true }
+        apiServer = {
+          # lb-1 経由での kubectl アクセスに必要な SAN
+          certSANs = [
+            "192.168.5.200",
+            "192.168.5.201",
+            var.cluster_config.cluster.endpoint
+          ]
+        }
       }
     })
   ]
