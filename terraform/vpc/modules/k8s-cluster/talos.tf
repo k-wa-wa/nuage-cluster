@@ -1,9 +1,36 @@
-data "terraform_remote_state" "pve_output" {
-  backend = "local"
-
-  config = {
-    path = "${path.module}/../../../pve/hosts/terraform.tfstate"
+data "http" "talos_schematic" {
+  url    = "https://factory.talos.dev/schematics"
+  method = "POST"
+  request_headers = {
+    "Content-Type" = "application/json"
   }
+  request_body = jsonencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = ["siderolabs/iscsi-tools", "siderolabs/util-linux-tools"]
+      }
+      extraKernelArgs = [
+      ]
+    }
+  })
+}
+
+data "http" "talos_schematic_auto" {
+  url    = "https://factory.talos.dev/schematics"
+  method = "POST"
+  request_headers = {
+    "Content-Type" = "application/json"
+  }
+  request_body = jsonencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = ["siderolabs/iscsi-tools", "siderolabs/util-linux-tools"]
+      }
+      extraKernelArgs = [
+        "talos.config.autoBootstrap=true"
+      ]
+    }
+  })
 }
 
 resource "talos_machine_secrets" "this" {}
@@ -14,19 +41,42 @@ data "talos_machine_configuration" "this" {
   machine_type     = each.value.type
   cluster_endpoint = "https://${var.cluster_config.cluster.endpoint}:6443"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
+  talos_version    = "v1.12"
 
   config_patches = [
     yamlencode({
       machine = {
+        # 自律的にディスクへのインストールを実行させる設定
         install = {
-          image = "factory.talos.dev/installer/${data.terraform_remote_state.pve_output.outputs.talos_schematic_id}:v1.12.2"
+          image = each.key == "controlplane-01" ? "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic_auto.response_body).id}:v1.12.2" : "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic.response_body).id}:v1.12.2"
+          disk  = "/dev/sda"
+          grubUseUKICmdline = false
+          extraKernelArgs = each.key == "controlplane-01" ? [
+            "talos.config.autoBootstrap=true"
+          ] : []
         }
         kubelet = {
           nodeIP = {
             validSubnets = ["${var.cluster_config.cluster.node_subnet}"]
           }
+          extraArgs = {
+            "node-ip" = each.value.ip_address
+          }
+          extraMounts = [
+            {
+              destination = "/var/lib/longhorn"
+              type        = "bind"
+              source      = "/var/lib/longhorn"
+              options     = ["bind", "rshared"]
+            }
+          ]
         }
         network = {
+          # インストーラーダウンロードのためのDNSサーバーを静的指定
+          nameservers = [
+            var.cluster_config.cluster.gateway,
+            "8.8.8.8"
+          ]
           interfaces = [
             {
               interface = "ens18",
@@ -40,10 +90,6 @@ data "talos_machine_configuration" "this" {
               vip = each.value.type == "controlplane" ? {
                 ip = var.cluster_config.cluster.endpoint
               } : null
-            },
-            {
-              interface = "ens19",
-              addresses = ["${each.value.management_ip_address}/24"],
             }
           ]
         }
@@ -53,23 +99,25 @@ data "talos_machine_configuration" "this" {
         kernel = {
           modules = [{ name = "iscsi_tcp" }]
         }
-        kubelet = {
-          extraArgs = {
-            "node-ip" = each.value.ip_address
-          },
-          extraMounts = [
-            {
-              destination = "/var/lib/longhorn"
-              type        = "bind"
-              source      = "/var/lib/longhorn"
-              options     = ["bind", "rshared"]
-            }
-          ]
-        }
+        # lb-1 HAProxy 経由で talosctl を使用するため、
+        # Talos API 証明書の SAN に lb-1 の IP を追加
+        certSANs = [
+          "192.168.5.200",
+          "192.168.5.201",
+          each.value.ip_address
+        ]
       }
       cluster = {
-        network = { cni = { name = "none" } }
-        proxy   = { disabled = true }
+        network       = { cni = { name = "none" } }
+        proxy         = { disabled = true }
+        apiServer = {
+          # lb-1 経由での kubectl アクセスに必要な SAN
+          certSANs = [
+            "192.168.5.200",
+            "192.168.5.201",
+            var.cluster_config.cluster.endpoint
+          ]
+        }
       }
     })
   ]
@@ -104,76 +152,47 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
     floating  = each.value.memory
   }
 
+  boot_order = [ "scsi0", "scsi3" ]
+
+  # システム用ディスク (sda)
   disk {
     datastore_id = "local-zfs"
-    file_id      = "local:iso/talos-iscsi.iso"
     interface    = "scsi0"
     size         = each.value.disk_size
   }
+  # データ用の空ディスク (sdb)
   disk {
     datastore_id = "local-zfs"
     interface    = "scsi1"
     size         = each.value.disk_size
   }
+  # インストール用のISOファイル
+  cdrom {
+    file_id   = "local:iso/talos-iscsi.iso"
+    interface = "scsi3"
+  }
 
+  # 内部SDNブリッジ (prvmain) のみのシングルNIC構成
   network_device {
     bridge = each.value.bridge
   }
-  network_device {
-    bridge = "vmbr0"
-  }
 
   initialization {
+    type              = "nocloud"
+    datastore_id      = "local-zfs"
     user_data_file_id = proxmox_virtual_environment_file.talos_config_snippet[each.key].id
   }
 }
 
-###
-
+# ローカルデバッグ用に talosconfig のみを静的生成して出力 (VMへの接続は不要)
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_config.cluster.name
   client_configuration = talos_machine_secrets.this.client_configuration
   nodes                = [for k, v in var.cluster_config.nodes : v.ip_address]
   endpoints            = [for k, v in var.cluster_config.nodes : v.ip_address]
-  # endpoints            = [for k, v in var.cluster_config.nodes : v.ip_address if v.type == "controlplane"]
 }
 
-resource "talos_machine_configuration_apply" "this" {
-  depends_on = [proxmox_virtual_environment_vm.cluster_vms]
-  for_each   = var.cluster_config.nodes
-
-  client_configuration        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input = data.talos_machine_configuration.this[each.key].machine_configuration
-  endpoint                    = each.value.management_ip_address
-  node                        = each.value.ip_address
-}
-
-###
-
-resource "talos_machine_bootstrap" "this" {
-  depends_on           = [talos_machine_configuration_apply.this]
-  client_configuration = talos_machine_secrets.this.client_configuration
-  endpoint             = [for k, v in var.cluster_config.nodes : v.management_ip_address if v.type == "controlplane"][0]
-  node                 = [for k, v in var.cluster_config.nodes : v.management_ip_address if v.type == "controlplane"][0]
-}
-
-resource "talos_cluster_kubeconfig" "this" {
-  depends_on           = [talos_machine_bootstrap.this]
-  client_configuration = talos_machine_secrets.this.client_configuration
-  node                 = [for k, v in var.cluster_config.nodes : v.management_ip_address if v.type == "controlplane"][0]
-}
-
-resource "local_file" "kubeconfig" {
-  content = replace(
-    talos_cluster_kubeconfig.this.kubeconfig_raw,
-    "https://${var.cluster_config.cluster.endpoint}:6443",
-    "https://${[for k, v in var.cluster_config.nodes : v.management_ip_address if v.type == "controlplane"][0]}:6443"
-  )
-  filename = "${path.root}/kubeconfig-${var.cluster_config.cluster.name}"
-}
-/*
 resource "local_file" "talosconfig" {
   content  = data.talos_client_configuration.this.talos_config
-  filename = "${path.module}/talosconfig"
+  filename = "${path.root}/talosconfig-${var.cluster_config.cluster.name}"
 }
-*/

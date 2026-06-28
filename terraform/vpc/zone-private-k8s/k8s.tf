@@ -1,10 +1,10 @@
-module "k8s-cluster-new" {
-  source = "../modules/k8s-cluster-new"
+module "k8s-cluster" {
+  source = "../modules/k8s-cluster"
   cluster_config = {
     cluster = {
-      name        = "private-new"
+      name        = "private"
       gateway     = "10.20.1.1"
-      endpoint    = "10.20.1.10" # VIP (旧クラスタと同じ)
+      endpoint    = "10.20.1.10"
       node_subnet = "10.20.1.0/24"
     }
     nodes = {

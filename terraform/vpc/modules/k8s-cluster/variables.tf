@@ -16,7 +16,6 @@ variable "cluster_config" {
       bridge                = string
       ip_address            = string
       cidr                  = number
-      management_ip_address = string // 255.255.255.0
       disk_size             = number // GB
     }))
   })
