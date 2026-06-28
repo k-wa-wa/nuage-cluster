@@ -7,19 +7,13 @@ set -euo pipefail
 # TCP パススルーでプロキシしている前提です。
 # ============================================================
 
-export PATH="$PATH:$HOME/.nix-profile/bin"
-
 SSH_KEY="./.ssh/id_ed25519_nixos"
 LB_EXTERNAL_IP="192.168.5.200"   # lb-1 の HAProxy IP
 TALOSCONFIG="terraform/vpc/zone-private-k8s/talosconfig"
 CP01_IP="10.20.1.11"
-KUBECONFIG_OUT="./kubeconfig"
+KUBECONFIG_OUT="terraform/vpc/zone-private-k8s/kubeconfig"
 MAX_RETRIES=60    # 最大 60 回 × 10 秒 = 10 分
 RETRY_INTERVAL=10
-
-# talosctl のフルパスを解決
-TALOSCTL=$(command -v talosctl || echo "$HOME/.nix-profile/bin/talosctl")
-echo "Using talosctl: ${TALOSCTL}"
 
 TALOSCTL_ARGS="--talosconfig ${TALOSCONFIG} -e ${LB_EXTERNAL_IP}:50000 -n ${CP01_IP}"
 
@@ -33,7 +27,7 @@ terragrunt \
 echo "=== Step 2: Waiting for controlplane-01 to become available ==="
 for i in $(seq 1 $MAX_RETRIES); do
   echo "  [${i}/${MAX_RETRIES}] Checking Talos API at ${LB_EXTERNAL_IP}:50000 ..."
-  SVCOUT=$("$TALOSCTL" $TALOSCTL_ARGS services 2>&1 || true)
+  SVCOUT=$(talosctl $TALOSCTL_ARGS services 2>&1 || true)
   if echo "$SVCOUT" | grep -q "Running"; then
     echo "  => controlplane-01 is up!"
     break
@@ -52,7 +46,7 @@ done
 # 3. Bootstrap (既に bootstrap 済みならスキップ)
 echo "=== Step 3: Bootstrapping Talos Cluster ==="
 set +e
-BOOTSTRAP_ERR=$("$TALOSCTL" $TALOSCTL_ARGS bootstrap 2>&1)
+BOOTSTRAP_ERR=$(talosctl $TALOSCTL_ARGS bootstrap 2>&1)
 BOOTSTRAP_RC=$?
 set -e
 
@@ -70,7 +64,7 @@ fi
 echo "=== Step 4: Waiting for etcd to be Running ==="
 for i in $(seq 1 $MAX_RETRIES); do
   echo "  [${i}/${MAX_RETRIES}] Checking etcd status ..."
-  SVCOUT=$("$TALOSCTL" $TALOSCTL_ARGS services 2>&1 || true)
+  SVCOUT=$(talosctl $TALOSCTL_ARGS services 2>&1 || true)
   if echo "$SVCOUT" | grep -q "etcd.*Running"; then
     echo "  => etcd is Running!"
     break
@@ -85,7 +79,7 @@ done
 # 5. kubeconfig を取得して書き出す
 echo "=== Step 5: Downloading kubeconfig ==="
 # shellcheck disable=SC2086
-"$TALOSCTL" $TALOSCTL_ARGS kubeconfig "$KUBECONFIG_OUT" --force
+talosctl $TALOSCTL_ARGS kubeconfig "$KUBECONFIG_OUT" --force
 
 # kubeconfig の server を lb-1 HAProxy (6443) に書き換える
 sed -i.bak "s|server: https://.*:6443|server: https://${LB_EXTERNAL_IP}:6443|" "$KUBECONFIG_OUT"

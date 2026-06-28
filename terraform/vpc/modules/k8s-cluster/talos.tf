@@ -41,7 +41,6 @@ data "talos_machine_configuration" "this" {
   machine_type     = each.value.type
   cluster_endpoint = "https://${var.cluster_config.cluster.endpoint}:6443"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
-  talos_version    = "v1.12"
 
   config_patches = [
     yamlencode({
@@ -99,24 +98,19 @@ data "talos_machine_configuration" "this" {
         kernel = {
           modules = [{ name = "iscsi_tcp" }]
         }
-        # lb-1 HAProxy 経由で talosctl を使用するため、
-        # Talos API 証明書の SAN に lb-1 の IP を追加
-        certSANs = [
-          "192.168.5.200",
-          "192.168.5.201",
-          each.value.ip_address
-        ]
+        certSANs = concat(
+          var.cluster_config.cluster.additional_cert_sans,
+          [each.value.ip_address]
+        )
       }
       cluster = {
         network       = { cni = { name = "none" } }
         proxy         = { disabled = true }
         apiServer = {
-          # lb-1 経由での kubectl アクセスに必要な SAN
-          certSANs = [
-            "192.168.5.200",
-            "192.168.5.201",
-            var.cluster_config.cluster.endpoint
-          ]
+          certSANs = concat(
+            var.cluster_config.cluster.additional_cert_sans,
+            [var.cluster_config.cluster.endpoint]
+          )
         }
       }
     })
@@ -172,7 +166,6 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
     interface = "scsi3"
   }
 
-  # 内部SDNブリッジ (prvmain) のみのシングルNIC構成
   network_device {
     bridge = each.value.bridge
   }
@@ -184,7 +177,6 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
   }
 }
 
-# ローカルデバッグ用に talosconfig のみを静的生成して出力 (VMへの接続は不要)
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_config.cluster.name
   client_configuration = talos_machine_secrets.this.client_configuration

@@ -1,10 +1,11 @@
 variable "cluster_config" {
   type = object({
     cluster = object({
-      name        = string
-      gateway     = string
-      endpoint    = string // vip
-      node_subnet = string
+      name                 = string
+      gateway              = string
+      endpoint             = string // vip
+      node_subnet          = string
+      additional_cert_sans = optional(list(string), [])
     })
 
     nodes = map(object({

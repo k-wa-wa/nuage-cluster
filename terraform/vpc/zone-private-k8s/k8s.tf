@@ -2,10 +2,11 @@ module "k8s-cluster" {
   source = "../modules/k8s-cluster"
   cluster_config = {
     cluster = {
-      name        = "private"
-      gateway     = "10.20.1.1"
-      endpoint    = "10.20.1.10"
-      node_subnet = "10.20.1.0/24"
+      name                 = "private"
+      gateway              = "10.20.1.1"
+      endpoint             = "10.20.1.10"
+      node_subnet          = "10.20.1.0/24"
+      additional_cert_sans = ["192.168.5.200"]
     }
     nodes = {
       "controlplane-01" = {
