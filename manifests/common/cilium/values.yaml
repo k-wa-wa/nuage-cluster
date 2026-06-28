@@ -1,7 +1,7 @@
-devices: "ens18"
+devices: "eth0"
 
 extraArgs:
-  - --direct-routing-device=ens18
+  - --direct-routing-device=eth0
 
 routingMode: native
 

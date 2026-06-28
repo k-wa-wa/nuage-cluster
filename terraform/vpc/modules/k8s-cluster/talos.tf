@@ -78,7 +78,7 @@ data "talos_machine_configuration" "this" {
           ]
           interfaces = [
             {
-              interface = "ens18",
+              interface = "eth0",
               addresses = ["${each.value.ip_address}/${each.value.cidr}"],
               routes = [
                 {
