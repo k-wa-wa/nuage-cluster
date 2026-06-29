@@ -7,6 +7,13 @@ resource "proxmox_virtual_environment_container" "lxc" {
     nesting = true
   }
 
+  cpu {
+    cores = var.lxc_config.cores
+  }
+  memory {
+    dedicated = var.lxc_config.memory
+  }
+
   dynamic "network_interface" {
     for_each = var.lxc_config.network_devices
     content {
