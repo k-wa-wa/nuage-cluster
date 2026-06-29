@@ -1,4 +1,4 @@
-resource "proxmox_virtual_environment_network_linux_bridge" "vmbr1_server_1" {
+resource "proxmox_network_linux_bridge" "vmbr1_server_1" {
   node_name = "server-1"
   name      = "vmbr1"
 
@@ -9,7 +9,7 @@ resource "proxmox_virtual_environment_network_linux_bridge" "vmbr1_server_1" {
   ]
 }
 
-resource "proxmox_virtual_environment_network_linux_bridge" "vmbr999_server_1" {
+resource "proxmox_network_linux_bridge" "vmbr999_server_1" {
   node_name = "server-1"
   name      = "vmbr999"
 
