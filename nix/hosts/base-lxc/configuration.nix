@@ -17,9 +17,6 @@
     enable = true;
     flake = "github:k-wa-wa/nuage-cluster?dir=nix";
     dates = "daily";
-    flags = lib.mkForce [
-      "-L"
-    ];
     randomizedDelaySec = "1h";
   };
 
