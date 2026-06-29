@@ -17,7 +17,7 @@
     enable = true;
     flake = "github:k-wa-wa/nuage-cluster?dir=nix";
     dates = "hourly";
-    flags = [
+    flags = lib.mkForce [
       "-L"
     ];
   };
