@@ -16,7 +16,7 @@
   system.autoUpgrade = {
     enable = true;
     flake = "github:k-wa-wa/nuage-cluster?dir=nix";
-    dates = "hourly";
+    dates = "daily";
     flags = lib.mkForce [
       "-L"
     ];
@@ -24,5 +24,6 @@
 
   systemd.timers.nixos-upgrade.timerConfig = {
     OnBootSec = "30s";
+    RandomizedDelaySec = "1h";
   };
 }
