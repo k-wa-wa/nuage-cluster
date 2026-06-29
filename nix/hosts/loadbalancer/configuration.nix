@@ -8,7 +8,6 @@
   ];
 
   networking = {
-    hostName = "shared-lb";
     useDHCP = false;
     nameservers = [ "8.8.8.8" ];
   };

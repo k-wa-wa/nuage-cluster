@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    colmena.url = "github:zhaofengli/colmena";
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -25,7 +24,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, colmena, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -46,28 +45,19 @@
         ];
       };
     in {
-      nixosConfigurations.base-vm = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [
-          disko.nixosModules.disko
-          ./hosts/base-vm/disko-config.nix
-          ./hosts/base-vm/configuration.nix
-        ];
-      };
-
-      colmena = {
-        meta = {
-          nixpkgs = import nixpkgs { system = "x86_64-linux"; };
+      nixosConfigurations = {
+        base-vm = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            disko.nixosModules.disko
+            ./hosts/base-vm/disko-config.nix
+            ./hosts/base-vm/configuration.nix
+          ];
         };
 
-        dev-server = {
-          deployment = {
-            targetHost = "192.168.5.199";
-            targetUser = "nixos";
-            allowLocalDeployment = true;
-            tags = [ "dev-server" ];
-          };
-          imports = [
+        dev-server = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
             home-manager.nixosModules.home-manager
             disko.nixosModules.disko
             ./hosts/base-vm/disko-config.nix
@@ -91,52 +81,48 @@
           ];
         };
 
-        lb-1 = {
-          deployment = {
-            targetHost = "192.168.5.201";
-            targetUser = "nixos";
-            tags = [ "loadbalancer" ];
-          };
-          imports = [
+        lb-1 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
-          ];
-        };
-        lb-2 = {
-          deployment = {
-            targetHost = "192.168.5.202";
-            targetUser = "nixos";
-            tags = [ "loadbalancer" ];
-          };
-          imports = [
-            ./hosts/base-lxc/configuration.nix
-            ./hosts/loadbalancer/configuration.nix
-          ];
-        };
-        lb-3 = {
-          deployment = {
-            targetHost = "192.168.5.203";
-            targetUser = "nixos";
-            tags = [ "loadbalancer" ];
-          };
-          imports = [
-            ./hosts/base-lxc/configuration.nix
-            ./hosts/loadbalancer/configuration.nix
+            {
+              networking.hostName = "lb-1";
+            }
           ];
         };
 
-        lm-server = {
-          deployment = {
-            targetHost = "192.168.5.222";
-            targetUser = "nixos";
-            tags = [ "lm-server" ];
-          };
-          imports = [
+        lb-2 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/loadbalancer/configuration.nix
+            {
+              networking.hostName = "lb-2";
+            }
+          ];
+        };
+
+        lb-3 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/loadbalancer/configuration.nix
+            {
+              networking.hostName = "lb-3";
+            }
+          ];
+        };
+
+        lm-server = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
             disko.nixosModules.disko
             ./hosts/base-vm/disko-config.nix
             ./hosts/base-vm/configuration.nix
             ./hosts/lm-server/configuration.nix
             {
+              networking.hostName = "lm-server";
               services.ollama = {
                 enable = true;
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
