@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export TERRAGRUNT_WORKING_DIR=terraform/pve/hosts
+
 # terragrunt import commands to recover state for hosts configuration
 
 echo "Importing Linux Bridges..."
