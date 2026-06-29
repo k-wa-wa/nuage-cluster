@@ -18,8 +18,6 @@
     flake = "github:k-wa-wa/nuage-cluster?dir=nix";
     dates = "hourly";
     flags = [
-      "--update-input"
-      "nixpkgs"
       "-L"
     ];
   };
