@@ -20,10 +20,10 @@
     flags = lib.mkForce [
       "-L"
     ];
+    randomizedDelaySec = "1h";
   };
 
   systemd.timers.nixos-upgrade.timerConfig = {
     OnBootSec = "30s";
-    RandomizedDelaySec = "1h";
   };
 }
