@@ -15,12 +15,16 @@
 
   system.autoUpgrade = {
     enable = true;
-    flake = "git+https://github.com/k-wa-wa/nuage-cluster.git?dir=nix";
+    flake = "github:k-wa-wa/nuage-cluster?dir=nix";
     dates = "hourly";
     flags = [
       "--update-input"
       "nixpkgs"
       "-L"
     ];
+  };
+
+  systemd.timers.nixos-upgrade.timerConfig = {
+    OnBootSec = "30s";
   };
 }
