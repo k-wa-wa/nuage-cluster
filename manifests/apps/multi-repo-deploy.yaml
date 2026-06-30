@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: multi-repo-deploy
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - appName: bare-web-proxy
+        url: https://github.com/k-wa-wa/bare-web-proxy
+        revision: HEAD
+      - appName: nuage-monitoring-stack
+        url: https://github.com/k-wa-wa/nuage-monitoring-stack
+        revision: HEAD
+  template:
+    metadata:
+      name: '{{appName}}-app'
+    spec:
+      project: default
+      source:
+        repoURL: '{{url}}'
+        targetRevision: '{{revision}}'
+        path: k8s/overlays/prod
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{appName}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
