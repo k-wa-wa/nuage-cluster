@@ -22,5 +22,6 @@
 
   systemd.timers.nixos-upgrade.timerConfig = {
     OnBootSec = "30s";
+    Persistent = true;
   };
 }
