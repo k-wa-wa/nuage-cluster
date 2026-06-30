@@ -17,11 +17,9 @@
     enable = true;
     flake = "github:k-wa-wa/nuage-cluster?dir=nix";
     dates = "daily";
-    randomizedDelaySec = "1h";
   };
 
   systemd.timers.nixos-upgrade.timerConfig = {
     OnBootSec = "30s";
-    Persistent = true;
   };
 }
