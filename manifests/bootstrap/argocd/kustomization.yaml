@@ -17,6 +17,20 @@ patches:
       name: argocd-cm
     data:
       kustomize.buildOptions: "--enable-helm"
+
+      # Cilium Ingress が NodePort 構成になっており、外部のロードバランサー (HAProxy) から
+      # 直接各ノードの NodePort (30080/30443) へ転送されるため、Ingress に LoadBalancer IP は割り当てられません。
+      # ArgoCD が Ingress に外部 IP が設定されるまで Progressing のままになるのを防ぐため、
+      # 外部 IP チェックをスキップして Healthy と判定するようカスタマイズします。
+      resource.customizations.health.networking.k8s.io_Ingress: |
+        hs = {}
+        if obj.metadata.deletionTimestamp ~= nil then
+          hs.status = "Progressing"
+          hs.message = "The ingress is being deleted"
+          return hs
+        end
+        hs.status = "Healthy"
+        return hs
 - target:
     kind: ConfigMap
     name: argocd-cmd-params-cm
