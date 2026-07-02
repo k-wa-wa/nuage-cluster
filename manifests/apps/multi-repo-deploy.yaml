@@ -13,6 +13,9 @@ spec:
       - appName: nuage-monitoring-stack
         url: https://github.com/k-wa-wa/nuage-monitoring-stack
         revision: HEAD
+      - appName: pechka
+        url: https://github.com/k-wa-wa/pechka.git
+        revision: HEAD
   template:
     metadata:
       name: '{{appName}}-app'
@@ -22,6 +25,12 @@ spec:
         repoURL: '{{url}}'
         targetRevision: '{{revision}}'
         path: k8s/overlays/prod
+        plugin:
+          name: argocd-vault-plugin-kustomize
+          # プラグイン側の処理モードを sops に指定
+          env:
+            - name: AVP_TYPE
+              value: sops
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{appName}}'

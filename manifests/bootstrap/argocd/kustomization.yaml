@@ -5,6 +5,7 @@ namespace: argocd
 resources:
 - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 - default-project.yaml
+- avp-cmp-plugin.yaml
 
 patches:
 - target:
@@ -31,6 +32,7 @@ patches:
         end
         hs.status = "Healthy"
         return hs
+
 - target:
     kind: ConfigMap
     name: argocd-cmd-params-cm
@@ -41,3 +43,66 @@ patches:
       name: argocd-cmd-params-cm
     data:
       server.insecure: "true"
+
+- target:
+    kind: Deployment
+    name: argocd-repo-server
+  patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: argocd-repo-server
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: download-avp
+              image: alpine:3.18
+              command: ["sh", "-c"]
+              args:
+                - |
+                  wget -O /custom-tools/argocd-vault-plugin https://github.com/argoproj-labs/argocd-vault-plugin/releases/download/v1.18.1/argocd-vault-plugin_1.18.1_linux_amd64
+                  chmod +x /custom-tools/argocd-vault-plugin
+              volumeMounts:
+                - name: custom-tools
+                  mountPath: /custom-tools
+          # ─────────────────────────────────────────────────────────────
+          containers:
+            - name: argocd-vault-plugin-kustomize
+              # AVP実行環境には、kustomizeやgitが元から入っているArgo CD公式イメージを使います
+              image: quay.io/argoproj/argocd:v3.4.4
+              command: [/var/run/argocd/argocd-cmp-server]
+              env:
+                - name: AVP_TYPE
+                  value: sops
+                - name: SOPS_AGE_KEY_FILE
+                  value: /home/argocd/.config/sops/age/keys.txt
+                # ダウンロードしたバイナリにパスを通す
+                - name: PATH
+                  value: /usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/custom-tools
+              volumeMounts:
+                - name: var-files
+                  mountPath: /var/run/argocd
+                - name: plugins
+                  mountPath: /home/argocd/cmp-server/plugins
+                - name: cmp-plugin
+                  mountPath: /home/argocd/cmp-server/config/plugin.yaml
+                  subPath: kustomize-avp.yaml
+                - name: sops-age-key
+                  mountPath: /home/argocd/.config/sops/age
+                # バイナリが置かれた共有ボリュームをマウント
+                - name: custom-tools
+                  mountPath: /custom-tools
+          volumes:
+            - name: cmp-plugin
+              configMap:
+                name: cmp-plugin
+            - name: sops-age-key
+              secret:
+                secretName: sops-age-key
+                items:
+                  - key: keys.txt
+                    path: keys.txt
+            # 共有ボリュームの定義
+            - name: custom-tools
+              emptyDir: {}
