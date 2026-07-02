@@ -57,6 +57,7 @@ NODES=(
     "lb-1:192.168.5.201:nixos"
     "lb-2:192.168.5.202:nixos"
     "lb-3:192.168.5.203:nixos"
+    "nfs-proxy:192.168.5.220:nixos"
 )
 for entry in "${NODES[@]}"; do
     # ホスト名、IP、ユーザーを分割
