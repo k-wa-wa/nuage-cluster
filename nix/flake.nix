@@ -114,6 +114,17 @@
           ];
         };
 
+        nfs-proxy = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/nfs-proxy/configuration.nix
+            {
+              networking.hostName = "nfs-proxy";
+            }
+          ];
+        };
+
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
