@@ -4,4 +4,4 @@ kind: Kustomization
 namespace: pechka
 
 resources:
-- ../../base
+# - ../../base
