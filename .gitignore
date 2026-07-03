@@ -12,3 +12,4 @@ terraform.tfvars
 
 talosconfig
 kubeconfig
+ssh_key.pem
