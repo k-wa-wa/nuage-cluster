@@ -7,7 +7,7 @@
 - **PATHの優先指定**:
   このワークスペースでCLIツール（`kubectl`, `talosctl`, `terragrunt` 等）を実行する際は、事前に以下のパスを `PATH` 環境変数に含める必要がある。
   ```bash
-  export PATH=$HOME/.nix-profile/bin:/opt/homebrew/bin:$PATH
+  export PATH=$HOME/.nix-profile/bin:$PATH
   ```
   コマンド実行時に「`command not found`」などのエラーが発生した場合は、この環境変数が適切に設定されているか確認し、設定した上でコマンドを再実行すること。
 
