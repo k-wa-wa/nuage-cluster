@@ -17,6 +17,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: pechka
+  labels:
+    # hostPath へのマウントのため
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: Namespace
