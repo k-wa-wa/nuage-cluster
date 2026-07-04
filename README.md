@@ -52,6 +52,15 @@ IPアドレスの範囲等は任意に変更可能。
       bash .ssh/gen-keys.sh
       ```
 
+   1. sops key を作成する
+
+      ```bash
+      mkdir -p ~/.config/sops/age
+      age-keygen -o ~/.config/sops/age/keys.txt
+      age-keygen -o ~/.config/sops/age/argocd_key.txt
+      age-keygen -o ~/.config/sops/age/lb_key.txt
+      ```
+
    1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)は Ubuntu だが、Proxmox を入れる）
 
    1. 自作 PC ノードをセットアップする(NUC と同様 Proxmox)
