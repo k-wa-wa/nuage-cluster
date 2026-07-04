@@ -1,0 +1,8 @@
+keys:
+  - &admin_key     age17e67u5g3j9v6sxxrk448gsgmv9ldc2umqgad579du75fgjkjtcasatrhxr
+
+creation_rules:
+  - path_regex: terraform/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
