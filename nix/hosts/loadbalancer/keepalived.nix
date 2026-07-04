@@ -3,8 +3,8 @@
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    # マウントされたディレクトリ内の各コンテナ固有の秘密鍵ファイルを指定
-    age.keyFile = "/var/lib/sops-nix/${config.networking.hostName}-key.txt";
+    # 全ホスト共通の固定値パスを指定
+    age.keyFile = "/var/lib/sops-nix/key.txt";
 
     secrets.keepalived_auth_pass = {};
 
@@ -19,6 +19,19 @@
       owner = "root";
     };
   };
+
+  # 起動時にコンテナのホスト名に応じた秘密鍵へのシンボリックリンクを作成
+  system.activationScripts.sops-key-link = {
+    text = ''
+      HOSTNAME=$(cat /etc/hostname | tr -d '\n')
+      mkdir -p /var/lib/sops-nix
+      if [ -f "/var/lib/sops-nix/$HOSTNAME-key.txt" ]; then
+        ln -sf "/var/lib/sops-nix/$HOSTNAME-key.txt" /var/lib/sops-nix/key.txt
+      fi
+    '';
+  };
+  # sops-nix の復号スクリプトの前に実行するよう依存関係を指定
+  system.activationScripts.setupSecrets.deps = [ "sops-key-link" ];
 
   services.keepalived = {
     enable = true;
