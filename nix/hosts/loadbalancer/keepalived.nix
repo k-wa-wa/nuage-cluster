@@ -35,6 +35,7 @@
 
   services.keepalived = {
     enable = true;
+    openFirewall = true;
     extraConfig = ''
       vrrp_instance VI_1 {
           state BACKUP
