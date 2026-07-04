@@ -7,6 +7,10 @@ creation_rules:
     key_groups:
       - age:
           - *admin_key
+  - path_regex: truenas/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
 
   - path_regex: nix/hosts/loadbalancer/secrets\.yaml$
     key_groups:
