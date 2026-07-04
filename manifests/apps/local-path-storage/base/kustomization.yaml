@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+
+patches:
+  # Talos Linux用にパスを /var/local-path-provisioner に変更する
+  - target:
+      kind: ConfigMap
+      name: local-path-config
+    patch: |
+      - op: replace
+        path: /data/config.json
+        value: |
+          {
+            "nodePathMap": [
+              {
+                "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
+                "paths": ["/var/local-path-provisioner"]
+              }
+            ]
+          }
