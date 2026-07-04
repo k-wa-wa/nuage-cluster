@@ -51,7 +51,7 @@ module "k8s-cluster" {
         bridge     = "prvmain"
         ip_address = "10.20.1.16"
         cidr       = 24
-        disk_size  = 20
+        disk_size  = 50
       },
       "worker-02" = {
         type       = "worker"
@@ -62,7 +62,7 @@ module "k8s-cluster" {
         bridge     = "prvmain"
         ip_address = "10.20.1.17"
         cidr       = 24
-        disk_size  = 20
+        disk_size  = 50
       },
       "worker-03" = {
         type       = "worker"
@@ -73,7 +73,7 @@ module "k8s-cluster" {
         bridge     = "prvmain"
         ip_address = "10.20.1.18"
         cidr       = 24
-        disk_size  = 20
+        disk_size  = 50
       },
     }
   }
