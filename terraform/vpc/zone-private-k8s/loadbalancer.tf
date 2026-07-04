@@ -1,10 +1,15 @@
+data "sops_file" "secrets" {
+  source_file = "${path.module}/../../secrets.yaml"
+}
+
 module "lb-1" {
   # depends_on = [
   #   proxmox_virtual_environment_sdn_applier.example_applier,
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source = "../modules/nix-lxc"
+  source   = "../modules/nix-lxc"
+  sops_key = data.sops_file.secrets.data["lb_sops_key"]
   lxc_config = {
     vm_id     = 211
     vm_name   = "lb-1"
@@ -49,7 +54,8 @@ module "lb-2" {
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source = "../modules/nix-lxc"
+  source   = "../modules/nix-lxc"
+  sops_key = data.sops_file.secrets.data["lb_sops_key"]
   lxc_config = {
     vm_id     = 212
     vm_name   = "lb-2"
@@ -92,7 +98,8 @@ module "lb-3" {
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source = "../modules/nix-lxc"
+  source   = "../modules/nix-lxc"
+  sops_key = data.sops_file.secrets.data["lb_sops_key"]
   lxc_config = {
     vm_id     = 213
     vm_name   = "lb-3"

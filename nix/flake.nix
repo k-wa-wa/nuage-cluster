@@ -22,9 +22,13 @@
       url = "github:k-wa-wa/nix-config";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -86,6 +90,7 @@
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
+            sops-nix.nixosModules.sops
             {
               networking.hostName = "lb-1";
             }
@@ -97,6 +102,7 @@
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
+            sops-nix.nixosModules.sops
             {
               networking.hostName = "lb-2";
             }
@@ -108,6 +114,7 @@
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
+            sops-nix.nixosModules.sops
             {
               networking.hostName = "lb-3";
             }

@@ -20,3 +20,10 @@ variable "lxc_config" {
     protection = optional(bool)
   })
 }
+
+variable "sops_key" {
+  type        = string
+  description = "The Age private key for sops-nix"
+  sensitive   = true
+  default     = ""
+}

@@ -1,3 +1,15 @@
+resource "proxmox_virtual_environment_file" "sops_key" {
+  count        = nonsensitive(var.sops_key) != "" ? 1 : 0
+  content_type = "snippets"
+  datastore_id = "local"
+  node_name    = var.lxc_config.node_name
+
+  source_raw {
+    data      = var.sops_key
+    file_name = "${var.lxc_config.vm_name}-key.txt"
+  }
+}
+
 resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
@@ -46,6 +58,14 @@ resource "proxmox_virtual_environment_container" "lxc" {
     size         = var.lxc_config.disk_size
   }
 
+  dynamic "mount_point" {
+    for_each = nonsensitive(var.sops_key) != "" ? { "sops" = true } : {}
+    content {
+      volume = "/var/lib/vz/snippets"
+      path   = "/var/lib/sops-nix"
+    }
+  }
+
   startup {
     order      = "3"
     up_delay   = "60"
@@ -54,3 +74,6 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   protection = var.lxc_config.protection
 }
+
+
+
