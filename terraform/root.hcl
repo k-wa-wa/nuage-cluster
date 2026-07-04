@@ -1,5 +1,9 @@
 locals {
   common_secrets = read_terragrunt_config("${get_parent_terragrunt_dir()}/secrets.hcl")
+  _block_deprecated = run_cmd(
+    "sh", "-c",
+    "echo '\n\u001b[1;31m[ERROR] secrets.hcl is no longer supported. Please migrate to root_sops.hcl.\u001b[0m\n' && exit 1"
+  )
 }
 
 generate "provider" {
