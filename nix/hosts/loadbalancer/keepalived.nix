@@ -35,7 +35,6 @@
 
   services.keepalived = {
     enable = true;
-    openFirewall = true;
     extraConfig = ''
       vrrp_instance VI_1 {
           state BACKUP
@@ -70,5 +69,10 @@
       }
     '';
   };
+
+  networking.firewall.extraCommands = ''
+    iptables -A nixos-fw -p vrrp -j ACCEPT
+    ip6tables -A nixos-fw -p vrrp -j ACCEPT
+  '';
 }
 
