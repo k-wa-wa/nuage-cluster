@@ -49,11 +49,8 @@ IPアドレスの範囲等は任意に変更可能。
       # 各ノードへ配置するキー
       ssh-keygen -f ./.ssh/id_rsa # その他のオプション
       ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
-      ssh-keygen -t ed25519 -f ./.ssh/id_devops -N ""
-      ssh-keygen -t ed25519 -f ./.ssh/id_ed25519_nixos -C "nixos-sever" -N ""
+      bash .ssh/gen-keys.sh
       ```
-
-   1. Raspberry Pi Imager を使用して Raspberry Pi ノードをセットアップする
 
    1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)は Ubuntu だが、Proxmox を入れる）
 
@@ -66,18 +63,13 @@ IPアドレスの範囲等は任意に変更可能。
 1. 各種スクリプトを実行する
 
    ```bash
-   # 前提となるライブラリ等導入
-   bash scripts/prerequire.sh
+   # TODO: 手順再作成
+   # NFS 等のセットアップ
 
-   # NFS作成
-   bash scripts/nfs.sh
-
-   # VM と VM 上で動作するサービス等作成
-   bash scripts/setup-infra.sh
+   terragrunt --terragrunt-working-dir terraform/ run-all apply
 
    # クラスター作成
-   bash scripts/setup-cluster.sh
-   bash scripts/apply-apps.sh
+   bash scripts/bootstrap-clsuter.sh && bash scripts/apply-apps.sh
    ```
 
 SDN Controllerを手動で作成する必要あり。
