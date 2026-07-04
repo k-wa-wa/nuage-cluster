@@ -38,7 +38,7 @@
     extraConfig = ''
       vrrp_instance VI_1 {
           state BACKUP
-          interface eth0
+          interface eth1
           virtual_router_id 1
           priority 100
           advert_int 1
@@ -54,7 +54,7 @@
 
       vrrp_instance VI_2 {
           state BACKUP
-          interface eth1
+          interface eth2
           virtual_router_id 2
           priority 100
           advert_int 1
