@@ -4,5 +4,3 @@ kind: Kustomization
 resources:
 - namespaces.yaml
 - argocd/
-- secrets/
-- pvs/

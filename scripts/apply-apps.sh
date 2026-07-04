@@ -7,8 +7,6 @@ export KUBECONFIG=terraform/vpc/zone-private-k8s/kubeconfig
 kustomize build --enable-helm manifests/common | kubectl apply -f -
 
 #################### namespace, argocd, secrets, ... ####################
-cp .ssh/id_ed25519 manifests/bootstrap/secrets/id_ed25519_for_devops_server
-
 kubectl create secret generic sops-age-key \
   --namespace argocd \
   --from-file=keys.txt=$HOME/.config/sops/age/argocd_key.txt
