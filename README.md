@@ -21,7 +21,9 @@
 - [ ] LMServer の再構築
 - [ ] 監視・バックアップなど運用の効率化
 
-## 構成概要
+## アーキテクチャ
+
+![全体構成図](./docs/architecture-overview.svg)
 
 - **仮想化基盤**: Proxmox VE
 - **ネットワーク**: Proxmox SDN
