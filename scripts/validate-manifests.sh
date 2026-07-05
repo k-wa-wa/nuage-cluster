@@ -26,12 +26,32 @@ failed=0
 
 for target in "${targets[@]}"; do
   echo "Validating: $target"
-  if ! kustomize build "$target" --enable-helm | kubeconform -strict -ignore-missing-schemas -summary; then
-    echo "❌ Validation failed for $target"
+  
+  # マニフェストのビルド結果を一時ファイルに格納
+  tmp_manifest=$(mktemp)
+  if ! kustomize build "$target" --enable-helm > "$tmp_manifest"; then
+    echo "❌ Failed to build manifests for $target"
     failed=1
-  else
-    echo "✅ Validation succeeded for $target"
+    rm -f "$tmp_manifest"
+    echo "--------------------------------------"
+    continue
   fi
+
+  # 1. kubeconform によるスキーマ検証
+  echo "--> Running kubeconform..."
+  if ! kubeconform -strict -ignore-missing-schemas -summary < "$tmp_manifest"; then
+    echo "❌ Schema validation failed for $target"
+    failed=1
+  fi
+
+  # 2. kube-linter によるベストプラクティス検証
+  echo "--> Running kube-linter..."
+  if ! kube-linter lint - < "$tmp_manifest"; then
+    echo "❌ Linter validation failed for $target"
+    failed=1
+  fi
+
+  rm -f "$tmp_manifest"
   echo "--------------------------------------"
 done
 

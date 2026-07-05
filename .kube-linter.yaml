@@ -1,0 +1,18 @@
+customChecks: []
+checks:
+  exclude:
+    - "unset-cpu-requirements"
+    - "unset-memory-requirements"
+    - "no-read-only-root-fs"
+    - "run-as-non-root"
+    - "no-anti-affinity"
+    - "liveness-port"
+    - "readiness-port"
+    - "startup-port"
+    - "dangling-service"
+    - "host-network"
+    - "drop-net-raw-capability"
+    - "privilege-escalation-container"
+    - "privileged-container"
+    - "sensitive-host-mounts"
+    - "latest-tag"
