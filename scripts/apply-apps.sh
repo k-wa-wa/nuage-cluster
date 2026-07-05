@@ -10,7 +10,8 @@ kustomize build --enable-helm manifests/common | kubectl apply -f -
 kubectl apply -k manifests/bootstrap/ --server-side
 kubectl create secret generic sops-age-key \
   --namespace argocd \
-  --from-file=keys.txt=$HOME/.config/sops/age/argocd_key.txt
+  --from-file=keys.txt=$HOME/.config/sops/age/argocd_key.txt \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl wait --for=condition=Established crd/appprojects.argoproj.io --timeout=60s
 kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd

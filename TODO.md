@@ -60,8 +60,6 @@
   - 更新対象が多層に散っている: Cilium chart version (`manifests/common/cilium/kustomization.yaml`、現在 1.15.0 でかなり古い)、Talos version (`modules/k8s-cluster/talos.tf` にハードコード)、nix flake inputs (nixpkgs 24.11)、terraform providers。Renovate はこれら全てに対応しており、PR ベースの更新フローに乗せられる
 - [ ] **ApplicationSet 自体の GitOps 化 (App of Apps)**
   - 現状 `manifests/apps/*.yaml` (ApplicationSet 2 つ) は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
-- [ ] **apply-apps.sh の冪等化**
-  - `kubectl create secret` は 2 回目の実行で失敗する。`--dry-run=client -o yaml | kubectl apply -f -` 形式に直し、スクリプト全体を何度でも実行可能にする
 
 ## 3. 監視・可観測性 (README TODO「監視・バックアップなど運用の効率化」の具体化)
 
