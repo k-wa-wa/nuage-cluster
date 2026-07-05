@@ -49,9 +49,9 @@
 
 現状 GitHub Actions は `nix-images.yaml` (LXC イメージビルド) のみ。master push = 即本番同期 (prune + selfHeal) なので、push 前の検証が手薄い。
 
-- [ ] **マニフェスト検証 CI**
+- [x] **マニフェスト検証 CI**
   - `kustomize build --enable-helm` を全 overlay に対して実行 + **kubeconform** でスキーマ検証。壊れた YAML が Argo CD に届く前に落とす
-- [ ] **IaC 検証 CI**
+- [x] **IaC 検証 CI**
   - `tofu validate` / `terragrunt hclfmt --check` / `tflint`。state 不要な範囲だけでも価値がある
   - `nix flake check` + 各 nixosConfiguration の `build` (dry-run) を CI で回す
 - [ ] **シークレット漏洩ガード**
