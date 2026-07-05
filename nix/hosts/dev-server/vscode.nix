@@ -1,10 +1,6 @@
 { pkgs, lib, ... }:
 
 {
-  imports = [
-    (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
-  ];
-
   services.vscode-server.enable = true;
   # VS Code Remote SSH などの動的バイナリを動かすための設定
   programs.nix-ld.enable = true;

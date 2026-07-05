@@ -15,11 +15,14 @@
   users.users.nixos.shell = pkgs.zsh;
 
   virtualisation.docker = {
-    enable = true;
+    # enable = true;
     rootless = {
       enable = true;
       setSocketVariable = true;
+      daemon.settings = {
+        dns = [ "8.8.8.8" "8.8.4.4" ];
+      };
     };
   };
-  users.users.nixos.extraGroups = [ "docker" ];
+  # users.users.nixos.extraGroups = [ "docker" ];
 }

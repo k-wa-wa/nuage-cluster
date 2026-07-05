@@ -9,6 +9,10 @@
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nixos-vscode-server = {
+      url = "github:nix-community/nixos-vscode-server";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     nixpkgs-ollama.url = "github:nixos/nixpkgs/5b2c2d84341b2afb5647081c1386a80d7a8d8605";
 
@@ -28,7 +32,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, disko, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -64,6 +68,7 @@
           modules = [
             home-manager.nixosModules.home-manager
             disko.nixosModules.disko
+            nixos-vscode-server.nixosModules.default
             ./hosts/base-vm/disko-config.nix
             ./hosts/base-vm/configuration.nix
             ./hosts/dev-server/configuration.nix
