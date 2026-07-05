@@ -16,4 +16,3 @@ kubectl wait --for=condition=Established crd/appprojects.argoproj.io --timeout=6
 kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
 
 kubectl apply -f manifests/apps/
-kubectl apply -f manifests/apps/pg-cluster/base/endpoint.yaml
