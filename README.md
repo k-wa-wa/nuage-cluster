@@ -1,84 +1,100 @@
-# nuage-cluster :sun_behind_small_cloud:
+# nuage-cluster  :sun_behind_small_cloud:
 
 おうちクラスターのセットアップリポジトリ
 
 ## TODO :white_check_mark:
 
 - [x] Ingress or Ngrok 等の検討
-   - Istio IngressGateway で実装
-- [ ] Argo CD / Dashboard の導入 (自動化)
-- [ ] Ansible の実行をコンテナ内で行う (ホストマシンに依存せず実行可能にしたい)
+   - Cilium Ingress で実装
+- [x] ArgoCD の導入
+- [ ] Dashboard 作成
+- [ ] ~~Ansible の実行をコンテナ内で行う (ホストマシンに依存せず実行可能にしたい)~~
+   - Terraform + Nix により Ansible を排除
 - [x] kube-vip を導入して HA Cluster にするか検討
    - 一旦実装したものの、外部 haproxy によるロードバランスに変更
 - [x] AZ を追加して VPN で繋ぐ
 - [ ] リージョンを追加して VPN で繋ぐ
 - [ ] Ansible のリファクタ (突貫実装を整理・実行時間も短縮したい)
-- [ ] DB を外出し (VM 化) するか、Operator を使用するか検討する
+   - Terraform + Nix により Ansible を排除
+- [x] DB を外出し (VM 化) するか、Operator を使用するか検討する
+   - NFS / Minio / PostgreSQL のみ外出し。他は一時 DB としてクラスター内に作成する方針
 - [ ] LMServer の再構築
 - [ ] 監視・バックアップなど運用の効率化
 
-## Architecture
+## 構成概要
 
-### Overview
+- **仮想化基盤**: Proxmox VE
+- **ネットワーク**: Proxmox SDN
+- **Kubernetes**: Talos, Cilium, ArgoCD
+- **ロードバランサー**: HAProxy + keepalived + CoreDNS
+- **データストア**: PostgreSQL, NFS, Minio
+- **VPN**: Tailscale, Cloudflare Tunnel + Zero Trust
+- **シークレット管理**: SOPS + Age
 
-<img src="./docs/overview.drawio.svg" style="background-color: white; padding: 8px;">
+詳細なアーキテクチャ図・リソース一覧(IP / VMID)は [docs/architecture.md](./docs/architecture.md) を参照。
 
-### ハードウェア・ネットワーク構成 (deprecated)
+## 管理レイヤー (IaC / GitOps)
 
-<img src="./docs/hardware.drawio.svg" style="background-color: white; padding: 8px;">
+管理レイヤーは 3 層あり、いずれも本リポジトリを起点とする。
 
-### Kubernetes 構成 (deprecated)
+| 層 | ツール | 対象 | 適用方法 |
+| :-- | :-- | :-- | :-- |
+| ① インフラ | Terragrunt + OpenTofu | SDN・VM・LXC・Talos マシン設定・Cloudflare Tunnel | ローカルから `terragrunt apply` (手動 Push 型) |
+| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC / VM | LXC は `system.autoUpgrade` による自動 Pull。一部 `nixos-rebuild switch --flake` で手動 Push |
+| ③ アプリ | Argo CD (ApplicationSet + Kustomize + SOPS プラグイン) | Kubernetes 上の全アプリ | master ブランチへの push で自動同期 |
 
-<img src="./docs/k8s-arch.drawio.svg" style="background-color: white; padding: 8px;">
+Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespace にデプロイし、外部リポジトリのアプリも `multi-repo-deploy.yaml` でまとめて管理する。
 
-### PVE on PVE 構成 (deprecated)
+## ディレクトリ構成
 
-PVE (Proxmox Virtual Environment) をネストさせ、いつでも作成・削除・検証可能な環境を用意している。
+```
+.
+├── terraform/      # ① インフラ層 (Terragrunt + OpenTofu)
+│   ├── vpc/        #   SDN ゾーンごとの構成 (zone-private-k8s, cloudflare など)
+│   └── pve/        #   Proxmox ホスト・VM 定義
+├── nix/            # ② OS 層 (NixOS Flake: lb, nfs-proxy, dev-server, lm-server など)
+├── manifests/      # ③ アプリ層 (Kubernetes マニフェスト)
+│   ├── common/     #   CNI (Cilium)
+│   ├── bootstrap/  #   namespace・Argo CD
+│   └── apps/       #   Argo CD が同期するアプリ群 (ApplicationSet)
+├── playbooks/      # Ansible (データストア・Omada Controller など IaC 移行前のリソース)
+├── scripts/        # ブートストラップ・適用スクリプト
+├── spec/           # 要件定義・ネットワーク詳細設計
+├── docs/           # アーキテクチャ・運用ガイド・トラブルシューティング
+├── truenas/        # TrueNAS の OpenTofu 構成
+└── resources/      # PVE 関連の静的リソース
+```
 
-IPアドレスの範囲等は任意に変更可能。
+## セットアップ・運用
 
-<img src="./docs/pve-on-pve.drawio.svg" style="background-color: white; padding: 8px;">
+日常運用の手順(前提ツール、変更作業、コンポーネント別の運用、障害対応)は [docs/operations.md](./docs/operations.md) に記載
 
-## 手順
+### クラスターのブートストラップ
 
-1. 物理ノードのセットアップ
+```bash
+# Talos VM の作成 → クラスターのブートストラップ → kubeconfig の取得までを一括実行する
+./scripts/bootstrap-cluster.sh
 
-   1. ssh key を作成する
+# CNI・Argo CD・アプリの適用
+./scripts/apply-apps.sh
+```
 
-      ```sh
-      # 各ノードへ配置するキー
-      ssh-keygen -f ./.ssh/id_rsa # その他のオプション
-      ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
-      bash .ssh/gen-keys.sh
-      ```
+詳細な手順は [docs/operations.md](./docs/operations.md) の「クラスターのブートストラップ」を参照。
 
-   1. sops key を作成する
+### 日常の変更作業
 
-      ```bash
-      mkdir -p ~/.config/sops/age
-      age-keygen -o ~/.config/sops/age/keys.txt
-      age-keygen -o ~/.config/sops/age/argocd_key.txt
-      age-keygen -o ~/.config/sops/age/lb_key.txt
-      ```
+- **インフラ変更**: `terraform/vpc/<zone>/` 配下を編集し `terragrunt apply`
+- **NixOS ホスト変更**: `nix/hosts/<host>/` を編集。LXC は自動 Pull、VM は手動で `nixos-rebuild switch --flake`
+- **アプリ変更**: `manifests/apps/` を編集して master に push すると Argo CD が自動同期する
 
-   1. Intel NUC ノードをセットアップする（[参考](./docs/setup-nuc.md)は Ubuntu だが、Proxmox を入れる）
+## ドキュメント
 
-   1. 自作 PC ノードをセットアップする(NUC と同様 Proxmox)
-
-   1. ルーター側で物理ノードに固定 IP を振る（各ノードで設定するのが面倒なため、ルーターで一括設定する）
-
-1. Proxmox のセットアップを行う ([参考](./docs/setup-proxmox.md))
-
-1. 各種スクリプトを実行する
-
-   ```bash
-   # TODO: 手順再作成
-   # NFS 等のセットアップ
-
-   terragrunt --terragrunt-working-dir terraform/ run-all apply
-
-   # クラスター作成
-   bash scripts/bootstrap-clsuter.sh && bash scripts/apply-apps.sh
-   ```
-
-SDN Controllerを手動で作成する必要あり。
+| ドキュメント | 内容 |
+| :-- | :-- |
+| [docs/architecture.md](./docs/architecture.md) | 全体構成図・ネットワーク・K8s 構成・リソース一覧 |
+| [docs/operations.md](./docs/operations.md) | 運用ガイド(セットアップ、日常作業、障害対応) |
+| [docs/secrets-management.md](./docs/secrets-management.md) | SOPS + Age によるシークレット管理方針 |
+| [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | トラブルシューティング |
+| [docs/setup-proxmox.md](./docs/setup-proxmox.md) / [docs/setup-nuc.md](./docs/setup-nuc.md) | 物理ノードの初期セットアップ |
+| [spec/cloud.md](./spec/cloud.md) | マルチテナント環境の要件定義 |
+| [spec/network_design.md](./spec/network_design.md) | ネットワーク詳細設計 (ASN / VNI / IPAM) |
