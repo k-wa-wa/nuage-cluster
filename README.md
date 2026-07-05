@@ -95,6 +95,6 @@ Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespa
 | [docs/operations.md](./docs/operations.md) | 運用ガイド(セットアップ、日常作業、障害対応) |
 | [docs/secrets-management.md](./docs/secrets-management.md) | SOPS + Age によるシークレット管理方針 |
 | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | トラブルシューティング |
-| [docs/setup-proxmox.md](./docs/setup-proxmox.md) / [docs/setup-nuc.md](./docs/setup-nuc.md) | 物理ノードの初期セットアップ |
+| [docs/setup.md](./docs/setup.md) | セットアップ手順(物理ノード構築〜クラスター作成) |
 | [spec/cloud.md](./spec/cloud.md) | マルチテナント環境の要件定義 |
 | [spec/network_design.md](./spec/network_design.md) | ネットワーク詳細設計 (ASN / VNI / IPAM) |
