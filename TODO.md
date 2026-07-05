@@ -38,10 +38,10 @@
   - `protection = true` で誤削除は防げるが、データ本体のバックアップが無い (operations.md 注意点)。PBS か zfs send/recv で外部にコピーする
 - [ ] **PostgreSQL (pg-1/2/3) のバックアップ・リストア手順の整備**
   - pgBackRest / wal-g で Minio へ WAL アーカイブ + 定期フルバックアップ。リストア演習まで一度やっておく
-- [ ] **etcd スナップショットの定期取得**
-  - `talosctl etcd snapshot` を定期実行して Minio へ退避する。クラスター全損時の復旧手段になる
-- [ ] **k8s の PV バックアップ (Velero)**
-  - local-path-provisioner の hostPath データはノード障害で消える。Velero + Minio で PVC スナップショットを取るか、「クラスター内は揮発・永続データは外部 (NFS/Minio/PG)」の方針を明文化して割り切る
+- [x] ~~**etcd スナップショットの定期取得**~~ (実施しない)
+  - 構成・思想的に、クラスター全損はリスクではない（復旧時間は必要）ため実施しない。
+- [x] ~~**k8s の PV バックアップ (Velero)**~~ (実施しない)
+  - クラスター内は揮発とし、永続データは外部 (NFS/Minio/PostgreSQL) に配置する方針で割り切り、実施しない。
 - [ ] **障害訓練 (Chaos Day) の定例化**
   - replace-all-node.md はあるので、「ノード 1 台電源断」「lb VIP フェイルオーバー」「Argo CD 全消し → apply-apps.sh 再実行」等を年数回実施して手順の腐敗を防ぐ
 
@@ -123,31 +123,34 @@
 
 - [ ] **Cilium BGP Control Plane で lb 層を薄くする**
   - 既にアンダーレイが BGP EVPN なので、Cilium の BGP Control Plane + LB-IPAM で Service type=LoadBalancer の VIP を直接広報できる可能性がある。成功すれば HAProxy の NodePort 中継が不要になり、lb LXC は API サーバー用に縮退できる。kube-vip → 外部 HAProxy と変遷してきた歴史の次の一手として面白い
-- [ ] **LMServer (lm-server) の再構築 + Wake-on-LAN 自動化**
-  - まず再構築: nixos-anywhere + `flake.nix#lm-server` で作り直し、モデル選定 (現在 qwen3.5:35b-a3b) と ROCm 周りの設定を見直す
-  - 発展として「Ollama へのリクエストを検知 → WoL マジックパケットで server-2 起動 → 起動後にプロキシ」する仕組み (n8n や小さな Go デーモン)。アイドル時間で自動シャットダウンまでやると"サーバーレス LLM"ごっこができる
-- [ ] **exo による分散 LLM 推論 (ideas/exo が既にある)**
-  - nuc-1/2 + server-1/2 の GPU/CPU を束ねて 1 モデルを動かす実験。おうちクラスターならではのネタ
-- [ ] **Cluster API Provider Proxmox (ideas/cluster-api-for-proxmox)**
-  - 現在の Terraform 直管理と対極の「k8s から k8s クラスターを生やす」方式。マルチテナントで「テナントごとに k8s クラスターを払い出す」未来があるなら PoC する価値あり
-- [ ] **KubeVirt (ideas/kubevirt)**
-  - 逆に「k8s の中に VM を生やす」方向。PVE との棲み分け整理も含めて一度触ると設計判断の材料になる
+- [ ] **LMServer (lm-server) の再構築 + KEDA / PVE API による自律電源制御 (サーバーレス LLM)**
+  - nixos-anywhere + `flake.nix#lm-server` で作り直し、モデル選定 (現在 qwen3.5:35b-a3b) と ROCm 周りの設定を見直す
+  - 発展として、Ollama へのリクエストを Kubernetes KEDA やリバースプロキシで検知し、自動で Proxmox API 経由で server-2 を WoL 起動、一定時間のアイドル状態で自動サスペンド/シャットダウンするオンデマンド電源制御を構築する
 - [ ] **Self-hosted GitHub Actions Runner (ARC) をクラスターに置く**
   - nix-images のビルドや CI (2 章) を自宅で回せる。Terragrunt の plan だけ CI で実行 → 結果を PR コメント、まで行くと「手動 push 型」の①層が半自動化される
-- [ ] **リージョン追加 + Cilium ClusterMesh (README TODO「リージョンを追加して VPN で繋ぐ」)**
+- [ ] **リージョン追加 + Cilium ClusterMesh**
   - Tailscale で別拠点 (実家・VPS 等) と繋ぎ、第 2 クラスター or リモートノードを ClusterMesh で接続。EVPN over Tailscale の検証も兼ねられる
-- [ ] **PVE on PVE の常設検証環境**
-  - server-1 に vmbr10 (PVE on PVE 用) が既にある。SDN や Talos アップグレードを本番に当てる前に流す「ステージング」をネスト仮想化で作る
 - [ ] **自宅 IoT メトリクスの取り込み (ideas/ble-metrics.yaml)**
   - BLE 温湿度計 → Prometheus → Grafana。監視スタック整備 (3 章) のついでに載せると生活に還元される
 - [ ] **Argo Rollouts / Keel の使い分け整理**
   - keel が既に apps にいる。外部リポジトリ (pechka 等) のイメージ更新フローを「Keel の自動更新」から「Renovate + Git commit」に寄せると GitOps 純度が上がる — どちらの思想で行くか決める
-
----
-
-## 優先順位の私見
-
-1. **1 章 (state リモート化・バックアップ)** — 「壊れたら Git から再現できる」思想の最後の穴が state とデータ本体
-2. **2 章 (CI)** — master push = 即本番、の構成は検証 CI が入って初めて安心して回せる
-3. **3 章 (監視・通知)** — README TODO の中で日々の体験改善が最も大きい
-4. 4〜5 章は随時、6〜7 章は楽しみながら
+- [ ] **Terragrunt / OpenTofu の GitOps 化 (①層の自動デプロイ)**
+  - 現状はローカルから手動実行している `terragrunt apply` を、GitHub Actions (または Atlantis / Digger などのインフラ GitOps ツール) に移行する。PR 上での plan 結果確認からマージ時の自動 apply までを完結させ、インフラの完全宣言的運用を達成する
+- [ ] **Minio を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
+  - クラスター外の Minio を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。dev-server や CI でのビルド結果を Minio にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
+- [ ] **AI-driven 自律運用 (AI Copilot Operator) の構築**
+  - Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語で「最近のクラスターの調子は？」と対話できる機能に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
+- [ ] **永続データの外部オブジェクトストレージへの自動暗号化レプリケーション**
+  - クラスター内は揮発とする割り切りを補完するため、外部の永続データ (PostgreSQL WAL, Minio, NFS) について、`restic` や `rclone` を用いて外部オブジェクトストレージ (Cloudflare R2 や Backblaze B2) へ自動で暗号化バックアップする。これにより、自宅の物理災害時にもデータ損失を避ける 3-2-1 バックアップルールを確立する
+- [ ] **Prometheus と物理空間の双方向連携 (Ambient IoT-Ops)**
+  - 自宅 BLE 温湿度計のメトリクスや各物理ノードの温度に基づき、室温上昇時や特定ノード過熱時に VM/LXC のライブマイグレーションや Pod ドレインを実行する自律熱分散を構築する。同時に、クラスターのヘルス状態（Argo CD の同期失敗やアラート発生）に応じて部屋のスマートLED (Hue/WLED) を明滅・発色させ、インフラの状態を物理空間にアンビエントに視覚化する
+- [ ] **スマートメーターと在室状況に連動する完全自律エコシステム (Eco-Ops)**
+  - 在室状況（スマートロックの施錠、または自宅ルーターの Wi-Fi 接続リストからの登録端末消失）を検知した際に、開発環境や不要な K8s ノードを Proxmox API でメモリ退避（サスペンド）させる。同時に、スマートメーターから電力量や電気代の情報を取得し、電力が安い時間帯に重いジョブを自動で寄せる。これらエコチューニングの成果を Grafana でゲーム感覚でスコア化する
+- [ ] **新規ミニPCを LAN に挿すだけの「ゼロタッチ物理プロビジョニング (ZTP)」**
+  - ルーターの DHCP / PXE (iPXE/Matchbox) を使い、LAN に新しい PC を接続して電源を入れるだけで自動的に Talos Linux / NixOS がインストールされ、BGP ピアリングと EVPN ゾーンが自動構成されて K8s クラスターに worker ノードとして自動参加する物理自動拡張基盤を構築する
+- [ ] **スマートプラグ連携による「物理カオスエンジニアリング (Physical Chaos Monkey)」**
+  - 単なるポッド削除などのソフトウェアカオスを超え、スマートプラグ (Tapo等) の API と連携して物理ノードの電源を突発的かつ物理的に切断する。Talos Linux の HA や PostgreSQL のレプリケーションが自動フェイルオーバーするかを実証したのち、自動で通電してノードを復旧させる全自動物理カオス試験を構築する
+- [ ] **Tailscale + ClusterMesh による「ハイブリッド・クラウドバースト」の自動化**
+  - 自宅物理クラスターのリソース（特に GPU やメモリ）の枯渇を検知した際、自動的にパブリッククラウド (AWS / Hetzner 等) の安価なスポットインスタンスを Terraform でデプロイし、Cilium ClusterMesh で自宅クラスターを一時拡張して負荷を逃がす。ジョブ完了後に自動でインスタンスを破棄するクラウドバーストを自動化する
+- [ ] **市販ルーターを排除した「NixOS による完全宣言的自律ルーター」の構築**
+  - 現在の Omada ルーター ER605 を排除し、余剰 PC に NixOS をインストールして自作のソフトウェアルーターを仕立てる。nftables によるファイアウォール、FRR による BGP/OSPF ルーティング、DNS/DHCP をすべて Nix Flake で宣言的に記述し、ネットワークコアまで完全に GitOps 管理下におく
