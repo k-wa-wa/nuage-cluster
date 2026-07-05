@@ -2,24 +2,7 @@
 
 おうちクラスターのセットアップリポジトリ
 
-## TODO :white_check_mark:
-
-- [x] Ingress or Ngrok 等の検討
-   - Cilium Ingress で実装
-- [x] ArgoCD の導入
-- [ ] Dashboard 作成
-- [ ] ~~Ansible の実行をコンテナ内で行う (ホストマシンに依存せず実行可能にしたい)~~
-   - Terraform + Nix により Ansible を排除
-- [x] kube-vip を導入して HA Cluster にするか検討
-   - 一旦実装したものの、外部 haproxy によるロードバランスに変更
-- [x] AZ を追加して VPN で繋ぐ
-- [ ] リージョンを追加して VPN で繋ぐ
-- [ ] Ansible のリファクタ (突貫実装を整理・実行時間も短縮したい)
-   - Terraform + Nix により Ansible を排除
-- [x] DB を外出し (VM 化) するか、Operator を使用するか検討する
-   - NFS / Minio / PostgreSQL のみ外出し。他は一時 DB としてクラスター内に作成する方針
-- [ ] LMServer の再構築
-- [ ] 監視・バックアップなど運用の効率化
+TODO・改善アイディア・過去の設計判断の経緯は [TODO.md](./TODO.md) にまとめている。
 
 ## アーキテクチャ
 
