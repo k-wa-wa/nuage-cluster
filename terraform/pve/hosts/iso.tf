@@ -61,12 +61,12 @@ resource "proxmox_download_file" "nixos_base_lxc" {
   overwrite = true
 }
 resource "proxmox_download_file" "nixos_base_vm" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
-  content_type = "iso"
+  for_each     = toset(["nuc-1", "nuc-2", "server-1", "server-2"])
+  content_type = "import"
   datastore_id = "local"
   node_name    = each.key
 
-  file_name = "nixos-base-vm.iso"
-  url       = "https://github.com/k-wa-wa/nuage-cluster/releases/download/nix-images-vm/base-vm.iso"
+  file_name = "nixos-base-vm.qcow2"
+  url       = "https://github.com/k-wa-wa/nuage-cluster/releases/download/nix-images-vm/base-vm.qcow2"
   overwrite = true
 }
