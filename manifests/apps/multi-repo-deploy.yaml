@@ -3,6 +3,8 @@ kind: ApplicationSet
 metadata:
   name: multi-repo-deploy
   namespace: argocd
+  # annotations:
+  #   argocd.argoproj.io/refresh-type: paused
 spec:
   generators:
   - list:
