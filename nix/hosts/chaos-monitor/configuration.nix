@@ -16,20 +16,6 @@
     port = 9090;
     scrapeConfigs = [
       {
-        job_name = "talos-nodes";
-        scrape_interval = "5s";
-        static_configs = [{
-          targets = [
-            "10.20.1.11:10250"
-            "10.20.1.12:10250"
-            "10.20.1.13:10250"
-            "10.20.1.16:10250"
-            "10.20.1.17:10250"
-            "10.20.1.18:10250"
-          ];
-        }];
-      }
-      {
         job_name = "nixos-node-exporter";
         scrape_interval = "5s";
         static_configs = [{
