@@ -96,6 +96,12 @@ jobs:
           fi
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
+      - name: Install qemu-utils
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-utils
+
       - name: Build
         if: steps.check.outputs.changed == 'true'
         run: nix build ./nix#base-vm --out-link result-base-vm
@@ -107,10 +113,14 @@ jobs:
         run: |
           VM_SRC=$(readlink -f result-base-vm)
           if [ -d "$VM_SRC" ]; then
-            cp "$(find "$VM_SRC" -mindepth 1 -type f -name '*.qcow2' | head -1)" base-vm.qcow2
+            SRC_FILE="$(find "$VM_SRC" -mindepth 1 -type f -name '*.qcow2' | head -1)"
           else
-            cp "$VM_SRC" base-vm.qcow2
+            SRC_FILE="$VM_SRC"
           fi
+
+          # qcow2 イメージを圧縮してサイズを大幅に削減する
+          qemu-img convert -O qcow2 -c "$SRC_FILE" base-vm.qcow2
+
           echo "${{ steps.hash.outputs.value }}" > nix-hash.txt
 
           if gh release view nix-images-vm --repo ${{ github.repository }} > /dev/null 2>&1; then

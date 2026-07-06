@@ -60,7 +60,4 @@
       fi
     '';
   };
-
-  # 初期ディスクサイズを制限し、Github Releases の 2GB 制限を回避する
-  virtualisation.diskSize = 1800;
 }
