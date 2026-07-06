@@ -1,5 +1,26 @@
 { config, lib, pkgs, ... }:
 
+let
+  keepalivedNotify = pkgs.writeShellScript "keepalived-notify.sh" ''
+    TYPE=$1
+    NAME=$2
+    STATE=$3
+    PRIO=$4
+
+    mkdir -p /var/lib/prometheus/node-exporter
+
+    case "$STATE" in
+      "MASTER") VAL=1 ;;
+      "BACKUP") VAL=0 ;;
+      "FAULT")  VAL=-1 ;;
+      *)        VAL=-2 ;;
+    esac
+
+    echo "keepalived_instance_state{instance=\"$NAME\"} $VAL" > /var/lib/prometheus/node-exporter/keepalived.prom.tmp
+    chmod 644 /var/lib/prometheus/node-exporter/keepalived.prom.tmp
+    mv /var/lib/prometheus/node-exporter/keepalived.prom.tmp /var/lib/prometheus/node-exporter/keepalived.prom
+  '';
+in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
@@ -33,6 +54,18 @@
   # sops-nix の復号スクリプトの前に実行するよう依存関係を指定
   system.activationScripts.setupSecrets.deps = [ "sops-key-link" ];
 
+  system.activationScripts.prometheus-node-exporter-dir = {
+    text = ''
+      mkdir -p /var/lib/prometheus/node-exporter
+      if [ ! -f /var/lib/prometheus/node-exporter/keepalived.prom ]; then
+        echo 'keepalived_instance_state{instance="VI_1"} 0' > /var/lib/prometheus/node-exporter/keepalived.prom
+        echo 'keepalived_instance_state{instance="VI_2"} 0' >> /var/lib/prometheus/node-exporter/keepalived.prom
+      fi
+      chmod 755 /var/lib/prometheus/node-exporter
+      chmod 644 /var/lib/prometheus/node-exporter/keepalived.prom
+    '';
+  };
+
   services.keepalived = {
     enable = true;
     extraConfig = ''
@@ -43,6 +76,7 @@
           priority 100
           advert_int 1
           nopreempt
+          notify ${keepalivedNotify}
 
           # sops-nix でレンダリングされた認証ファイルをインクルード
           include ${config.sops.templates."keepalived-auth.conf".path}
@@ -59,6 +93,7 @@
           priority 100
           advert_int 1
           nopreempt
+          notify ${keepalivedNotify}
 
           # sops-nix でレンダリングされた認証ファイルをインクルード
           include ${config.sops.templates."keepalived-auth.conf".path}

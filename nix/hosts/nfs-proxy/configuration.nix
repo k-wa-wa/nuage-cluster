@@ -14,4 +14,9 @@
     "net.ipv4.ip_nonlocal_bind" = 1;
     "net.ipv4.ip_unprivileged_port_start" = 1000;
   };
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+  };
 }
