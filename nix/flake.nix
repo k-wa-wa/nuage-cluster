@@ -158,13 +158,13 @@
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
                 package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
                 acceleration = "rocm";
-                loadModels = [ "qwen3.5:35b-a3b" ];
+                loadModels = [ "sorc/qwen3.5-claude-4.6-opus:9b" ];
                 host = "0.0.0.0";
                 environmentVariables = {
                   OLLAMA_KEEP_ALIVE = "-1";
                   HSA_OVERRIDE_GFX_VERSION = "11.0.0";
                 };
-                # curl -s http://localhost:11434/api/generate -d '{"model": "qwen3.5:35b-a3b", "keep_alive": -1}'
+                # curl -s http://localhost:11434/api/generate -d '{"model": "sorc/qwen3.5-claude-4.6-opus:9b", "keep_alive": -1}'
               };
             }
           ];
