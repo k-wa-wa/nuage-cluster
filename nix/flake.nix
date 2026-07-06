@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-ollama.url = "github:nixos/nixpkgs/5b2c2d84341b2afb5647081c1386a80d7a8d8605";
+    nixpkgs-ollama.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -160,7 +160,7 @@
               services.ollama = {
                 enable = true;
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
-                package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama-rocm;
+                package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
                 acceleration = "rocm";
                 loadModels = [ "qwen3.5:35b-a3b" ];
                 host = "0.0.0.0";
