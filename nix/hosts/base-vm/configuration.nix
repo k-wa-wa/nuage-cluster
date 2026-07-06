@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, ... }:
+{ modulesPath, pkgs, lib, ... }:
 
 {
   imports = [
@@ -58,5 +58,18 @@
         exit 1
       fi
     '';
+  };
+
+  # イメージ側のディスクパーティション構造に合わせたマウント定義 (lib.mkDefault で他構成との競合を回避)
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+    options = [ "x-systemd.growfs" "x-initrd.mount" ];
+  };
+
+  fileSystems."/boot" = lib.mkDefault {
+    device = "/dev/disk/by-label/ESP";
+    fsType = "vfat";
+    options = [ "defaults" ];
   };
 }
