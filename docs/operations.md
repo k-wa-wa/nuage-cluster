@@ -40,7 +40,7 @@ open https://argocd.cluster.wpc
 
 PostgreSQL primary の宛先 (`10.20.1.28`) は `manifests/apps/pg-cluster/base/service.yaml` 内の EndpointSlice で定義しており、Argo CD が同期する (Argo CD の `resource.exclusions` から EndpointSlice を除外対象外にすることで管理可能にしている)。
 
-### 2.2 NixOS ホストの変更 (lb-1/2/3, nfs-proxy など)
+### 2.2 NixOS ホストの変更 (lb-1/2/3, egress-gateway など)
 
 LXC ホストには `system.autoUpgrade` が設定されており、**master へ push すれば起動時 (30 秒後) および daily で自動適用される**。
 
@@ -82,7 +82,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
 | `terraform/vpc/zone-dev` | dev-server VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
-| `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・nfs-proxy |
+| `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
 | `terraform/vpc/zone-xxx` | その他 SND Zone |
 | `truenas/` | TrueNAS の設定 (Terragrunt 管理外・単体の tofu 構成) |

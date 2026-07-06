@@ -78,7 +78,7 @@
     <rect x="726" y="345" width="192" height="135" rx="6" fill="#4a3118" stroke="#d79b00"/>
     <text x="738" y="369" font-size="13" font-weight="bold" fill="#e8e8e8">データストア <tspan font-size="11" font-weight="normal" fill="#b0b0b0">クラスター外</tspan></text>
     <text x="738" y="397" font-size="12" fill="#e8e8e8">PostgreSQL (LXC)</text>
-    <text x="738" y="419" font-size="12" fill="#e8e8e8">NFS — nfs-proxy 中継</text>
+    <text x="738" y="419" font-size="12" fill="#e8e8e8">NFS — egress-gateway 中継</text>
     <text x="738" y="441" font-size="12" fill="#e8e8e8">Minio (S3 互換)</text>
 
     <!-- zone 内の接続 -->

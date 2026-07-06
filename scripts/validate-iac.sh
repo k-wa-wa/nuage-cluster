@@ -88,7 +88,7 @@ nix flake check ./nix
 # 5. NixOS Build Dry-run (Linux Only)
 if [ "$(uname -s)" = "Linux" ]; then
   echo "Running NixOS configurations dry-run build..."
-  hosts=("base-vm" "dev-server" "lb-1" "lb-2" "lb-3" "nfs-proxy" "lm-server")
+  hosts=("base-vm" "dev-server" "lb-1" "lb-2" "lb-3" "egress-gateway" "lm-server")
   for host in "${hosts[@]}"; do
     echo "Dry-running build for host: $host"
     nix build ./nix#nixosConfigurations."$host".config.system.build.toplevel --dry-run

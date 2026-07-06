@@ -1,9 +1,9 @@
-module "nfs-proxy" {
+module "egress-gateway" {
   source = "../modules/nix-lxc"
 
   lxc_config = {
     vm_id     = 220
-    vm_name   = "nfs-proxy"
+    vm_name   = "egress-gateway"
     node_name = "server-1"
     cores     = 1
     memory    = 1024

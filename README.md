@@ -37,7 +37,7 @@ Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespa
 ├── terraform/      # ① インフラ層 (Terragrunt + OpenTofu)
 │   ├── vpc/        #   SDN ゾーンごとの構成 (zone-private-k8s, cloudflare など)
 │   └── pve/        #   Proxmox ホスト・VM 定義
-├── nix/            # ② OS 層 (NixOS Flake: lb, nfs-proxy, dev-server, lm-server など)
+├── nix/            # ② OS 層 (NixOS Flake)
 ├── manifests/      # ③ アプリ層 (Kubernetes マニフェスト)
 │   ├── common/     #   CNI (Cilium)
 │   ├── bootstrap/  #   namespace・Argo CD

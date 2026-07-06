@@ -66,7 +66,7 @@
 - [ ] **アラート通知経路の整備**
   - nuage-monitoring-stack (外部リポジトリ) に Alertmanager → **ntfy** (ideas/ntfy.yaml が既にある) の経路を作り、スマホに届くようにする。Argo CD Notifications も同じ ntfy に集約すると面白い
 - [ ] **クラスター外コンポーネントの監視**
-  - lb (HAProxy/keepalived/CoreDNS)、pg-1/2/3、nfs-proxy、Proxmox ホスト自体。NixOS 側に prometheus-node-exporter / haproxy-exporter を Nix モジュールとして足すだけなので、②層の思想と相性が良い
+  - lb (HAProxy/keepalived/CoreDNS)、pg-1/2/3、egress-gateway、Proxmox ホスト自体。NixOS 側に prometheus-node-exporter / haproxy-exporter を Nix モジュールとして足すだけなので、②層の思想と相性が良い
   - Proxmox は `pve-exporter` で VM 単位のメトリクスまで取れる
 - [ ] **Hubble の有効化**
   - Cilium を使っているのに `hubble.enabled: false` はもったいない。Hubble UI で Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提にもなる
