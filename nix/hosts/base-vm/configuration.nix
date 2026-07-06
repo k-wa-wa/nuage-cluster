@@ -45,7 +45,7 @@
       echo "Bootstrapping NixOS configuration for hostname: $HOSTNAME"
 
       # 一時的にホスト名を設定して nixos-rebuild に認識させる
-      hostname "$HOSTNAME"
+      echo "$HOSTNAME" > /proc/sys/kernel/hostname
       echo "$HOSTNAME" > /etc/hostname
 
       # GitHub から該当するホスト名の構成を取得して適用
