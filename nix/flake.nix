@@ -150,22 +150,22 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-vm/configuration.nix
-            # ./hosts/lm-server/configuration.nix
+            ./hosts/lm-server/configuration.nix
             {
               networking.hostName = "lm-server";
-              # services.ollama = {
-              #   enable = true;
-              #   # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
-              #   package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
-              #   acceleration = "rocm";
-              #   loadModels = [ "qwen3.5:35b-a3b" ];
-              #   host = "0.0.0.0";
-              #   environmentVariables = {
-              #     OLLAMA_KEEP_ALIVE = "-1";
-              #     HSA_OVERRIDE_GFX_VERSION = "11.0.0";
-              #   };
-              #   # curl -s http://localhost:11434/api/generate -d '{"model": "qwen3.5:35b-a3b", "keep_alive": -1}'
-              # };
+              services.ollama = {
+                enable = true;
+                # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
+                package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
+                acceleration = "rocm";
+                loadModels = [ "qwen3.5:35b-a3b" ];
+                host = "0.0.0.0";
+                environmentVariables = {
+                  OLLAMA_KEEP_ALIVE = "-1";
+                  HSA_OVERRIDE_GFX_VERSION = "11.0.0";
+                };
+                # curl -s http://localhost:11434/api/generate -d '{"model": "qwen3.5:35b-a3b", "keep_alive": -1}'
+              };
             }
           ];
         };
