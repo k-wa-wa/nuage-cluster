@@ -47,7 +47,7 @@
 
       mkBaseVm = nixos-generators.nixosGenerate {
         system = "x86_64-linux";
-        format = "iso"; # terraform (bpg/proxmox) で扱いやすい iso 形式とする
+        format = "qcow-efi";
         modules = [
           ./hosts/base-vm/configuration.nix
         ];
