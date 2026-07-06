@@ -57,8 +57,6 @@
         base-vm = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
-            disko.nixosModules.disko
-            ./hosts/base-vm/disko-config.nix
             ./hosts/base-vm/configuration.nix
           ];
         };
@@ -151,8 +149,6 @@
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
-            disko.nixosModules.disko
-            ./hosts/base-vm/disko-config.nix
             ./hosts/base-vm/configuration.nix
             # ./hosts/lm-server/configuration.nix
             {
