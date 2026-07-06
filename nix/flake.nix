@@ -137,6 +137,17 @@
           ];
         };
 
+        chaos-monitor = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/chaos-monitor/configuration.nix
+            {
+              networking.hostName = "chaos-monitor";
+            }
+          ];
+        };
+
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
