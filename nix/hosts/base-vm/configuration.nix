@@ -72,4 +72,7 @@
     fsType = "vfat";
     options = [ "defaults" ];
   };
+
+  # 初回ブートストラップ（ロック保持）が完了するまで自動アップグレードを実行しない
+  systemd.services.nixos-upgrade.unitConfig.ConditionPathExists = "/var/lib/nixos-bootstrap-done";
 }
