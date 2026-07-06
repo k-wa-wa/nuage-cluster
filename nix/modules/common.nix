@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   nix.settings = {
@@ -32,6 +32,18 @@
 
   networking = {
     useDHCP = false;
+  };
+
+  environment.systemPackages = [ pkgs.git ];
+
+  system.autoUpgrade = {
+    enable = true;
+    flake = "github:k-wa-wa/nuage-cluster?dir=nix";
+    dates = "daily";
+  };
+
+  systemd.timers.nixos-upgrade.timerConfig = {
+    OnBootSec = "30s";
   };
 
   system.stateVersion = "24.11";
