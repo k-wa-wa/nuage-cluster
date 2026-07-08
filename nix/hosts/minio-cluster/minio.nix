@@ -11,6 +11,7 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
+    age.keyFile = "/var/lib/sops-nix/${hostName}-key.txt";
     # secrets.yaml から MinIO の認証情報を読み込む
     secrets.minio_root_user = { owner = "minio"; };
     secrets.minio_root_password = { owner = "minio"; };
