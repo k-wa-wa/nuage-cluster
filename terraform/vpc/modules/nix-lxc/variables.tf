@@ -27,3 +27,13 @@ variable "sops_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "mount_points" {
+  type = list(object({
+    volume = string
+    size   = optional(string)
+    path   = string
+  }))
+  default = []
+}
+

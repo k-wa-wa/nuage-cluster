@@ -66,6 +66,16 @@ resource "proxmox_virtual_environment_container" "lxc" {
     }
   }
 
+  dynamic "mount_point" {
+    for_each = var.mount_points
+    content {
+      volume = mount_point.value.volume
+      size   = mount_point.value.size
+      path   = mount_point.value.path
+    }
+  }
+
+
   startup {
     order      = "3"
     up_delay   = "60"

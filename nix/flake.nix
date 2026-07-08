@@ -208,6 +208,32 @@
             }
           ];
         };
+
+        minio-cluster-1 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { hostName = "minio-cluster-1"; };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/minio-cluster/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "minio-cluster-1";
+            }
+          ];
+        };
+
+        minio-cluster-2 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { hostName = "minio-cluster-2"; };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./hosts/minio-cluster/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "minio-cluster-2";
+            }
+          ];
+        };
       };
 
       packages = forAllSystems (system: {

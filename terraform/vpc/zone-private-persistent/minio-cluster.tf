@@ -1,0 +1,107 @@
+data "sops_file" "secrets" {
+  source_file = "${path.module}/../../secrets.yaml"
+}
+
+module "minio-cluster-1" {
+  source   = "../modules/nix-lxc"
+  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  lxc_config = {
+    vm_id     = 271
+    vm_name   = "minio-cluster-1"
+    node_name = "nuc-1"
+    cores     = 2
+    memory    = 4096
+    network_devices = [
+      {
+        name   = "eth0"
+        bridge = "dummy"
+      },
+      {
+        name   = "eth1"
+        bridge = "prvmain"
+      },
+      {
+        name   = "eth2"
+        bridge = "vmbr0"
+      }
+    ]
+    ip_config = [
+      {
+        address = "dhcp"
+      },
+      {
+        address = "10.20.1.71/24"
+        gateway = "10.20.1.1"
+      },
+      {
+        address = "192.168.5.221/24"
+      }
+    ]
+    disk_size = 20
+  }
+
+  mount_points = [
+    {
+      volume = "local-zfs"
+      size   = "20G"
+      path   = "/data1"
+    },
+    {
+      volume = "local-zfs"
+      size   = "20G"
+      path   = "/data2"
+    }
+  ]
+}
+
+module "minio-cluster-2" {
+  source   = "../modules/nix-lxc"
+  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  lxc_config = {
+    vm_id     = 272
+    vm_name   = "minio-cluster-2"
+    node_name = "nuc-2"
+    cores     = 2
+    memory    = 4096
+    network_devices = [
+      {
+        name   = "eth0"
+        bridge = "dummy"
+      },
+      {
+        name   = "eth1"
+        bridge = "prvmain"
+      },
+      {
+        name   = "eth2"
+        bridge = "vmbr0"
+      }
+    ]
+    ip_config = [
+      {
+        address = "dhcp"
+      },
+      {
+        address = "10.20.1.72/24"
+        gateway = "10.20.1.1"
+      },
+      {
+        address = "192.168.5.222/24"
+      }
+    ]
+    disk_size = 20
+  }
+
+  mount_points = [
+    {
+      volume = "local-zfs"
+      size   = "20G"
+      path   = "/data1"
+    },
+    {
+      volume = "local-zfs"
+      size   = "20G"
+      path   = "/data2"
+    }
+  ]
+}
