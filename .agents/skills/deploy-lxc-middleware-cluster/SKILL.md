@@ -18,20 +18,42 @@ description: Workflow for defining, deploying, debugging, and verifying NixOS LX
 2. 以下の設定ファイルを定義・配置する。
    - `configuration.nix`: 基本OS構成。
    - `<middleware>.nix`: ミドルウェアの定義（データディレクトリ、ポート、認証等）。
+   - `secrets.yaml`: 平文のシークレットテンプレート（ダミー値）。
 3. `nix/flake.nix` に各クラスタノード（例: `pg-cluster-1`, `2`, `3`）の configuration 定義を追加する。
+   - 評価時の循環参照を防ぐため、`specialArgs`（`hostName`）を用いて各ノードにホスト名を明示的に渡す。
 
 ### ステップ 2: Terraform / Terragrunt によるリソース構築
-1. `terraform/vpc/zone-xxx/`（または対象のゾーンディレクトリ）にて、対象クラスタの VM / LXC リソースを定義した `.tf` ファイルを作成する。
-   - 各ノードの IP アドレスを決定する。既存の IP と重複していないことを確認する。
+1. `terraform/vpc/zone-xxx/`（対象のゾーンディレクトリ）にて、対象クラスタの VM / LXC リソースを定義した `.tf` ファイルを作成する。
+   - 各ノードの IP アドレスを決定し、既存の IP と重複していないことを確認する。
+   - `nix-lxc` モジュールを使用し、引数 `sops_key` に SOPS ファイルから読み込んだ秘密鍵を渡す。
 
-### ステップ 3: ユーザーによる適用依頼
-1. 設定を git commit & push するよう、ユーザーに依頼する。
-   > [!NOTE]
+### ステップ 3: .sops.yaml へのルール追加とビルド検証
+1. プロジェクトルートにある `.sops.yaml` に対し、新規作成する `secrets.yaml` 用のパスルールを追加する。
+   ```yaml
+     - path_regex: nix/hosts/<name>/secrets\.yaml$
+       key_groups:
+         - age:
+             - *admin_key
+             - *lb_key
+   ```
+2. NixOS の構成に文法エラーなどがないか、`nix build path:.#nixosConfigurations.<hostname>.config.system.build.toplevel --dry-run` を実行して検証する。
+
+### ステップ 4: ユーザーによるSOPS暗号化とデプロイ適用
+ユーザーに以下の操作をまとめて依頼する。
+
+1. `secrets.yaml`（ダミー値）を、本番用の実際の機密情報に書き換える。
+2. SOPS コマンドを用いて、作成した `secrets.yaml` を暗号化する。
+   > [!IMPORTANT]
+   > AIアシスタントは `sops` コマンドによる暗号化・復号操作を実行しない。必ずユーザー自身が以下のコマンドを実行すること。
+   > ```bash
+   > sops -e -i nix/hosts/<name>/secrets.yaml
+   > ```
+3. 暗号化された `secrets.yaml` とその他の設定ファイルを git commit & push する。
+   > [!IMPORTANT]
    > LXCノードは `system.autoUpgrade` サービスにより自動で master リポジトリから最新の Flake を引っ張って適用（Pull型デプロイ）するため、変更は常にリモート（GitHub等）に存在する必要がある。
-   > 特別な指示がない限りは、git 操作は行わないこと。
-2. `terragrunt --terragrunt-working-dir <target-dir> apply` を実行するよう、ユーザーに依頼する。
-   > [!NOTE]
-   > 特別な指示がない限りは、apply 操作は行わないこと。
+4. `terragrunt --terragrunt-working-dir <target-dir> apply` を実行し、インフラを適用する。
+
+**ここまでの ステップ4 1~4 の操作はユーザーが行う操作であり、AIアシスタントは勝手に実行しないこと。**
 
 ---
 
