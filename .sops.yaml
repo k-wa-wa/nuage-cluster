@@ -17,3 +17,9 @@ creation_rules:
       - age:
           - *admin_key
           - *lb_key
+
+  - path_regex: nix/hosts/postgres-cluster/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *lb_key

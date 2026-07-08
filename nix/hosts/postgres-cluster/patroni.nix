@@ -1,0 +1,106 @@
+{ config, pkgs, lib, hostName, ... }:
+
+let
+  # 各ホストのIPとホスト名のマッピングを定義する
+  hosts = {
+    pg-cluster-1 = { ip = "10.20.1.41"; };
+    pg-cluster-2 = { ip = "10.20.1.42"; };
+    pg-cluster-3 = { ip = "10.20.1.43"; };
+  };
+
+  hostname = hostName;
+  myIp = hosts.${hostname}.ip;
+  
+  # 他ノードのIPリストを生成する
+  otherIps = lib.mapAttrsToList (name: val: val.ip) (lib.filterAttrs (name: val: name != hostname) hosts);
+  
+  # DCS（etcd）のホストアドレスリストを生成する
+  etcdHosts = lib.mapAttrsToList (name: val: "${val.ip}:2379") hosts;
+in
+{
+  sops = {
+    defaultSopsFile = ./secrets.yaml;
+    # 復号に使用するキーファイルのパスを指定する
+    age.keyFile = "/var/lib/sops-nix/key.txt";
+
+    secrets = {
+      pg_superuser_password = {
+        owner = "patroni";
+      };
+      pg_replication_password = {
+        owner = "patroni";
+      };
+    };
+  };
+
+  # 起動時にホスト名に応じた秘密鍵へのシンボリックリンクを作成する
+  system.activationScripts.sops-key-link = {
+    text = ''
+      HOSTNAME=$(cat /etc/hostname | tr -d '\n')
+      mkdir -p /var/lib/sops-nix
+      if [ -f "/var/lib/sops-nix/$HOSTNAME-key.txt" ]; then
+        ln -sf "/var/lib/sops-nix/$HOSTNAME-key.txt" /var/lib/sops-nix/key.txt
+      fi
+    '';
+  };
+  system.activationScripts.setupSecrets.deps = [ "sops-key-link" ];
+
+  services.patroni = {
+    enable = true;
+    postgresqlPackage = pkgs.postgresql_15;
+    scope = "postgres-cluster";
+    name = hostname;
+    nodeIp = myIp;
+    otherNodesIps = otherIps;
+
+    # sops-nixで復号されたファイルからパスワード環境変数を読み込ませる
+    environmentFiles = {
+      PATRONI_SUPERUSER_PASSWORD = config.sops.secrets.pg_superuser_password.path;
+      PATRONI_REPLICATION_PASSWORD = config.sops.secrets.pg_replication_password.path;
+    };
+
+    settings = {
+      # DCSとしてetcd3を使用する設定
+      etcd3 = {
+        hosts = etcdHosts;
+      };
+
+      bootstrap = {
+        dcs = {
+          ttl = 30;
+          loop_wait = 10;
+          retry_timeout = 10;
+          maximum_lag_on_failover = 1048576;
+          postgresql = {
+            use_pg_rewind = true;
+            use_slots = true;
+            parameters = {
+              max_connections = 100;
+              shared_buffers = "1GB";
+              archive_mode = "on";
+              archive_command = "true";
+              wal_level = "replica";
+              max_wal_senders = 10;
+              max_replication_slots = 10;
+              hot_standby = "on";
+            };
+          };
+        };
+        initdb = [
+          "encoding=UTF8"
+          "data-checksums"
+        ];
+        pg_hba = [
+          "host replication replication 10.20.1.0/24 md5"
+          "host all all 10.20.1.0/24 md5"
+          "host all all 127.0.0.1/32 md5"
+          "host all all ::1/128 md5"
+          "host all all all md5"
+        ];
+      };
+    };
+  };
+
+  # Patroni API（8008）とPostgreSQL（5432）のポートを開放する
+  networking.firewall.allowedTCPPorts = [ 8008 5432 ];
+}
