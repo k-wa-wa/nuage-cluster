@@ -1,7 +1,3 @@
-data "sops_file" "secrets" {
-  source_file = "${path.module}/../../secrets.yaml"
-}
-
 module "minio-cluster-1" {
   source   = "../modules/nix-lxc"
   sops_key = data.sops_file.secrets.data["lb_sops_key"]
