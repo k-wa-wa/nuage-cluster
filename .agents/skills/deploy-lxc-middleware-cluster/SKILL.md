@@ -86,12 +86,11 @@ sudo nixos-rebuild switch --flake /tmp/nix#<hostname> --option eval-cache false
 
 ---
 
-## 3. 正常稼働およびフェイルオーバー（カオステスト）検証手順
+## 3. 正常稼働確認
 
-構築完了後、以下のテストを実機で実施し、想定通りの冗長化と自動切り替えが機能しているか検証する。
-
-### アップグレード動作確認
+構築完了後、想定通り機能しているか検証する。
 各ノードで `nixos-upgrade.service` を手動トリガーし、リモートの最新定義からクリーンにビルド・再起動されるか確認する。
+
 ```bash
 sudo systemctl start nixos-upgrade.service
 # 完了を待つ (systemctl status または journalctl で追跡)
