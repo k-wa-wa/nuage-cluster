@@ -65,7 +65,34 @@ in
         hosts = etcdHosts;
       };
 
+      postgresql = {
+        parameters = {
+          unix_socket_directories = "/tmp";
+        };
+        authentication = {
+          superuser = {
+            username = "postgres";
+            password = "$PATRONI_SUPERUSER_PASSWORD";
+          };
+          replication = {
+            username = "replication";
+            password = "$PATRONI_REPLICATION_PASSWORD";
+          };
+        };
+      };
+
       bootstrap = {
+        users = {
+          superuser = {
+            username = "postgres";
+            password = "$PATRONI_SUPERUSER_PASSWORD";
+          };
+          replication = {
+            username = "replication";
+            password = "$PATRONI_REPLICATION_PASSWORD";
+          };
+        };
+
         dcs = {
           ttl = 30;
           loop_wait = 10;
@@ -83,6 +110,7 @@ in
               max_wal_senders = 10;
               max_replication_slots = 10;
               hot_standby = "on";
+              unix_socket_directories = "/tmp";
             };
           };
         };

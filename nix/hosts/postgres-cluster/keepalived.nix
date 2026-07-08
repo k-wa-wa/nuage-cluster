@@ -1,6 +1,15 @@
 { config, lib, pkgs, hostName, ... }:
 
 let
+  # 各ホストのIPとホスト名のマッピングを定義する
+  hosts = {
+    pg-cluster-1 = { ip = "10.20.1.41"; };
+    pg-cluster-2 = { ip = "10.20.1.42"; };
+    pg-cluster-3 = { ip = "10.20.1.43"; };
+  };
+
+  myIp = hosts.${hostName}.ip;
+
   # ホスト名に応じて優先度を決定する
   priority = if hostName == "pg-cluster-1" then 102
              else if hostName == "pg-cluster-2" then 101
@@ -28,19 +37,34 @@ in
   services.keepalived = {
     enable = true;
     extraConfig = ''
+      vrrp_script chk_pg_primary {
+          script "${pkgs.curl}/bin/curl -s -f http://${myIp}:8008/primary"
+          interval 2
+          weight 10
+      }
+
+      vrrp_script chk_pg_replica {
+          script "${pkgs.curl}/bin/curl -s -f http://${myIp}:8008/replica"
+          interval 2
+          weight 10
+      }
+
       vrrp_instance VI_PG_PRIMARY {
           state BACKUP
           interface eth1
           virtual_router_id 40
           priority ${toString priority}
           advert_int 1
-          nopreempt
 
           # sops-nix でレンダリングされた認証ファイルをインクルードする
           include ${config.sops.templates."keepalived-auth.conf".path}
 
           virtual_ipaddress {
               10.20.1.40/24
+          }
+
+          track_script {
+              chk_pg_primary
           }
       }
 
@@ -50,13 +74,16 @@ in
           virtual_router_id 50
           priority ${toString priority}
           advert_int 1
-          nopreempt
 
           # sops-nix でレンダリングされた認証ファイルをインクルードする
           include ${config.sops.templates."keepalived-auth.conf".path}
 
           virtual_ipaddress {
               10.20.1.50/24
+          }
+
+          track_script {
+              chk_pg_replica
           }
       }
     '';

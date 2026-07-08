@@ -21,7 +21,7 @@ in
     initialAdvertisePeerUrls = [ "http://${myIp}:2380" ];
 
     # クライアント通信用リスナーとアドバタイズURLを設定する
-    listenClientUrls = [ "http://0.0.0.0:2379" "http://127.0.0.1:2379" ];
+    listenClientUrls = [ "http://0.0.0.0:2379" ];
     advertiseClientUrls = [ "http://${myIp}:2379" ];
 
     # クラスタの初期構成メンバーを指定する
