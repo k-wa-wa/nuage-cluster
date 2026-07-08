@@ -28,8 +28,8 @@ in
 
   services.minio = {
     enable = true;
-    listenAddress = "${myIp}:9000";
-    consoleAddress = "${myIp}:9001";
+    listenAddress = ":9000";
+    consoleAddress = ":9001";
     rootCredentialsFile = config.sops.templates."minio-credentials".path;
     # 2ノード・4ドライブの分散構成エンドポイントを指定する
     dataDir = [
