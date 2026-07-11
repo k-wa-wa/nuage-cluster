@@ -122,6 +122,10 @@
           "mappings": [
             {
               "options": {
+                "-2": {
+                  "color": "red",
+                  "text": "UNKNOWN"
+                },
                 "-1": {
                   "color": "red",
                   "text": "FAULT"
@@ -166,13 +170,13 @@
       "id": 2,
       "targets": [
         {
-          "expr": "keepalived_instance_state",
-          "legendFormat": "{{instance}} ({{exported_instance}})",
+          "expr": "keepalived_instance_state{node!=\"\"}",
+          "legendFormat": "{{node}} ({{exported_instance}})",
           "refId": "A"
         }
       ],
       "title": "Keepalived VRRP State",
-      "type": "stat"
+      "type": "state-timeline"
     },
     {
       "fieldConfig": {
@@ -189,8 +193,8 @@
       "id": 4,
       "targets": [
         {
-          "expr": "100 - (rate(node_cpu_seconds_total{mode=\"idle\"}[1m]) * 100)",
-          "legendFormat": "{{instance}}",
+          "expr": "100 - (rate(node_cpu_seconds_total{mode=\"idle\", node!=\"\"}[1m]) * 100)",
+          "legendFormat": "{{node}}",
           "refId": "A"
         }
       ],
@@ -212,8 +216,8 @@
       "id": 5,
       "targets": [
         {
-          "expr": "node_memory_Active_bytes",
-          "legendFormat": "{{instance}}",
+          "expr": "node_memory_Active_bytes{node!=\"\"}",
+          "legendFormat": "{{node}}",
           "refId": "A"
         }
       ],
