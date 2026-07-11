@@ -57,6 +57,7 @@ NODES=(
     "lb-1:192.168.5.201:nixos"
     "lb-2:192.168.5.202:nixos"
     "lb-3:192.168.5.203:nixos"
+    "chaos-monitor:192.168.5.250:nixos"
     "egress-gateway:192.168.5.220:nixos"
 )
 for entry in "${NODES[@]}"; do

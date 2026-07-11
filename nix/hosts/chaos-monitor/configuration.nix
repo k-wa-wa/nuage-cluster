@@ -18,28 +18,63 @@
       {
         job_name = "nixos-node-exporter";
         scrape_interval = "5s";
-        static_configs = [{
-          targets = [
-            "10.20.1.21:9100"
-            "10.20.1.22:9100"
-            "10.20.1.23:9100"
-            "10.20.1.30:9100"
-          ];
-        }];
+        static_configs = [
+          { targets = [ "10.20.1.21:9100" ]; labels = { node = "lb-1"; }; }
+          { targets = [ "10.20.1.22:9100" ]; labels = { node = "lb-2"; }; }
+          { targets = [ "10.20.1.23:9100" ]; labels = { node = "lb-3"; }; }
+          { targets = [ "10.20.1.30:9100" ]; labels = { node = "egress-gateway"; }; }
+        ];
       }
       {
         job_name = "nixos-haproxy";
         scrape_interval = "5s";
-        static_configs = [{
-          targets = [
-            "10.20.1.21:8404"
-            "10.20.1.22:8404"
-            "10.20.1.23:8404"
-            "10.20.1.30:8404"
-          ];
-        }];
+        static_configs = [
+          { targets = [ "10.20.1.21:8404" ]; labels = { node = "lb-1"; }; }
+          { targets = [ "10.20.1.22:8404" ]; labels = { node = "lb-2"; }; }
+          { targets = [ "10.20.1.23:8404" ]; labels = { node = "lb-3"; }; }
+          { targets = [ "10.20.1.30:8404" ]; labels = { node = "egress-gateway"; }; }
+        ];
+      }
+      {
+        job_name = "node-ping";
+        metrics_path = "/probe";
+        params = {
+          module = [ "icmp" ];
+        };
+        static_configs = [
+          { targets = [ "10.20.1.11" ]; labels = { node = "controlplane-01"; }; }
+          { targets = [ "10.20.1.12" ]; labels = { node = "controlplane-02"; }; }
+          { targets = [ "10.20.1.13" ]; labels = { node = "controlplane-03"; }; }
+          { targets = [ "10.20.1.16" ]; labels = { node = "worker-01"; }; }
+          { targets = [ "10.20.1.17" ]; labels = { node = "worker-02"; }; }
+          { targets = [ "10.20.1.18" ]; labels = { node = "worker-03"; }; }
+          { targets = [ "10.20.1.21" ]; labels = { node = "lb-1"; }; }
+          { targets = [ "10.20.1.22" ]; labels = { node = "lb-2"; }; }
+          { targets = [ "10.20.1.23" ]; labels = { node = "lb-3"; }; }
+          { targets = [ "10.20.1.30" ]; labels = { node = "egress-gateway"; }; }
+        ];
+        relabel_configs = [
+          {
+            source_labels = [ "__address__" ];
+            target_label = "__param_target";
+          }
+          {
+            source_labels = [ "__param_target" ];
+            target_label = "instance";
+          }
+          {
+            target_label = "__address__";
+            replacement = "127.0.0.1:9115";
+          }
+        ];
       }
     ];
+
+    exporters.blackbox = {
+      enable = true;
+      port = 9115;
+      configFile = ./blackbox.yaml;
+    };
   };
 
   # Grafana Configuration

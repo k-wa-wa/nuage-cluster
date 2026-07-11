@@ -36,20 +36,85 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 6,
+        "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "targets": [
         {
-          "expr": "up{job=\"nixos-node-exporter\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "probe_success{job=\"node-ping\"}",
+          "legendFormat": "{{node}}",
           "refId": "A"
         }
       ],
       "title": "Node Status",
-      "type": "stat"
+      "type": "state-timeline"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "up{job=\"nixos-haproxy\", node!=\"\"}",
+          "legendFormat": "{{node}} - haproxy",
+          "refId": "A"
+        },
+        {
+          "expr": "label_replace(max by (server) (haproxy_server_status{proxy=\"k8s-api\", state=\"UP\"}), \"node_name\", \"controlplane-0$1\", \"server\", \"node0(.)\")",
+          "legendFormat": "{{node_name}} - k8s-api",
+          "refId": "B"
+        },
+        {
+          "expr": "label_replace(max by (server) (haproxy_server_status{proxy=\"k8s-http\", state=\"UP\"}), \"node_name\", \"worker-0$1\", \"server\", \"node0(.)\")",
+          "legendFormat": "{{node_name}} - k8s-http",
+          "refId": "C"
+        },
+        {
+          "expr": "haproxy_backend_status{state=\"UP\", node!=\"\"}",
+          "legendFormat": "{{node}} - backend-{{proxy}}",
+          "refId": "D"
+        }
+      ],
+      "title": "Service Status",
+      "type": "state-timeline"
     },
     {
       "fieldConfig": {
@@ -94,9 +159,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 18,
-        "x": 6,
-        "y": 0
+        "w": 24,
+        "x": 0,
+        "y": 20
       },
       "id": 2,
       "targets": [
@@ -112,56 +177,6 @@
     {
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "text": "DOWN"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "UP"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 6
-      },
-      "id": 3,
-      "targets": [
-        {
-          "expr": "haproxy_backend_status{state=\"UP\"}",
-          "legendFormat": "{{instance}} - {{proxy}}",
-          "refId": "A"
-        }
-      ],
-      "title": "HAProxy Backend Status (UP)",
-      "type": "state-timeline"
-    },
-    {
-      "fieldConfig": {
-        "defaults": {
           "unit": "percent"
         }
       },
@@ -169,7 +184,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 26
       },
       "id": 4,
       "targets": [
@@ -192,7 +207,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 26
       },
       "id": 5,
       "targets": [
