@@ -3,9 +3,9 @@ kind: Kustomization
 
 resources:
   - https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
-  - namespace.yaml
 
 patches:
+  - path: namespace.yaml
   # Talos Linux用にパスを /var/local-path-provisioner に変更する
   - target:
       kind: ConfigMap
