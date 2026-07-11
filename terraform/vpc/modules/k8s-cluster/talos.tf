@@ -47,8 +47,8 @@ data "talos_machine_configuration" "this" {
       machine = {
         # 自律的にディスクへのインストールを実行させる設定
         install = {
-          image = each.key == "controlplane-01" ? "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic_auto.response_body).id}:v1.12.2" : "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic.response_body).id}:v1.12.2"
-          disk  = "/dev/sda"
+          image             = each.key == "controlplane-01" ? "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic_auto.response_body).id}:v1.12.2" : "factory.talos.dev/installer/${jsondecode(data.http.talos_schematic.response_body).id}:v1.12.2"
+          disk              = "/dev/sda"
           grubUseUKICmdline = false
           extraKernelArgs = each.key == "controlplane-01" ? [
             "talos.config.autoBootstrap=true"
@@ -92,9 +92,6 @@ data "talos_machine_configuration" "this" {
             }
           ]
         }
-        time = {
-          servers = ["/dev/ptp0"]
-        }
         kernel = {
           modules = [{ name = "iscsi_tcp" }]
         }
@@ -104,8 +101,8 @@ data "talos_machine_configuration" "this" {
         )
       }
       cluster = {
-        network       = { cni = { name = "none" } }
-        proxy         = { disabled = true }
+        network = { cni = { name = "none" } }
+        proxy   = { disabled = true }
         apiServer = {
           certSANs = concat(
             var.cluster_config.cluster.additional_cert_sans,
@@ -146,7 +143,7 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
     floating  = each.value.memory
   }
 
-  boot_order = [ "scsi0", "scsi3" ]
+  boot_order = ["scsi0", "scsi3"]
 
   # システム用ディスク (sda)
   disk {
