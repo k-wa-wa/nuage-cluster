@@ -85,5 +85,20 @@ resource "proxmox_virtual_environment_container" "lxc" {
   protection = var.lxc_config.protection
 }
 
+# PVEのバックアップジョブを設定する
+resource "proxmox_backup_job" "backup" {
+  id        = "${var.lxc_config.vm_name}-backup"
+  node      = var.lxc_config.node_name
+  storage   = var.backup_config.storage_id
+  schedule  = var.backup_config.schedule
+  vmid      = [tostring(proxmox_virtual_environment_container.lxc.vm_id)]
+  mode      = "snapshot"
+  compress  = "zstd"
 
-
+  prune_backups = {
+    "keep-last"    = "7"
+    "keep-daily"   = "7"
+    "keep-weekly"  = "4"
+    "keep-monthly" = "12"
+  }
+}

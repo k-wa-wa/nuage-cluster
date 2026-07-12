@@ -46,3 +46,15 @@ variable "mount_points" {
   default = []
 }
 
+variable "backup_config" {
+  type = object({
+    storage_id = optional(string, "truenas-pbs")
+    schedule   = optional(string, "daily")
+  })
+  default = {
+    storage_id = "truenas-pbs"
+    schedule   = "daily"
+  }
+}
+
+
