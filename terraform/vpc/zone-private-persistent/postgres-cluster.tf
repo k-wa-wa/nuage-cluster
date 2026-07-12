@@ -38,6 +38,11 @@ module "pg-cluster-1" {
       }
     ]
     disk_size = 40
+    startup = {
+      order      = "1"
+      up_delay   = "10"
+      down_delay = "60"
+    }
   }
 }
 
@@ -77,6 +82,11 @@ module "pg-cluster-2" {
       }
     ]
     disk_size = 40
+    startup = {
+      order      = "1"
+      up_delay   = "10"
+      down_delay = "60"
+    }
   }
 }
 
@@ -116,5 +126,10 @@ module "pg-cluster-3" {
       }
     ]
     disk_size = 40
+    startup = {
+      order      = "1"
+      up_delay   = "10"
+      down_delay = "60"
+    }
   }
 }

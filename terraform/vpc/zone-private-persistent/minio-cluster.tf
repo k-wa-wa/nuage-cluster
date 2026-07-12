@@ -34,6 +34,11 @@ module "minio-cluster-1" {
       }
     ]
     disk_size = 20
+    startup = {
+      order      = "1"
+      up_delay   = "10"
+      down_delay = "60"
+    }
   }
 
   mount_points = [
@@ -86,6 +91,11 @@ module "minio-cluster-2" {
       }
     ]
     disk_size = 20
+    startup = {
+      order      = "1"
+      up_delay   = "10"
+      down_delay = "60"
+    }
   }
 
   mount_points = [

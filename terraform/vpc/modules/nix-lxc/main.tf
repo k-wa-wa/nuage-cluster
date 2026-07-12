@@ -77,9 +77,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
 
   startup {
-    order      = "3"
-    up_delay   = "60"
-    down_delay = "60"
+    order      = var.lxc_config.startup.order
+    up_delay   = var.lxc_config.startup.up_delay
+    down_delay = var.lxc_config.startup.down_delay
   }
 
   protection = var.lxc_config.protection

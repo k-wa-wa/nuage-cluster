@@ -18,6 +18,15 @@ variable "lxc_config" {
       host = string
     })))
     protection = optional(bool)
+    startup = optional(object({
+      order      = string
+      up_delay   = string
+      down_delay = string
+    }), {
+      order      = "3"
+      up_delay   = "10"
+      down_delay = "15"
+    })
   })
 }
 

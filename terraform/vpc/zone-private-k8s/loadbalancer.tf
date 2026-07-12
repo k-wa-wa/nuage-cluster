@@ -45,6 +45,11 @@ module "lb-1" {
       }
     ]
     disk_size = 4
+    startup = {
+      order      = "2"
+      up_delay   = "10"
+      down_delay = "15"
+    }
   }
 }
 
@@ -89,6 +94,11 @@ module "lb-2" {
       }
     ]
     disk_size = 4
+    startup = {
+      order      = "2"
+      up_delay   = "10"
+      down_delay = "15"
+    }
   }
 }
 
@@ -133,5 +143,10 @@ module "lb-3" {
       }
     ]
     disk_size = 4
+    startup = {
+      order      = "2"
+      up_delay   = "10"
+      down_delay = "15"
+    }
   }
 }
