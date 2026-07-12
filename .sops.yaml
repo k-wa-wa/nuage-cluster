@@ -7,7 +7,7 @@ creation_rules:
     key_groups:
       - age:
           - *admin_key
-  - path_regex: truenas/secrets\.yaml$
+  - path_regex: terraform/truenas/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
