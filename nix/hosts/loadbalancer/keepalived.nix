@@ -16,9 +16,9 @@ let
       *)        VAL=-2 ;;
     esac
 
-    echo "keepalived_instance_state{instance=\"$NAME\"} $VAL" > /var/lib/prometheus/node-exporter/keepalived.prom.tmp
-    chmod 644 /var/lib/prometheus/node-exporter/keepalived.prom.tmp
-    mv /var/lib/prometheus/node-exporter/keepalived.prom.tmp /var/lib/prometheus/node-exporter/keepalived.prom
+    echo "keepalived_instance_state{instance=\"$NAME\"} $VAL" > /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
+    chmod 644 /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
+    mv /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp /var/lib/prometheus/node-exporter/keepalived_$NAME.prom
   '';
 in
 {
@@ -57,12 +57,18 @@ in
   system.activationScripts.prometheus-node-exporter-dir = {
     text = ''
       mkdir -p /var/lib/prometheus/node-exporter
-      if [ ! -f /var/lib/prometheus/node-exporter/keepalived.prom ]; then
-        echo 'keepalived_instance_state{instance="VI_1"} 0' > /var/lib/prometheus/node-exporter/keepalived.prom
-        echo 'keepalived_instance_state{instance="VI_2"} 0' >> /var/lib/prometheus/node-exporter/keepalived.prom
+      # 古い統合ファイルをクリーンアップ
+      if [ -f /var/lib/prometheus/node-exporter/keepalived.prom ]; then
+        rm -f /var/lib/prometheus/node-exporter/keepalived.prom
+      fi
+      if [ ! -f /var/lib/prometheus/node-exporter/keepalived_VI_1.prom ]; then
+        echo 'keepalived_instance_state{instance="VI_1"} 0' > /var/lib/prometheus/node-exporter/keepalived_VI_1.prom
+      fi
+      if [ ! -f /var/lib/prometheus/node-exporter/keepalived_VI_2.prom ]; then
+        echo 'keepalived_instance_state{instance="VI_2"} 0' > /var/lib/prometheus/node-exporter/keepalived_VI_2.prom
       fi
       chmod 755 /var/lib/prometheus/node-exporter
-      chmod 644 /var/lib/prometheus/node-exporter/keepalived.prom
+      chmod 644 /var/lib/prometheus/node-exporter/keepalived_*.prom
     '';
   };
 
