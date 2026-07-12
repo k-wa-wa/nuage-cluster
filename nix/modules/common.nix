@@ -38,7 +38,7 @@
 
   system.autoUpgrade = {
     enable = true;
-    flake = "github:k-wa-wa/nuage-cluster?dir=nix";
+    flake = "https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix";
     dates = "daily";
   };
 
