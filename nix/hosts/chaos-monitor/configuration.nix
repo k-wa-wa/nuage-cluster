@@ -8,6 +8,14 @@
   networking = {
     useDHCP = false;
     nameservers = [ "8.8.8.8" ];
+    hosts = {
+      "192.168.5.200" = [
+        "pechka.cluster.wpc"
+        "pechka-workflow.cluster.wpc"
+        "argocd.cluster.wpc"
+        "bwproxy.cluster.wpc"
+      ];
+    };
   };
 
   # Prometheus Configuration
@@ -52,6 +60,46 @@
           { targets = [ "10.20.1.22" ]; labels = { node = "lb-2"; }; }
           { targets = [ "10.20.1.23" ]; labels = { node = "lb-3"; }; }
           { targets = [ "10.20.1.30" ]; labels = { node = "egress-gateway"; }; }
+        ];
+        relabel_configs = [
+          {
+            source_labels = [ "__address__" ];
+            target_label = "__param_target";
+          }
+          {
+            source_labels = [ "__param_target" ];
+            target_label = "instance";
+          }
+          {
+            target_label = "__address__";
+            replacement = "127.0.0.1:9115";
+          }
+        ];
+      }
+      {
+        job_name = "http-ingress-probe";
+        scrape_interval = "5s";
+        metrics_path = "/probe";
+        params = {
+          module = [ "http_insecure" ];
+        };
+        static_configs = [
+          {
+            targets = [ "https://pechka.cluster.wpc/" ];
+            labels = { service = "pechka"; };
+          }
+          {
+            targets = [ "https://pechka-workflow.cluster.wpc/" ];
+            labels = { service = "pechka-workflow"; };
+          }
+          {
+            targets = [ "https://argocd.cluster.wpc/" ];
+            labels = { service = "argocd"; };
+          }
+          {
+            targets = [ "https://bwproxy.cluster.wpc/" ];
+            labels = { service = "bare-web-proxy"; };
+          }
         ];
         relabel_configs = [
           {

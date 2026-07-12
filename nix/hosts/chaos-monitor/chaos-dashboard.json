@@ -165,7 +165,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 26
       },
       "id": 2,
       "targets": [
@@ -188,7 +188,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 32
       },
       "id": 4,
       "targets": [
@@ -211,7 +211,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 32
       },
       "id": 5,
       "targets": [
@@ -223,6 +223,64 @@
       ],
       "title": "Active Memory (Bytes)",
       "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "No Response"
+                },
+                "200": {
+                  "color": "green",
+                  "text": "200 OK"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 200
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 400
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "probe_http_status_code{job=\"http-ingress-probe\"}",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Response Code",
+      "type": "state-timeline"
     }
   ],
   "schemaVersion": 36,

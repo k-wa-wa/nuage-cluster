@@ -2,3 +2,10 @@ modules:
   icmp:
     prober: icmp
     timeout: 3s
+  http_insecure:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      tls_config:
+        insecure_skip_verify: true
