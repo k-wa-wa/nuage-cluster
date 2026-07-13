@@ -2,6 +2,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   name      = "lm-server"
   node_name = "server-2"
   vm_id     = 230
+  # started   = false
 
   on_boot = false
 
@@ -47,5 +48,22 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
     pcie   = true
     xvga   = false
     rombar = true
+  }
+}
+
+resource "proxmox_backup_job" "lm_server_backup" {
+  id       = "lm-server-backup"
+  node     = "server-2"
+  storage  = "truenas-pbs"
+  schedule = "daily"
+  vmid     = [tostring(proxmox_virtual_environment_vm.lm_server.vm_id)]
+  mode     = "snapshot"
+  compress = "zstd"
+
+  prune_backups = {
+    "keep-last"    = "7"
+    "keep-daily"   = "7"
+    "keep-weekly"  = "4"
+    "keep-monthly" = "12"
   }
 }
