@@ -1,17 +1,17 @@
-resource "proxmox_virtual_environment_vm" "proxmox_vm" {
+resource "proxmox_virtual_environment_vm" "dev_server" {
   name      = "dev-server"
   node_name = "server-1"
   vm_id     = 1152
 
   machine = "q35"
-  bios = "ovmf"
+  bios    = "ovmf"
   efi_disk {
   }
-  boot_order = [ "virtio0", "scsi0", "net0" ]
+  boot_order = ["virtio0", "scsi0", "net0"]
 
   cpu {
     cores = 16
-    type = "host"
+    type  = "host"
   }
 
   memory {
@@ -21,10 +21,10 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
 
   initialization {
     ip_config {
-        ipv4 {
-          address = "192.168.5.199/24"
-          gateway = "192.168.5.1"
-        }
+      ipv4 {
+        address = "192.168.5.199/24"
+        gateway = "192.168.5.1"
+      }
     }
     user_account {
       username = "nixos"
@@ -34,8 +34,8 @@ resource "proxmox_virtual_environment_vm" "proxmox_vm" {
 
   disk {
     datastore_id = "local-zfs"
-    file_id      = "local:iso/nixos.iso"
-    interface    = "scsi0"
+    # file_id      = "local:iso/nixos.iso"
+    interface = "scsi0"
   }
 
   disk {
