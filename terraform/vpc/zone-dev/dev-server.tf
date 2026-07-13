@@ -52,3 +52,20 @@ resource "proxmox_virtual_environment_vm" "dev_server" {
 data "local_file" "id_rsa_pub" {
   filename = "../../../.ssh/keys/dev-server.pub"
 }
+
+resource "proxmox_backup_job" "dev_server_backup" {
+  id       = "dev-server-backup"
+  node     = "server-1"
+  storage  = "truenas-pbs"
+  schedule = "daily"
+  vmid     = [tostring(proxmox_virtual_environment_vm.dev_server.vm_id)]
+  mode     = "snapshot"
+  compress = "zstd"
+
+  prune_backups = {
+    "keep-last"    = "7"
+    "keep-daily"   = "7"
+    "keep-weekly"  = "4"
+    "keep-monthly" = "12"
+  }
+}
