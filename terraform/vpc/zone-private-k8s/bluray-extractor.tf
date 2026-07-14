@@ -9,8 +9,9 @@ resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
 
   source_raw {
     file_name = "bluray-extractor-cloud-config.yaml"
-    data = <<EOF
+    data      = <<EOF
 #cloud-config
+hostname: bluray-extractor
 write_files:
   - path: /var/lib/sops-nix/key.txt
     permissions: '0600'
@@ -70,22 +71,5 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   usb {
     host = "05ac:8300"
     usb3 = true
-  }
-}
-
-resource "proxmox_backup_job" "bluray_extractor_backup" {
-  id       = "bluray-extractor-backup"
-  node     = "server-2"
-  storage  = "truenas-pbs"
-  schedule = "daily"
-  vmid     = [tostring(proxmox_virtual_environment_vm.bluray_extractor.vm_id)]
-  mode     = "snapshot"
-  compress = "zstd"
-
-  prune_backups = {
-    "keep-last"    = "7"
-    "keep-daily"   = "7"
-    "keep-weekly"  = "4"
-    "keep-monthly" = "12"
   }
 }
