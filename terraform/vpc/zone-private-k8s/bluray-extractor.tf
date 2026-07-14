@@ -2,6 +2,25 @@ data "sops_file" "bluray_extractor_secrets" {
   source_file = "${path.module}/../../secrets.yaml"
 }
 
+resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
+  content_type = "snippets"
+  datastore_id = "local"
+  node_name    = "server-2"
+
+  source_raw {
+    file_name = "bluray-extractor-cloud-config.yaml"
+    data = <<EOF
+#cloud-config
+write_files:
+  - path: /var/lib/sops-nix/key.txt
+    permissions: '0600'
+    owner: root:root
+    content: |
+      ${data.sops_file.bluray_extractor_secrets.data["lb_sops_key"]}
+EOF
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   name      = "bluray-extractor"
   node_name = "server-2"
@@ -32,6 +51,7 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
         gateway = "192.168.5.1"
       }
     }
+    user_data_file_id = proxmox_virtual_environment_file.bluray_extractor_cloud_config.id
   }
 
   disk {

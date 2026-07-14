@@ -20,8 +20,11 @@ let
   };
 in
 {
-  sops.secrets.pechka_minio_secret_key = {
-    sopsFile = ./secrets.yaml;
+  sops = {
+    age.keyFile = "/var/lib/sops-nix/key.txt";
+    secrets.pechka_minio_secret_key = {
+      sopsFile = ./secrets.yaml;
+    };
   };
 
   # MakeMKV パッケージをシステムに自動インストール
