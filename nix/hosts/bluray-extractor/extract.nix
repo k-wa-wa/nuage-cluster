@@ -30,6 +30,9 @@ in
 
   networking.nameservers = [ "192.168.5.200" ];
 
+  # MakeMKV がドライブ列挙に使う SCSI generic デバイス(/dev/sg*)に必要
+  boot.kernelModules = [ "sg" ];
+
   # MakeMKV パッケージをシステムに自動インストール
   environment.systemPackages = [
     pkgs.makemkv
