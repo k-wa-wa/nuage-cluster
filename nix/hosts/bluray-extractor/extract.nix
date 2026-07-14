@@ -7,7 +7,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/extract";
-      hash = "sha256:d88a9874ecef40ae8081aa45c293de02cc78d422794e528fe9cc313666bcc966";
+      hash = "sha256:57739aa3fde1b501b29a05e932443a45b2905acecf51dc0cd42255a5f7dce034";
     };
 
     dontUnpack = true;
@@ -50,7 +50,7 @@ in
   systemd.services.pechka-extract = {
     description = "Pechka Bluray Extraction and Ingestion Job";
     # サービスの実行環境 of PATH に curl と makemkv, blkid (util-linux) をバインド
-    path = [ pkgs.curl pkgs.makemkv pkgs.util-linux ];
+    path = [ pkgs.makemkv pkgs.util-linux ];
     serviceConfig = {
       Type = "oneshot";
       # Nixでビルドした pechka-extract バイナリを直接指定
@@ -60,24 +60,15 @@ in
         export MINIO_URL="minio.cluster.wpc:9000"
         export MINIO_BUCKET="pechka"
         export MINIO_ACCESS_KEY="pechka"
-        
+
         # Load MinIO secret key decrypted by sops-nix
         export MINIO_SECRET_KEY=$(cat ${config.sops.secrets.pechka_minio_secret_key.path})
-        
-        PECHKA_API_URL="http://pechka.cluster.wpc"
 
-        # 1. Run extraction program from Nix store package
+        export PECHKA_API_URL="https://pechka.cluster.wpc"
+
+        # Run extraction program from Nix store package
         echo "Starting disk extraction..."
         ${pechka-extract}/bin/extract
-        
-        # 2. Check output label and trigger Ingest API
-        if [ -s "/tmp/bluray-label" ]; then
-          DISC_LABEL=$(cat /tmp/bluray-label)
-          echo "Extraction successful. Disc label: $DISC_LABEL. Triggering ingest API..."
-          curl -f -s -X POST "$PECHKA_API_URL/api/v1/contents/ingest" \
-            -H "Content-Type: application/json" \
-            -d "{\"disc_label\": \"$DISC_LABEL\", \"content_title\": \"Auto Ingested from Bluray Extractor VM (Label: $DISC_LABEL)\"}"
-        fi
       ''}";
       User = "root";
     };
