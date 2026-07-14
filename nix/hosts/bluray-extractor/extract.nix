@@ -37,6 +37,12 @@ in
     "makemkv"
   ];
 
+  # MakeMKVのベータキー（2026年7月末まで有効）を宣言的に配置する設定
+  systemd.tmpfiles.rules = [
+    "d /root/.MakeMKV 0750 root root - -"
+    "f /root/.MakeMKV/settings.conf 0600 root root - app_Key = \"T-BSaJ6gwgMx4eIggWkVYXiVP_6zehm7WAO9dEydvzOHFHoZ6YQ82BL5cGpYDxvyRWnS\"\n"
+  ];
+
   # 5分おきにディスク抽出を試みる Timer
   systemd.timers.pechka-extract = {
     wantedBy = [ "timers.target" ];
@@ -49,8 +55,8 @@ in
 
   systemd.services.pechka-extract = {
     description = "Pechka Bluray Extraction and Ingestion Job";
-    # サービスの実行環境 of PATH に curl と makemkv, blkid (util-linux) をバインド
-    path = [ pkgs.makemkv pkgs.util-linux ];
+    # サービスの実行環境の PATH に makemkv、blkid(util-linuxのbinとsbin)をバインド
+    path = [ pkgs.makemkv pkgs.util-linux "${pkgs.util-linux}/sbin" ];
     serviceConfig = {
       Type = "oneshot";
       # Nixでビルドした pechka-extract バイナリを直接指定
