@@ -64,7 +64,7 @@ in
       Type = "oneshot";
       # Nixでビルドした pechka-extract バイナリを直接指定
       ExecStart = "${pkgs.writeShellScript "pechka-extract-run" ''
-        export DEVICE="/dev/sda"
+        export DEVICE="/dev/sr1"
         export LOCAL_MKV_DIR="/tmp/mkv"
 
         # sops-nixで復号されたMinIOの接続情報を読み込む
