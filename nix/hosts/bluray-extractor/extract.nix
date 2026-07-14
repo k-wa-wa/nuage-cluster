@@ -7,7 +7,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/extract";
-      hash = "sha256-5PQX5k2QyEeKC+3MsfKQovEPtX7ADzABj1Ic5HHi51w=";
+      hash = "sha256:d88a9874ecef40ae8081aa45c293de02cc78d422794e528fe9cc313666bcc966";
     };
 
     dontUnpack = true;
