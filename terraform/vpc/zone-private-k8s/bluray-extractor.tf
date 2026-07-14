@@ -5,7 +5,7 @@ data "sops_file" "bluray_extractor_secrets" {
 resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
   content_type = "snippets"
   datastore_id = "local"
-  node_name    = "nuct-2"
+  node_name    = "nuc-2"
 
   source_raw {
     file_name = "bluray-extractor-cloud-config.yaml"
@@ -24,7 +24,7 @@ EOF
 
 resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   name      = "bluray-extractor"
-  node_name = "nuct-2"
+  node_name = "nuc-2"
   vm_id     = 240
 
   on_boot = true
