@@ -234,6 +234,18 @@
             }
           ];
         };
+
+        bluray-extractor = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/base-vm/configuration.nix
+            ./hosts/bluray-extractor/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "bluray-extractor";
+            }
+          ];
+        };
       };
 
       packages = forAllSystems (system: {
