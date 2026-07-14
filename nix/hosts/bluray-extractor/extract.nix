@@ -22,9 +22,10 @@ in
 {
   sops = {
     age.keyFile = "/var/lib/sops-nix/key.txt";
-    secrets.pechka_minio_secret_key = {
-      sopsFile = ./secrets.yaml;
-    };
+    secrets.pechka_minio_url        = { sopsFile = ./secrets.yaml; };
+    secrets.pechka_minio_bucket     = { sopsFile = ./secrets.yaml; };
+    secrets.pechka_minio_access_key = { sopsFile = ./secrets.yaml; };
+    secrets.pechka_minio_secret_key = { sopsFile = ./secrets.yaml; };
   };
 
   # MakeMKV パッケージをシステムに自動インストール
@@ -63,11 +64,11 @@ in
       ExecStart = "${pkgs.writeShellScript "pechka-extract-run" ''
         export DEVICE="/dev/sr0"
         export LOCAL_MKV_DIR="/tmp/mkv"
-        export MINIO_URL="minio.cluster.wpc:9000"
-        export MINIO_BUCKET="pechka"
-        export MINIO_ACCESS_KEY="pechka"
 
-        # Load MinIO secret key decrypted by sops-nix
+        # sops-nixで復号されたMinIOの接続情報を読み込む
+        export MINIO_URL=$(cat ${config.sops.secrets.pechka_minio_url.path})
+        export MINIO_BUCKET=$(cat ${config.sops.secrets.pechka_minio_bucket.path})
+        export MINIO_ACCESS_KEY=$(cat ${config.sops.secrets.pechka_minio_access_key.path})
         export MINIO_SECRET_KEY=$(cat ${config.sops.secrets.pechka_minio_secret_key.path})
 
         export PECHKA_API_URL="https://pechka.cluster.wpc"
