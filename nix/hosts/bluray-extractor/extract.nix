@@ -3,13 +3,11 @@
 let
   pechka-extract = pkgs.stdenv.mkDerivation rec {
     pname = "pechka-extract";
-    version = "v0.1.0"; # GitHub Release のタグ名に合わせて変更してください
+    version = "latest";
 
     src = pkgs.fetchurl {
       url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/extract";
-      # 実際のリリースバイナリの sha256 ハッシュ値を設定してください。
-      # 一度 fakeHash (pkgs.lib.fakeHash) などを指定してビルドすると、エラーメッセージに実際のハッシュ値が表示されます。
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      hash = "sha256-5PQX5k2QyEeKC+3MsfKQovEPtX7ADzABj1Ic5HHi51w=";
     };
 
     dontUnpack = true;
@@ -26,6 +24,16 @@ in
     sopsFile = ./secrets.yaml;
   };
 
+  # MakeMKV パッケージをシステムに自動インストール
+  environment.systemPackages = [
+    pkgs.makemkv
+  ];
+
+  # MakeMKV のみ例外的に unfree ライセンスを許可（グローバルな allowUnfree = true は不要）
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+    "makemkv"
+  ];
+
   # 5分おきにディスク抽出を試みる Timer
   systemd.timers.pechka-extract = {
     wantedBy = [ "timers.target" ];
@@ -38,6 +46,7 @@ in
 
   systemd.services.pechka-extract = {
     description = "Pechka Bluray Extraction and Ingestion Job";
+    # サービスの実行環境の PATH に curl と makemkv をバインド
     path = [ pkgs.curl pkgs.makemkv ];
     serviceConfig = {
       Type = "oneshot";
@@ -70,7 +79,4 @@ in
       User = "root";
     };
   };
-
-  # MakeMKV is unfree, allow unfree packages
-  nixpkgs.config.allowUnfree = true;
 }
