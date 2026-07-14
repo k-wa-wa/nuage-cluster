@@ -56,7 +56,7 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   }
 
   disk {
-    datastore_id = "local-thinpool"
+    datastore_id = "local-zfs"
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
     size         = 50
