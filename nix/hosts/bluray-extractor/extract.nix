@@ -47,8 +47,8 @@ in
   systemd.timers.pechka-extract = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnBootSec = "5m";
-      OnUnitActiveSec = "5m";
+      OnBootSec = "1m";
+      OnUnitActiveSec = "1m";
       Unit = "pechka-extract.service";
     };
   };
