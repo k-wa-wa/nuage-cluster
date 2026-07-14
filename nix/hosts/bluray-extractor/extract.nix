@@ -28,6 +28,8 @@ in
     secrets.pechka_minio_secret_key = { sopsFile = ./secrets.yaml; };
   };
 
+  networking.nameservers = [ "192.168.5.200" ];
+
   # MakeMKV パッケージをシステムに自動インストール
   environment.systemPackages = [
     pkgs.makemkv
