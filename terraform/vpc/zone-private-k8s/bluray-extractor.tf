@@ -36,13 +36,13 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   boot_order = ["virtio0", "net0"]
 
   cpu {
-    cores = 2
+    cores = 4
     type  = "host"
   }
 
   memory {
-    dedicated = 4096
-    floating  = 4096
+    dedicated = 8192
+    floating  = 8192
   }
 
   initialization {
