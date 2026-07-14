@@ -49,8 +49,8 @@ in
 
   systemd.services.pechka-extract = {
     description = "Pechka Bluray Extraction and Ingestion Job";
-    # サービスの実行環境の PATH に curl と makemkv をバインド
-    path = [ pkgs.curl pkgs.makemkv ];
+    # サービスの実行環境 of PATH に curl と makemkv, blkid (util-linux) をバインド
+    path = [ pkgs.curl pkgs.makemkv pkgs.util-linux ];
     serviceConfig = {
       Type = "oneshot";
       # Nixでビルドした pechka-extract バイナリを直接指定
@@ -71,10 +71,10 @@ in
         ${pechka-extract}/bin/extract
         
         # 2. Check output label and trigger Ingest API
-        if [ -f "/tmp/bluray-label" ]; then
+        if [ -s "/tmp/bluray-label" ]; then
           DISC_LABEL=$(cat /tmp/bluray-label)
           echo "Extraction successful. Disc label: $DISC_LABEL. Triggering ingest API..."
-          curl -s -X POST "$PECHKA_API_URL/api/v1/contents/ingest" \
+          curl -f -s -X POST "$PECHKA_API_URL/api/v1/contents/ingest" \
             -H "Content-Type: application/json" \
             -d "{\"disc_label\": \"$DISC_LABEL\", \"content_title\": \"Auto Ingested from Bluray Extractor VM (Label: $DISC_LABEL)\"}"
         fi
