@@ -5,7 +5,7 @@ data "sops_file" "bluray_extractor_secrets" {
 resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
   content_type = "snippets"
   datastore_id = "local"
-  node_name    = "server-2"
+  node_name    = "nuct-2"
 
   source_raw {
     file_name = "bluray-extractor-cloud-config.yaml"
@@ -24,7 +24,7 @@ EOF
 
 resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   name      = "bluray-extractor"
-  node_name = "server-2"
+  node_name = "nuct-2"
   vm_id     = 240
 
   on_boot = true
@@ -69,7 +69,7 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   # USB Blu-ray ドライブのパススルー設定
   # host には VendorID:ProductID または 物理ポートを指定
   usb {
-    host = "05ac:8300"
+    host = "13fd:0840"
     usb3 = true
   }
 }
