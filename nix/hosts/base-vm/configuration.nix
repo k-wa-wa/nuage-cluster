@@ -48,7 +48,7 @@
       echo "$HOSTNAME" > /proc/sys/kernel/hostname
 
       # GitHub から該当するホスト名の構成を取得して適用
-      nixos-rebuild switch --flake "github:k-wa-wa/nuage-cluster?dir=nix#$HOSTNAME" --refresh
+      nixos-rebuild switch --flake "https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix#$HOSTNAME"
 
       if [ $? -eq 0 ]; then
         touch /var/lib/nixos-bootstrap-done
