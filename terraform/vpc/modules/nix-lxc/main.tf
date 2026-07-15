@@ -83,8 +83,10 @@ resource "proxmox_virtual_environment_container" "lxc" {
   dynamic "mount_point" {
     for_each = nonsensitive(var.github_access_token) != "" ? { "nix-token" = true } : {}
     content {
+      # Proxmox LXC はファイル単体のバインドマウントが使えないためディレクトリをマウントする
+      # common.nix 側でホスト名を使って対象ファイルを特定する
       volume = "/var/lib/vz/snippets"
-      path   = "/etc/nix/access-tokens-env"
+      path   = "/var/lib/nix-provisioning"
     }
   }
 

@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   nix.settings = {
@@ -47,12 +47,10 @@
   };
 
   # GitHub API の rate limit 対策
-  # /etc/nix/access-tokens-env に以下の内容を配置することで認証済みリクエストになる
+  # Terraform が /var/lib/vz/snippets/{hostname}-nix-access-tokens-env を生成・マウントする
   # (ファイルが存在しない場合はエラーにならない)
-  #
-  #   NIX_CONFIG=access-tokens = github.com=ghp_xxxxxxxxxxxx
-  #
-  systemd.services.nix-daemon.serviceConfig.EnvironmentFile = "-/etc/nix/access-tokens-env";
+  systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
+    "-/var/lib/nix-provisioning/${config.networking.hostName}-nix-access-tokens-env";
 
   system.stateVersion = "24.11";
 }
