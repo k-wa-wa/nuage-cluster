@@ -9,7 +9,8 @@ module "lb-1" {
   # ]
 
   source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token  = data.sops_file.secrets.data["github_access_token"]
   lxc_config = {
     vm_id     = 211
     vm_name   = "lb-1"
@@ -60,7 +61,8 @@ module "lb-2" {
   # ]
 
   source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token  = data.sops_file.secrets.data["github_access_token"]
   lxc_config = {
     vm_id     = 212
     vm_name   = "lb-2"
@@ -109,7 +111,8 @@ module "lb-3" {
   # ]
 
   source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token  = data.sops_file.secrets.data["github_access_token"]
   lxc_config = {
     vm_id     = 213
     vm_name   = "lb-3"

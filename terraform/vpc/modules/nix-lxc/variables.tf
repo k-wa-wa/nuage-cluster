@@ -37,6 +37,13 @@ variable "sops_key" {
   default     = ""
 }
 
+variable "github_access_token" {
+  type        = string
+  description = "GitHub PAT for Nix to avoid API rate limits (read-only, public repos)"
+  sensitive   = true
+  default     = ""
+}
+
 variable "mount_points" {
   type = list(object({
     volume = string

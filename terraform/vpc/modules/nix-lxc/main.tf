@@ -10,6 +10,20 @@ resource "proxmox_virtual_environment_file" "sops_key" {
   }
 }
 
+# GitHub API rate limit 対策用トークンファイル
+# /etc/nix/access-tokens-env として LXC 内にマウントされる
+resource "proxmox_virtual_environment_file" "nix_access_tokens" {
+  count        = nonsensitive(var.github_access_token) != "" ? 1 : 0
+  content_type = "snippets"
+  datastore_id = "local"
+  node_name    = var.lxc_config.node_name
+
+  source_raw {
+    data      = "NIX_CONFIG=access-tokens = github.com=${var.github_access_token}\n"
+    file_name = "${var.lxc_config.vm_name}-nix-access-tokens-env"
+  }
+}
+
 resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
@@ -63,6 +77,14 @@ resource "proxmox_virtual_environment_container" "lxc" {
     content {
       volume = "/var/lib/vz/snippets"
       path   = "/var/lib/sops-nix"
+    }
+  }
+
+  dynamic "mount_point" {
+    for_each = nonsensitive(var.github_access_token) != "" ? { "nix-token" = true } : {}
+    content {
+      volume = "/var/lib/vz/snippets/${var.lxc_config.vm_name}-nix-access-tokens-env"
+      path   = "/etc/nix/access-tokens-env"
     }
   }
 
