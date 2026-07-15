@@ -59,6 +59,11 @@ NODES=(
     "lb-3:192.168.5.203:nixos"
     "chaos-monitor:192.168.5.250:nixos"
     "egress-gateway:192.168.5.220:nixos"
+    "pg-cluster-1:192.168.5.211:nixos"
+    "pg-cluster-2:192.168.5.212:nixos"
+    "pg-cluster-3:192.168.5.213:nixos"
+    "minio-cluster-1:192.168.5.221:nixos"
+    "minio-cluster-2:192.168.5.222:nixos"
 )
 for entry in "${NODES[@]}"; do
     # ホスト名、IP、ユーザーを分割
