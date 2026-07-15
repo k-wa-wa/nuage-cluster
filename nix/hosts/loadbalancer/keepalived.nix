@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   keepalivedNotify = pkgs.writeShellScript "keepalived-notify.sh" ''
@@ -25,9 +30,9 @@ in
   sops = {
     defaultSopsFile = ./secrets.yaml;
     # 全ホスト共通の固定値パスを指定
-    age.keyFile = "/var/lib/sops-nix/key.txt";
+    age.keyFile = "/var/lib/nix-provisioning/sops-key";
 
-    secrets.keepalived_auth_pass = {};
+    secrets.keepalived_auth_pass = { };
 
     # authentication ブロック全体をレンダリングするテンプレートを定義
     templates."keepalived-auth.conf" = {
@@ -40,19 +45,6 @@ in
       owner = "root";
     };
   };
-
-  # 起動時にコンテナのホスト名に応じた秘密鍵へのシンボリックリンクを作成
-  system.activationScripts.sops-key-link = {
-    text = ''
-      HOSTNAME=$(cat /etc/hostname | tr -d '\n')
-      mkdir -p /var/lib/sops-nix
-      if [ -f "/var/lib/sops-nix/$HOSTNAME-key.txt" ]; then
-        ln -sf "/var/lib/sops-nix/$HOSTNAME-key.txt" /var/lib/sops-nix/key.txt
-      fi
-    '';
-  };
-  # sops-nix の復号スクリプトの前に実行するよう依存関係を指定
-  system.activationScripts.setupSecrets.deps = [ "sops-key-link" ];
 
   system.activationScripts.prometheus-node-exporter-dir = {
     text = ''
@@ -116,4 +108,3 @@ in
     ip6tables -A nixos-fw -p vrrp -j ACCEPT
   '';
 }
-

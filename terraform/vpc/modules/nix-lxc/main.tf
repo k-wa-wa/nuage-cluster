@@ -1,29 +1,3 @@
-resource "proxmox_virtual_environment_file" "sops_key" {
-  count        = nonsensitive(var.sops_key) != "" ? 1 : 0
-  content_type = "snippets"
-  datastore_id = "local"
-  node_name    = var.lxc_config.node_name
-
-  source_raw {
-    data      = var.sops_key
-    file_name = "${var.lxc_config.vm_name}-key.txt"
-  }
-}
-
-# GitHub API rate limit 対策用トークンファイル
-# /etc/nix/access-tokens-env として LXC 内にマウントされる
-resource "proxmox_virtual_environment_file" "nix_access_tokens" {
-  count        = nonsensitive(var.github_access_token) != "" ? 1 : 0
-  content_type = "snippets"
-  datastore_id = "local"
-  node_name    = var.lxc_config.node_name
-
-  source_raw {
-    data      = "NIX_CONFIG=access-tokens = github.com=${var.github_access_token}\n"
-    file_name = "${var.lxc_config.vm_name}-nix-access-tokens-env"
-  }
-}
-
 resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
@@ -72,22 +46,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
     size         = var.lxc_config.disk_size
   }
 
-  dynamic "mount_point" {
-    for_each = nonsensitive(var.sops_key) != "" ? { "sops" = true } : {}
-    content {
-      volume = "/var/lib/vz/snippets"
-      path   = "/var/lib/sops-nix"
-    }
-  }
-
-  dynamic "mount_point" {
-    for_each = nonsensitive(var.github_access_token) != "" ? { "nix-token" = true } : {}
-    content {
-      # Proxmox LXC はファイル単体のバインドマウントが使えないためディレクトリをマウントする
-      # common.nix 側でホスト名を使って対象ファイルを特定する
-      volume = "/var/lib/vz/snippets"
-      path   = "/var/lib/nix-provisioning"
-    }
+  mount_point {
+    volume = "/var/lib/pve/${var.lxc_config.vm_name}"
+    path   = "/var/lib/nix-provisioning"
   }
 
   dynamic "mount_point" {

@@ -1,19 +1,33 @@
-{ config, pkgs, lib, hostName, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  hostName,
+  ...
+}:
 
 let
   # 各ホストのIPとホスト名のマッピングを定義する
   hosts = {
-    pg-cluster-1 = { ip = "10.20.1.41"; };
-    pg-cluster-2 = { ip = "10.20.1.42"; };
-    pg-cluster-3 = { ip = "10.20.1.43"; };
+    pg-cluster-1 = {
+      ip = "10.20.1.41";
+    };
+    pg-cluster-2 = {
+      ip = "10.20.1.42";
+    };
+    pg-cluster-3 = {
+      ip = "10.20.1.43";
+    };
   };
 
   hostname = hostName;
   myIp = hosts.${hostname}.ip;
-  
+
   # 他ノードのIPリストを生成する
-  otherIps = lib.mapAttrsToList (name: val: val.ip) (lib.filterAttrs (name: val: name != hostname) hosts);
-  
+  otherIps = lib.mapAttrsToList (name: val: val.ip) (
+    lib.filterAttrs (name: val: name != hostname) hosts
+  );
+
   # DCS（etcd）のホストアドレスリストを生成する
   etcdHosts = lib.mapAttrsToList (name: val: "${val.ip}:2379") hosts;
 in
@@ -21,7 +35,7 @@ in
   sops = {
     defaultSopsFile = ./secrets.yaml;
     # 復号に使用するキーファイルのパスを指定する
-    age.keyFile = "/var/lib/sops-nix/key.txt";
+    age.keyFile = "/var/lib/nix-provisioning/sops-key";
 
     secrets = {
       pg_superuser_password = {
@@ -32,18 +46,6 @@ in
       };
     };
   };
-
-  # 起動時にホスト名に応じた秘密鍵へのシンボリックリンクを作成する
-  system.activationScripts.sops-key-link = {
-    text = ''
-      HOSTNAME=$(cat /etc/hostname | tr -d '\n')
-      mkdir -p /var/lib/sops-nix
-      if [ -f "/var/lib/sops-nix/$HOSTNAME-key.txt" ]; then
-        ln -sf "/var/lib/sops-nix/$HOSTNAME-key.txt" /var/lib/sops-nix/key.txt
-      fi
-    '';
-  };
-  system.activationScripts.setupSecrets.deps = [ "sops-key-link" ];
 
   services.patroni = {
     enable = true;
@@ -130,5 +132,8 @@ in
   };
 
   # Patroni API（8008）とPostgreSQL（5432）のポートを開放する
-  networking.firewall.allowedTCPPorts = [ 8008 5432 ];
+  networking.firewall.allowedTCPPorts = [
+    8008
+    5432
+  ];
 }

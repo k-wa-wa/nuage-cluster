@@ -13,7 +13,7 @@ resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
 #cloud-config
 hostname: bluray-extractor
 write_files:
-  - path: /var/lib/sops-nix/key.txt
+  - path: /var/lib/nix-provisioning/sops-key
     permissions: '0600'
     owner: root:root
     content: |

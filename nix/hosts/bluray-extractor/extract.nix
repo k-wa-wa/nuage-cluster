@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   pechka-extract = pkgs.stdenv.mkDerivation rec {
@@ -21,11 +26,19 @@ let
 in
 {
   sops = {
-    age.keyFile = "/var/lib/sops-nix/key.txt";
-    secrets.pechka_minio_url        = { sopsFile = ./secrets.yaml; };
-    secrets.pechka_minio_bucket     = { sopsFile = ./secrets.yaml; };
-    secrets.pechka_minio_access_key = { sopsFile = ./secrets.yaml; };
-    secrets.pechka_minio_secret_key = { sopsFile = ./secrets.yaml; };
+    age.keyFile = "/var/lib/nix-provisioning/sops-key";
+    secrets.pechka_minio_url = {
+      sopsFile = ./secrets.yaml;
+    };
+    secrets.pechka_minio_bucket = {
+      sopsFile = ./secrets.yaml;
+    };
+    secrets.pechka_minio_access_key = {
+      sopsFile = ./secrets.yaml;
+    };
+    secrets.pechka_minio_secret_key = {
+      sopsFile = ./secrets.yaml;
+    };
   };
 
   networking.nameservers = [ "192.168.5.200" ];
@@ -39,9 +52,11 @@ in
   ];
 
   # MakeMKV のみ例外的に unfree ライセンスを許可（グローバルな allowUnfree = true は不要）
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "makemkv"
-  ];
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
+    builtins.elem (lib.getName pkg) [
+      "makemkv"
+    ];
 
   # MakeMKVのベータキー（2026年7月末まで有効）を宣言的に配置する設定
   systemd.tmpfiles.rules = [
@@ -62,7 +77,11 @@ in
   systemd.services.pechka-extract = {
     description = "Pechka Bluray Extraction and Ingestion Job";
     # サービスの実行環境の PATH に makemkv、blkid(util-linuxのbinとsbin)をバインド
-    path = [ pkgs.makemkv pkgs.util-linux "${pkgs.util-linux}/sbin" ];
+    path = [
+      pkgs.makemkv
+      pkgs.util-linux
+      "${pkgs.util-linux}/sbin"
+    ];
     serviceConfig = {
       Type = "oneshot";
       # Nixでビルドした pechka-extract バイナリを直接指定

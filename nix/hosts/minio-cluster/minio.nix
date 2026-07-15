@@ -1,9 +1,19 @@
-{ config, lib, pkgs, hostName, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  hostName,
+  ...
+}:
 
 let
   hosts = {
-    minio-cluster-1 = { ip = "10.20.1.71"; };
-    minio-cluster-2 = { ip = "10.20.1.72"; };
+    minio-cluster-1 = {
+      ip = "10.20.1.71";
+    };
+    minio-cluster-2 = {
+      ip = "10.20.1.72";
+    };
   };
 
   myIp = hosts.${hostName}.ip;
@@ -11,10 +21,14 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    age.keyFile = "/var/lib/sops-nix/${hostName}-key.txt";
+    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     # secrets.yaml から MinIO の認証情報を読み込む
-    secrets.minio_root_user = { owner = "minio"; };
-    secrets.minio_root_password = { owner = "minio"; };
+    secrets.minio_root_user = {
+      owner = "minio";
+    };
+    secrets.minio_root_password = {
+      owner = "minio";
+    };
 
     # credentials ファイルのテンプレート定義
     templates."minio-credentials" = {
@@ -47,5 +61,8 @@ in
   ];
 
   # ポートを開放する
-  networking.firewall.allowedTCPPorts = [ 9000 9001 ];
+  networking.firewall.allowedTCPPorts = [
+    9000
+    9001
+  ];
 }

@@ -1,21 +1,30 @@
-{ config, lib, pkgs, hostName, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  hostName,
+  ...
+}:
 
 let
   hosts = {
-    minio-cluster-1 = { ip = "10.20.1.71"; };
-    minio-cluster-2 = { ip = "10.20.1.72"; };
+    minio-cluster-1 = {
+      ip = "10.20.1.71";
+    };
+    minio-cluster-2 = {
+      ip = "10.20.1.72";
+    };
   };
 
   myIp = hosts.${hostName}.ip;
 
   # ホスト名に応じて優先度を決定する
-  priority = if hostName == "minio-cluster-1" then 101
-             else 100;
+  priority = if hostName == "minio-cluster-1" then 101 else 100;
 in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    age.keyFile = "/var/lib/sops-nix/${hostName}-key.txt";
+    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     # secrets.yaml 内の keepalived_auth_pass をロードする
     secrets.keepalived_auth_pass = {
       owner = "root";
