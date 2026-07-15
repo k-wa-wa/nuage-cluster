@@ -3,8 +3,7 @@ data "sops_file" "secrets" {
 }
 
 module "pg-cluster-1" {
-  source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 241
     vm_name   = "pg-cluster-1"
@@ -47,8 +46,7 @@ module "pg-cluster-1" {
 }
 
 module "pg-cluster-2" {
-  source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 242
     vm_name   = "pg-cluster-2"
@@ -91,8 +89,7 @@ module "pg-cluster-2" {
 }
 
 module "pg-cluster-3" {
-  source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 243
     vm_name   = "pg-cluster-3"

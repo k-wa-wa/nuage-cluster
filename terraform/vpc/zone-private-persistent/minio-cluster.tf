@@ -1,6 +1,5 @@
 module "minio-cluster-1" {
-  source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 271
     vm_name   = "minio-cluster-1"
@@ -56,8 +55,7 @@ module "minio-cluster-1" {
 }
 
 module "minio-cluster-2" {
-  source   = "../modules/nix-lxc"
-  sops_key = data.sops_file.secrets.data["lb_sops_key"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 272
     vm_name   = "minio-cluster-2"
