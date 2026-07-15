@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   nix.settings = {
@@ -46,11 +46,8 @@
     OnBootSec = "30s";
   };
 
-  # GitHub API の rate limit 対策
-  # Terraform が /var/lib/vz/snippets/{hostname}-nix-access-tokens-env を生成・マウントする
-  # (ファイルが存在しない場合はエラーにならない)
-  systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
-    "-/var/lib/nix-provisioning/${config.networking.hostName}-nix-access-tokens-env";
+  # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
+  systemd.services.nix-daemon.serviceConfig.EnvironmentFile = "-/var/lib/nix-provisioning/access-tokens-env";
 
   system.stateVersion = "24.11";
 }
