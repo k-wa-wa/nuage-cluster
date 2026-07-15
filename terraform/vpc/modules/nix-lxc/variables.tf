@@ -22,26 +22,12 @@ variable "lxc_config" {
       order      = string
       up_delay   = string
       down_delay = string
-    }), {
+      }), {
       order      = "3"
       up_delay   = "10"
       down_delay = "15"
     })
   })
-}
-
-variable "sops_key" {
-  type        = string
-  description = "The Age private key for sops-nix"
-  sensitive   = true
-  default     = ""
-}
-
-variable "github_access_token" {
-  type        = string
-  description = "GitHub PAT for Nix to avoid API rate limits (read-only, public repos)"
-  sensitive   = true
-  default     = ""
 }
 
 variable "mount_points" {
@@ -63,5 +49,3 @@ variable "backup_config" {
     schedule   = "daily"
   }
 }
-
-

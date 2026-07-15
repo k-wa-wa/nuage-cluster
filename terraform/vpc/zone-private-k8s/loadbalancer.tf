@@ -1,16 +1,10 @@
-data "sops_file" "secrets" {
-  source_file = "${path.module}/../../secrets.yaml"
-}
-
 module "lb-1" {
   # depends_on = [
   #   proxmox_virtual_environment_sdn_applier.example_applier,
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source   = "../modules/nix-lxc"
-  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
-  github_access_token  = data.sops_file.secrets.data["github_access_token"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 211
     vm_name   = "lb-1"
@@ -29,7 +23,7 @@ module "lb-1" {
         bridge = "prvmain"
       },
       {
-        name = "eth2"
+        name   = "eth2"
         bridge = "vmbr0"
       }
     ]
@@ -60,9 +54,7 @@ module "lb-2" {
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source   = "../modules/nix-lxc"
-  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
-  github_access_token  = data.sops_file.secrets.data["github_access_token"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 212
     vm_name   = "lb-2"
@@ -79,7 +71,7 @@ module "lb-2" {
         bridge = "prvmain"
       },
       {
-        name = "eth2"
+        name   = "eth2"
         bridge = "vmbr0"
       }
     ]
@@ -110,9 +102,7 @@ module "lb-3" {
   #   proxmox_virtual_environment_sdn_vnet.main_services
   # ]
 
-  source   = "../modules/nix-lxc"
-  sops_key             = data.sops_file.secrets.data["lb_sops_key"]
-  github_access_token  = data.sops_file.secrets.data["github_access_token"]
+  source = "../modules/nix-lxc"
   lxc_config = {
     vm_id     = 213
     vm_name   = "lb-3"
@@ -129,7 +119,7 @@ module "lb-3" {
         bridge = "prvmain"
       },
       {
-        name = "eth2"
+        name   = "eth2"
         bridge = "vmbr0"
       }
     ]
