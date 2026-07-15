@@ -5,7 +5,7 @@ module "egress-gateway" {
     vm_name   = "egress-gateway"
     node_name = "server-1"
     cores     = 1
-    memory    = 1024
+    memory    = 2048
     network_devices = [
       {
         name   = "eth0"
