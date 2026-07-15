@@ -1,8 +1,5 @@
 module "chaos-monitor" {
   source = "../modules/nix-lxc"
-
-  github_access_token = data.sops_file.secrets.data["github_access_token"]
-
   lxc_config = {
     vm_id     = 250
     vm_name   = "chaos-monitor"

@@ -23,3 +23,17 @@ module "lb-3" {
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
+module "egress-gateway" {
+  source              = "./modules/secrets"
+  host                = "192.168.5.25"
+  target_host         = "egress-gateway"
+  sops_key            = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token = data.sops_file.secrets.data["github_access_token"]
+}
+module "chaos-monitor" {
+  source              = "./modules/secrets"
+  host                = "192.168.5.22"
+  target_host         = "chaos-monitor"
+  sops_key            = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token = data.sops_file.secrets.data["github_access_token"]
+}
