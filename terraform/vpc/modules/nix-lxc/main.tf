@@ -83,7 +83,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   dynamic "mount_point" {
     for_each = nonsensitive(var.github_access_token) != "" ? { "nix-token" = true } : {}
     content {
-      volume = "/var/lib/vz/snippets/${var.lxc_config.vm_name}-nix-access-tokens-env"
+      volume = "/var/lib/vz/snippets"
       path   = "/etc/nix/access-tokens-env"
     }
   }
@@ -109,13 +109,13 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
 # PVEのバックアップジョブを設定する
 resource "proxmox_backup_job" "backup" {
-  id        = "${var.lxc_config.vm_name}-backup"
-  node      = var.lxc_config.node_name
-  storage   = var.backup_config.storage_id
-  schedule  = var.backup_config.schedule
-  vmid      = [tostring(proxmox_virtual_environment_container.lxc.vm_id)]
-  mode      = "snapshot"
-  compress  = "zstd"
+  id       = "${var.lxc_config.vm_name}-backup"
+  node     = var.lxc_config.node_name
+  storage  = var.backup_config.storage_id
+  schedule = var.backup_config.schedule
+  vmid     = [tostring(proxmox_virtual_environment_container.lxc.vm_id)]
+  mode     = "snapshot"
+  compress = "zstd"
 
   prune_backups = {
     "keep-last"    = "7"
