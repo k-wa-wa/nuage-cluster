@@ -98,7 +98,7 @@ in
         post_init = pkgs.writeShellScript "post-init" ''
           # 第一引数で渡される接続URLを使用して、ユーザーとデータベースを作成する
           ${pkgs.postgresql_15}/bin/psql "$1" -c "CREATE USER \"$PECHKA_USERNAME\" WITH PASSWORD '$PECHKA_PASSWORD';"
-          ${pkgs.postgresql_15}/bin/psql "$1" -c "CREATE DATABASE \"$PECHKA_USERNAME\" OWNER \"$PECHKA_USERNAME\";"
+          ${pkgs.postgresql_15}/bin/psql "$1" -c "CREATE DATABASE \"pechka\" OWNER \"$PECHKA_USERNAME\";"
         '';
 
         users = {
