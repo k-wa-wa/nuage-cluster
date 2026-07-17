@@ -14,12 +14,22 @@ let
 
     mkdir -p /var/lib/prometheus/node-exporter
 
-    case "$STATE" in
-      "MASTER") VAL=1 ;;
-      "BACKUP") VAL=0 ;;
-      "FAULT")  VAL=-1 ;;
-      *)        VAL=-2 ;;
+    # 状態遷移の並行処理による競合を防ぐため、引数 STATE ではなく実際のIP存在確認で判定する
+    case "$NAME" in
+      "VI_1") VIP="10.20.1.20/" ;;
+      "VI_2") VIP="192.168.5.200/" ;;
+      *) VIP="" ;;
     esac
+
+    if [ -n "$VIP" ] && ${pkgs.iproute2}/bin/ip addr | ${pkgs.gnugrep}/bin/grep -q "$VIP"; then
+      VAL=1
+    else
+      if [ "$STATE" = "FAULT" ]; then
+        VAL=-1
+      else
+        VAL=0
+      fi
+    fi
 
     echo "keepalived_instance_state{instance=\"$NAME\"} $VAL" > /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
     chmod 644 /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
