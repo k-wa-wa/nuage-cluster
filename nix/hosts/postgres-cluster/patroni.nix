@@ -76,6 +76,8 @@ in
       };
 
       postgresql = {
+        listen = lib.mkForce "0.0.0.0:5432";
+        connect_address = lib.mkForce "${myIp}:5432";
         parameters = {
           unix_socket_directories = "/tmp";
         };
@@ -94,13 +96,9 @@ in
       bootstrap = {
         # 初期化時に一度だけ実行されるスクリプト
         post_init = pkgs.writeShellScript "post-init" ''
-          # パスワードとユーザー名をファイルから読み込む
-          PECHKA_USER=$(cat "$PECHKA_USERNAME")
-          PECHKA_PASS=$(cat "$PECHKA_PASSWORD")
-
           # 第一引数で渡される接続URLを使用して、ユーザーとデータベースを作成する
-          psql "$1" -c "CREATE USER \"$PECHKA_USER\" WITH PASSWORD '$PECHKA_PASS';"
-          psql "$1" -c "CREATE DATABASE \"$PECHKA_USER\" OWNER \"$PECHKA_USER\";"
+          ${pkgs.postgresql_15}/bin/psql "$1" -c "CREATE USER \"$PECHKA_USERNAME\" WITH PASSWORD '$PECHKA_PASSWORD';"
+          ${pkgs.postgresql_15}/bin/psql "$1" -c "CREATE DATABASE \"$PECHKA_USERNAME\" OWNER \"$PECHKA_USERNAME\";"
         '';
 
         users = {
