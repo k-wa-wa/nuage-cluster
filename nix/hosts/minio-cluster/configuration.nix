@@ -22,5 +22,11 @@
   services.prometheus.exporters.node = {
     enable = true;
     port = 9100;
+    extraFlags = [
+      "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
+    ];
   };
+
+  # メトリクス収集用ポートを開放する
+  networking.firewall.allowedTCPPorts = [ 9100 ];
 }

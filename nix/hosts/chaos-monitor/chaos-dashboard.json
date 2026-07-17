@@ -111,6 +111,11 @@
           "expr": "haproxy_backend_status{state=\"UP\", node!=\"\"}",
           "legendFormat": "{{node}} - backend-{{proxy}}",
           "refId": "D"
+        },
+        {
+          "expr": "probe_success{job=~\"http-ingress-probe|tcp-port-probe\"}",
+          "legendFormat": "{{service}}",
+          "refId": "E"
         }
       ],
       "title": "Service Status",
@@ -162,7 +167,7 @@
         }
       },
       "gridPos": {
-        "h": 6,
+        "h": 12,
         "w": 24,
         "x": 0,
         "y": 26
@@ -171,7 +176,7 @@
       "targets": [
         {
           "expr": "keepalived_instance_state{node!=\"\"}",
-          "legendFormat": "{{node}} ({{exported_instance}})",
+          "legendFormat": "{{exported_instance}} - {{node}}",
           "refId": "A"
         }
       ],
@@ -188,7 +193,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 38
       },
       "id": 4,
       "targets": [
@@ -211,7 +216,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 38
       },
       "id": 5,
       "targets": [

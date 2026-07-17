@@ -20,6 +20,37 @@ let
 
   # ホスト名に応じて優先度を決定する
   priority = if hostName == "minio-cluster-1" then 101 else 100;
+
+  keepalivedNotify = pkgs.writeShellScript "keepalived-notify.sh" ''
+    TYPE=$1
+    NAME=$2
+    STATE=$3
+    PRIO=$4
+
+    mkdir -p /var/lib/prometheus/node-exporter
+    chmod 755 /var/lib/prometheus
+    chmod 755 /var/lib/prometheus/node-exporter
+
+    # 状態遷移の並行処理による競合を防ぐため、引数 STATE ではなく実際のIP存在確認で判定する
+    case "$NAME" in
+      "VI_MINIO") VIP="10.20.1.70/" ;;
+      *) VIP="" ;;
+    esac
+
+    if [ -n "$VIP" ] && ${pkgs.iproute2}/bin/ip addr | ${pkgs.gnugrep}/bin/grep -q "$VIP"; then
+      VAL=1
+    else
+      if [ "$STATE" = "FAULT" ]; then
+        VAL=-1
+      else
+        VAL=0
+      fi
+    fi
+
+    echo "keepalived_instance_state{instance=\"$NAME\"} $VAL" > /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
+    chmod 644 /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp
+    mv /var/lib/prometheus/node-exporter/keepalived_$NAME.prom.tmp /var/lib/prometheus/node-exporter/keepalived_$NAME.prom
+  '';
 in
 {
   sops = {
@@ -57,6 +88,7 @@ in
           virtual_router_id 70
           priority ${toString priority}
           advert_int 1
+          notify ${keepalivedNotify}
 
           # sops-nix でレンダリングされた認証ファイルをインクルードする
           include ${config.sops.templates."keepalived-auth.conf".path}

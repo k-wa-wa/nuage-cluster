@@ -31,6 +31,11 @@
           { targets = [ "10.20.1.22:9100" ]; labels = { node = "lb-2"; }; }
           { targets = [ "10.20.1.23:9100" ]; labels = { node = "lb-3"; }; }
           { targets = [ "10.20.1.30:9100" ]; labels = { node = "egress-gateway"; }; }
+          { targets = [ "10.20.1.41:9100" ]; labels = { node = "pg-cluster-1"; }; }
+          { targets = [ "10.20.1.42:9100" ]; labels = { node = "pg-cluster-2"; }; }
+          { targets = [ "10.20.1.43:9100" ]; labels = { node = "pg-cluster-3"; }; }
+          { targets = [ "10.20.1.71:9100" ]; labels = { node = "minio-cluster-1"; }; }
+          { targets = [ "10.20.1.72:9100" ]; labels = { node = "minio-cluster-2"; }; }
         ];
       }
       {
@@ -60,6 +65,12 @@
           { targets = [ "10.20.1.22" ]; labels = { node = "lb-2"; }; }
           { targets = [ "10.20.1.23" ]; labels = { node = "lb-3"; }; }
           { targets = [ "10.20.1.30" ]; labels = { node = "egress-gateway"; }; }
+          { targets = [ "10.20.1.41" ]; labels = { node = "pg-cluster-1"; }; }
+          { targets = [ "10.20.1.42" ]; labels = { node = "pg-cluster-2"; }; }
+          { targets = [ "10.20.1.43" ]; labels = { node = "pg-cluster-3"; }; }
+          { targets = [ "10.20.1.40" ]; labels = { node = "pg-cluster-vip"; }; }
+          { targets = [ "10.20.1.71" ]; labels = { node = "minio-cluster-1"; }; }
+          { targets = [ "10.20.1.72" ]; labels = { node = "minio-cluster-2"; }; }
         ];
         relabel_configs = [
           {
@@ -99,6 +110,38 @@
           {
             targets = [ "https://bwproxy.cluster.wpc/" ];
             labels = { service = "bare-web-proxy"; };
+          }
+          {
+            targets = [ "http://10.20.1.70:9000/minio/health/live" ];
+            labels = { service = "minio"; };
+          }
+        ];
+        relabel_configs = [
+          {
+            source_labels = [ "__address__" ];
+            target_label = "__param_target";
+          }
+          {
+            source_labels = [ "__param_target" ];
+            target_label = "instance";
+          }
+          {
+            target_label = "__address__";
+            replacement = "127.0.0.1:9115";
+          }
+        ];
+      }
+      {
+        job_name = "tcp-port-probe";
+        scrape_interval = "5s";
+        metrics_path = "/probe";
+        params = {
+          module = [ "tcp_connect" ];
+        };
+        static_configs = [
+          {
+            targets = [ "10.20.1.40:5432" ];
+            labels = { service = "postgres"; };
           }
         ];
         relabel_configs = [
