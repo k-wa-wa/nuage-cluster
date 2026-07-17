@@ -44,6 +44,12 @@ in
       pg_replication_password = {
         owner = "patroni";
       };
+      pg_pechka_username = {
+        owner = "patroni";
+      };
+      pg_pechka_password = {
+        owner = "patroni";
+      };
     };
   };
 
@@ -59,6 +65,8 @@ in
     environmentFiles = {
       PATRONI_SUPERUSER_PASSWORD = config.sops.secrets.pg_superuser_password.path;
       PATRONI_REPLICATION_PASSWORD = config.sops.secrets.pg_replication_password.path;
+      PECHKA_USERNAME = config.sops.secrets.pg_pechka_username.path;
+      PECHKA_PASSWORD = config.sops.secrets.pg_pechka_password.path;
     };
 
     settings = {
@@ -84,6 +92,17 @@ in
       };
 
       bootstrap = {
+        # 初期化時に一度だけ実行されるスクリプト
+        post_init = pkgs.writeShellScript "post-init" ''
+          # パスワードとユーザー名をファイルから読み込む
+          PECHKA_USER=$(cat "$PECHKA_USERNAME")
+          PECHKA_PASS=$(cat "$PECHKA_PASSWORD")
+
+          # 第一引数で渡される接続URLを使用して、ユーザーとデータベースを作成する
+          psql "$1" -c "CREATE USER \"$PECHKA_USER\" WITH PASSWORD '$PECHKA_PASS';"
+          psql "$1" -c "CREATE DATABASE \"$PECHKA_USER\" OWNER \"$PECHKA_USER\";"
+        '';
+
         users = {
           superuser = {
             username = "postgres";
