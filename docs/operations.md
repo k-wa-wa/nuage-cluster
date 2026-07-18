@@ -77,7 +77,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | ディレクトリ | 管理対象 |
 | :-- | :-- |
 | `terraform/pve/hosts` | 物理ノードのブリッジ・VLAN・SDN Fabric (OSPF) |
-| `terraform/pve/vm` | 旧セグメントの VM (oc1-nfs, oc1-omada) |
+| `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
 | `terraform/pve/server-2` | server-2 上の lm-server (非常時稼働・import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
 | `terraform/vpc/zone-dev` | dev-server VM |
@@ -92,7 +92,6 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 - state はローカル (`terraform.tfstate`) 管理。実行マシンを固定し、state ファイルの扱いに注意する
 - 認証情報は `terraform/secrets.yaml` (SOPS 管理) から `root_sops.hcl` 経由で復号・読み込みされる。旧 `secrets.hcl` (`root.hcl`) は廃止済みで、参照するとエラーになる
 - **BGP EVPN Controller は Terraform 管理外**であり、GUI (Datacenter > SDN > Controllers) で手動作成する
-- `oc1-nfs` は `protection = true` のため誤削除は防止されるが、データ本体のバックアップは別途必要
 
 ### 2.4 シークレットの変更
 

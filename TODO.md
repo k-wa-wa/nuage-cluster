@@ -34,8 +34,6 @@
 - [ ] **バックアップ基盤 (PBS) の構築**
   - spec/cloud.md で要件化済みだが未構築。Proxmox Backup Server を立て、NIC1 (管理セグメント) 経由で VM/LXC の増分バックアップを取る
   - TrueNAS があるので **PBS のデータストアを TrueNAS に置く** or TrueNAS の zfs replication と役割分担を決める
-- [ ] **oc1-nfs のデータバックアップ**
-  - `protection = true` で誤削除は防げるが、データ本体のバックアップが無い (operations.md 注意点)。PBS か zfs send/recv で外部にコピーする
 - [ ] **PostgreSQL (pg-1/2/3) のバックアップ・リストア手順の整備**
   - pgBackRest / wal-g で Minio へ WAL アーカイブ + 定期フルバックアップ。リストア演習まで一度やっておく
 - [x] ~~**etcd スナップショットの定期取得**~~ (実施しない)
