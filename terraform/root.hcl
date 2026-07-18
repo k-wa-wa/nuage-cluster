@@ -21,10 +21,6 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.10.1"
     }
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "5.18.0"
-    }
   }
 }
 
@@ -47,10 +43,6 @@ provider "proxmox" {
       address = "192.168.5.25"
     }
   }
-}
-
-provider "cloudflare" {
-  api_token = "${local.secrets.cloudflare_api_token}"
 }
 EOF
 }
