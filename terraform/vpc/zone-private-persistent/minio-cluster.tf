@@ -14,10 +14,6 @@ module "minio-cluster-1" {
       {
         name   = "eth1"
         bridge = "prvmain"
-      },
-      {
-        name   = "eth2"
-        bridge = "vmbr0"
       }
     ]
     ip_config = [
@@ -27,9 +23,6 @@ module "minio-cluster-1" {
       {
         address = "10.20.1.71/24"
         gateway = "10.20.1.1"
-      },
-      {
-        address = "192.168.5.221/24"
       }
     ]
     disk_size = 20
@@ -70,10 +63,6 @@ module "minio-cluster-2" {
       {
         name   = "eth1"
         bridge = "prvmain"
-      },
-      {
-        name   = "eth2"
-        bridge = "vmbr0"
       }
     ]
     ip_config = [
@@ -83,9 +72,6 @@ module "minio-cluster-2" {
       {
         address = "10.20.1.72/24"
         gateway = "10.20.1.1"
-      },
-      {
-        address = "192.168.5.222/24"
       }
     ]
     disk_size = 20

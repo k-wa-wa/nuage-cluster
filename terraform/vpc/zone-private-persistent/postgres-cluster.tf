@@ -18,10 +18,6 @@ module "pg-cluster-1" {
       {
         name   = "eth1"
         bridge = "prvmain"
-      },
-      {
-        name   = "eth2"
-        bridge = "vmbr0"
       }
     ]
     ip_config = [
@@ -31,9 +27,6 @@ module "pg-cluster-1" {
       {
         address = "10.20.1.41/24"
         gateway = "10.20.1.1"
-      },
-      {
-        address = "192.168.5.211/24"
       }
     ]
     disk_size = 40
@@ -61,10 +54,6 @@ module "pg-cluster-2" {
       {
         name   = "eth1"
         bridge = "prvmain"
-      },
-      {
-        name   = "eth2"
-        bridge = "vmbr0"
       }
     ]
     ip_config = [
@@ -74,9 +63,6 @@ module "pg-cluster-2" {
       {
         address = "10.20.1.42/24"
         gateway = "10.20.1.1"
-      },
-      {
-        address = "192.168.5.212/24"
       }
     ]
     disk_size = 40
@@ -104,10 +90,6 @@ module "pg-cluster-3" {
       {
         name   = "eth1"
         bridge = "prvmain"
-      },
-      {
-        name   = "eth2"
-        bridge = "vmbr0"
       }
     ]
     ip_config = [
@@ -117,9 +99,6 @@ module "pg-cluster-3" {
       {
         address = "10.20.1.43/24"
         gateway = "10.20.1.1"
-      },
-      {
-        address = "192.168.5.213/24"
       }
     ]
     disk_size = 40
