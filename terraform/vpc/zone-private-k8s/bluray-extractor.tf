@@ -48,8 +48,13 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   initialization {
     ip_config {
       ipv4 {
+        address = "10.20.1.80/24"
+        gateway = "10.20.1.1"
+      }
+    }
+    ip_config {
+      ipv4 {
         address = "192.168.5.240/24"
-        gateway = "192.168.5.1"
       }
     }
     user_data_file_id = proxmox_virtual_environment_file.bluray_extractor_cloud_config.id
@@ -60,6 +65,10 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
     size         = 50
+  }
+
+  network_device {
+    bridge = "prvmain"
   }
 
   network_device {
