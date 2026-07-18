@@ -6,7 +6,7 @@ TODO・改善アイディア・過去の設計判断の経緯は [TODO.md](./TOD
 
 ## アーキテクチャ
 
-![全体構成図](./docs/architecture-overview.svg)
+![全体構成図](./docs/architecture-overview.drawio.svg)
 
 - **仮想化基盤**: Proxmox VE
 - **ネットワーク**: Proxmox SDN
