@@ -12,4 +12,4 @@ data:
     spec:
       generate:
         command: ["sh", "-c"]
-        args: ["kustomize build . | argocd-vault-plugin generate -"]
+        args: ["kustomize build --enable-helm . | argocd-vault-plugin generate -"]
