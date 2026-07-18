@@ -14,7 +14,8 @@ nix flake check ./nix
 # 2. NixOS Build Dry-run (Linux Only)
 if [ "$(uname -s)" = "Linux" ]; then
   echo "Running NixOS configurations dry-run build..."
-  hosts=("base-vm" "dev-server" "lb-1" "lb-2" "lb-3" "egress-gateway" "lm-server")
+  # nixosConfigurationsから動的にホスト一覧を取得する
+  hosts=($(nix eval --raw ./nix#nixosConfigurations --apply 'config: builtins.concatStringsSep " " (builtins.attrNames config)'))
   for host in "${hosts[@]}"; do
     echo "Dry-running build for host: $host"
     nix build ./nix#nixosConfigurations."$host".config.system.build.toplevel --dry-run

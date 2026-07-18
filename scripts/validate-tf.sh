@@ -30,15 +30,18 @@ TEMP_DIR=$(mktemp -d)
 age-keygen -o "$TEMP_DIR/key.txt"
 PUBKEY=$(grep "public key:" "$TEMP_DIR/key.txt" | awk '{print $4}')
 
-# ダミーの secrets.yaml テンプレート
-cat <<EOF > "$TEMP_DIR/dummy_secrets.yaml"
-proxmox_endpoint: "https://dummy.example.com"
-proxmox_username: "dummy"
-proxmox_password: "dummy"
-cloudflare_api_token: "dummy"
-cloudflare_account_id: "dummy"
-lb_sops_key: "dummy"
-EOF
+# ダミーの secrets.yaml を元のファイルから自動生成する
+grep '^[a-z0-9_]\+:' terraform/secrets.yaml | grep -v '^sops:' | while read -r line; do
+  key=$(echo "$line" | cut -d: -f1)
+  if [[ "$key" =~ "endpoint" ]] || [[ "$key" =~ "url" ]]; then
+    echo "$key: \"https://dummy.example.com\""
+  elif [[ "$key" =~ "token" ]] || [[ "$key" =~ "key" ]] || [[ "$key" =~ "password" ]] || [[ "$key" =~ "secret" ]]; then
+    # 40文字のダミー値（Cloudflare API Tokenなどの制限に対応）
+    echo "$key: \"0000000000000000000000000000000000000000\""
+  else
+    echo "$key: \"dummy\""
+  fi
+done > "$TEMP_DIR/dummy_secrets.yaml"
 
 # ダミーの secrets.yaml を一時鍵で暗号化
 sops --config /dev/null --encrypt --age "$PUBKEY" "$TEMP_DIR/dummy_secrets.yaml" > "$TEMP_DIR/secrets.yaml.enc"
@@ -63,18 +66,20 @@ cp "$TEMP_DIR/secrets.yaml.enc" "terraform/secrets.yaml"
 export SOPS_AGE_KEY=$(grep -v "#" "$TEMP_DIR/key.txt")
 
 echo "Running terragrunt init & validate modules..."
-target_dirs=(
-  "terraform/vpc/zone-private-k8s"
-  "terraform/pve/hosts"
-  "terraform/vpc/zone-private"
-)
+# terragrunt.hcl が存在するディレクトリを動的に検索する
+target_dirs=()
+while read -r file; do
+  target_dirs+=("$(dirname "$file")")
+done < <(find terraform -name "terragrunt.hcl" -not -path "*/.terragrunt-cache/*" | sort)
 
 for dir in "${target_dirs[@]}"; do
   echo "Validating Terragrunt module: $dir"
   (
     cd "$dir"
-    # -backend=false で state を無視して初期化
-    # terragrunt init -backend=false
+    # すでに初期化されている場合は init をスキップして高速化する
+    if [ ! -d ".terraform" ]; then
+      terragrunt init -backend=false
+    fi
     terragrunt validate
   )
 done
