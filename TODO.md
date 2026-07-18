@@ -31,7 +31,7 @@
   - 現状はローカル `terraform.tfstate` のため、実行マシンの喪失 = state の喪失となる (operations.md 7 章)
   - クラスター外で稼働している **Minio (S3 互換) を backend に使う**のが構成的に自然。ただし「Minio 自体を作る terraform」だけはローカル state に残す、という鶏卵の切り分けが必要
   - 併せて OpenTofu の **state encryption** 機能を試すのも面白い (Age/PBKDF2 でクライアントサイド暗号化できる)
-- [ ] **バックアップ基盤 (PBS) の構築**
+- [x] **バックアップ基盤 (PBS) の構築**
   - spec/cloud.md で要件化済みだが未構築。Proxmox Backup Server を立て、NIC1 (管理セグメント) 経由で VM/LXC の増分バックアップを取る
   - TrueNAS があるので **PBS のデータストアを TrueNAS に置く** or TrueNAS の zfs replication と役割分担を決める
 - [ ] **PostgreSQL (pg-1/2/3) のバックアップ・リストア手順の整備**
@@ -75,7 +75,7 @@
 
 ## 4. リファクタ・技術的負債の返済
 
-- [ ] **`scripts/apply-datastore.sh` の削除**
+- [x] **`scripts/apply-datastore.sh` の削除**
   - 参照先 (`terraform/environments/dev-persistent`, `playbooks/postgres.yml`) が現存しない旧構成向け (operations.md 7 章)。混乱の元なので消す
 - [ ] **`playbooks/` の完全撤去**
   - 残っているのは data-store (NFS/Minio) と omada-controller。「Ansible 排除」の思想を完遂するには、NFS/Minio を TrueNAS or NixOS VM へ、Omada Controller を LXC (Nix or 公式コンテナ) へ移行する。README の取り消し線 TODO 2 件がこれで完全クローズできる
