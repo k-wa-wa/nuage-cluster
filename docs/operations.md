@@ -78,7 +78,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | :-- | :-- |
 | `terraform/pve/hosts` | 物理ノードのブリッジ・VLAN・SDN Fabric (OSPF) |
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
-| `terraform/pve/server-2` | server-2 上の lm-server (非常時稼働・import 保存のみ) |
+| `terraform/pve/server-2` | server-2 上の lm-server (import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
 | `terraform/vpc/zone-dev` | dev-server VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
