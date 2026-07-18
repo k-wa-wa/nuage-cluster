@@ -90,11 +90,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1783268336,
-        "narHash": "sha256-5g1xw+El2NmgJvWy6oKuo+z8eFM4VX21IMATy1E8Bvc=",
+        "lastModified": 1784120269,
+        "narHash": "sha256-0qFn3fzsHXZ99R2jX1CtVw/jLzxUQ1VTx22mq7ArwtE=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "e8631e584882c0ffe9350047c10f2ce97423c98d",
+        "rev": "715f1450fa131462e9137b156b622bb6afbb10ef",
         "type": "github"
       },
       "original": {
