@@ -36,7 +36,7 @@ Proxmox SDNを用いた高度な分離とスケーラビリティを実現する
 ### 4.1 外部接続 (Connectivity)
 
 * **Inbound (外部公開):** Cloudflare Tunnelを用い、各User Zone内の専用VM/コンテナから安全に公開する。
-* **Outbound (インターネット接続):** 各Zoneに配置した **Exit Node (Gateway VM)** を経由し、NAT(Masquerade)を行ってインターネットへアクセスする。ホストのデフォルトゲートウェイ(NIC 3)を利用する。
+* **Outbound (インターネット接続):** Proxmox SDNの **Exit Nodes (物理ホスト)** を経由し、NAT(Masquerade)を行ってインターネットへアクセスする。ホストのデフォルトゲートウェイ(NIC 3)を利用する。
 * **ゼロトラストアクセス:** 原則として自宅ルーターのポート開放は行わず、Cloudflare Zero Trustによる認証・認可を経由したアクセスとする。
 
 ### 4.2 共通リソース (Shared Services)
@@ -45,7 +45,7 @@ Proxmox SDNを用いた高度な分離とスケーラビリティを実現する
 * 共有サービス専用の **Shared Services Zone** を構築する。
 * コンポーネント: DNS (Technitium/Bind), S3互換ストレージ (MinIO), DB (Postgres) 等。
 * **接続方式 (ロードマップ):**
-    *   **フェーズ1 (Hub & Spoke / Transit Gateway):** 全てのZoneが接続されるGateway VM / Firewallを用意し、ポリシーベースでShared Serviceへの通信を許可する。
+    *   **フェーズ1 (Hub & Spoke / Transit Gateway):** 全てのZoneが接続されるGateway / Firewallを用意し、ポリシーベースでShared Serviceへの通信を許可する。
     *   **フェーズ2 (Route Leaking):** 将来的にはBGP EVPNのRoute Leaking (VRF Leaking) を検証し、L3レベルでのダイレクトルーティングに移行する。
 
 * **オブジェクトストレージ:** MinIOによるS3互換環境を提供。
@@ -56,10 +56,13 @@ Proxmox SDNを用いた高度な分離とスケーラビリティを実現する
 ### 5.1 ファイアウォールと権限管理
 
 * **ホストレベルの保護:** Proxmoxのホストファイアウォール機能を活用し、VNet間および管理セグメントへの通信を厳格に遮断（Default Drop）する。
+* **管理IPの最小化とアクセス制限:**
+    * 安全性の観点から、データベースやストレージなどの管理IP（`vmbr0`/`192.168.5.x`）が不要なサーバーからは管理IPを削除し、直接のアクセス経路を遮断する。
+    * 管理およびOS内部の操作は、管理IPを持つ特定の踏み台サーバーを経由してSSH等で行う構成とする。
 * **ユーザー権限 (フェーズ1):**
     *   当面の間、Proxmox GUIへのアクセス権限は付与しない。
     *   リソースの作成・変更（スペック変更、ディスク拡張等）は管理者がチケットベースで代行する。
-    *   OS内部の操作（再起動、シャットダウン、ログ確認）は、ユーザー自身がSSH/コンソール経由で行う（OSのroot権限等は付与）。
+    *   OS内部の操作（再起動、シャットダウン、ログ確認）は、ユーザー自身が踏み台サーバー経由のSSHやコンソールから行う（OSのroot権限等は付与）。
     *   **将来展望:** 運用が安定した段階で、Proxmoxの「PVEVMUser」相当の限定的な閲覧・電源操作権限の付与を検討する。
 
 ### 5.2 データ保護と可用性

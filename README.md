@@ -44,7 +44,6 @@ Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespa
 │   └── apps/       #   Argo CD が同期するアプリ群 (ApplicationSet)
 ├── playbooks/      # Ansible (データストア・Omada Controller など IaC 移行前のリソース)
 ├── scripts/        # ブートストラップ・適用スクリプト
-├── spec/           # 要件定義・ネットワーク詳細設計
 ├── docs/           # アーキテクチャ・運用ガイド・トラブルシューティング
 ├── truenas/        # TrueNAS の OpenTofu 構成
 └── resources/      # PVE 関連の静的リソース
@@ -81,5 +80,5 @@ Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespa
 | [docs/secrets-management.md](./docs/secrets-management.md) | SOPS + Age によるシークレット管理方針 |
 | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | トラブルシューティング |
 | [docs/setup.md](./docs/setup.md) | セットアップ手順(物理ノード構築〜クラスター作成) |
-| [spec/cloud.md](./spec/cloud.md) | マルチテナント環境の要件定義 |
-| [spec/network_design.md](./spec/network_design.md) | ネットワーク詳細設計 (ASN / VNI / IPAM) |
+| [docs/cloud.md](./docs/cloud.md) | マルチテナント環境の要件定義 |
+| [docs/network_design.md](./docs/network_design.md) | ネットワーク詳細設計 (ASN / VNI / IPAM) |
