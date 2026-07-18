@@ -1,6 +1,6 @@
 
 resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
-  for_each = toset(["nuc-1", "nuc-2", "server-1"])
+  for_each = toset(["server-1"])
 
   content_type = "iso"
   datastore_id = "local"
