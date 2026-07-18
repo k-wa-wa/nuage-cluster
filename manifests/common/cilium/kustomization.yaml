@@ -11,3 +11,4 @@ helmCharts:
 
 resources:
   - rbac.yaml
+  - hubble-ingress.yaml

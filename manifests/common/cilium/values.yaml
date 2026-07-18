@@ -35,7 +35,11 @@ ingressController:
     secureNodePort: 30443
 
 hubble:
-  enabled: false
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
 
 securityContext:
   capabilities:

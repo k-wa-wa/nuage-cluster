@@ -66,8 +66,8 @@
 - [ ] **クラスター外コンポーネントの監視**
   - lb (HAProxy/keepalived/CoreDNS)、pg-1/2/3、egress-gateway、Proxmox ホスト自体。NixOS 側に prometheus-node-exporter / haproxy-exporter を Nix モジュールとして足すだけなので、②層の思想と相性が良い
   - Proxmox は `pve-exporter` で VM 単位のメトリクスまで取れる
-- [ ] **Hubble の有効化**
-  - Cilium を使っているのに `hubble.enabled: false` はもったいない。Hubble UI で Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提にもなる
+- [x] **Hubble の有効化**
+  - `hubble.enabled` / `hubble.relay.enabled` / `hubble.ui.enabled` を有効化し、`hubble.cluster.wpc` で Hubble UI を公開 (`manifests/common/cilium`)。Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提が整った
 - [x] **外形監視**
   - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` への到達性と各ノードの死活を監視できている
   - Cloudflare Tunnel 経由の公開 URL 監視は、公開 URL が未整備のため対象外
