@@ -47,7 +47,7 @@ module "k8s-cluster" {
         vm_id      = 206
         node_name  = "nuc-1"
         cores      = 4
-        memory     = 8192
+        memory     = 12288
         bridge     = "prvmain"
         ip_address = "10.20.1.16"
         cidr       = 24
@@ -58,7 +58,7 @@ module "k8s-cluster" {
         vm_id      = 207
         node_name  = "nuc-2"
         cores      = 4
-        memory     = 8192
+        memory     = 12288
         bridge     = "prvmain"
         ip_address = "10.20.1.17"
         cidr       = 24
