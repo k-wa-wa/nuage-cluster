@@ -68,8 +68,10 @@
   - Proxmox は `pve-exporter` で VM 単位のメトリクスまで取れる
 - [ ] **Hubble の有効化**
   - Cilium を使っているのに `hubble.enabled: false` はもったいない。Hubble UI で Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提にもなる
-- [ ] **外形監視**
-  - Gatus / Uptime Kuma を 1 つ立てて `*.cluster.wpc` と Cloudflare Tunnel 経由の公開 URL を監視する。クラスター障害時に監視も死ぬのを避けるため、dev-server など**クラスター外**に置くのがポイント
+- [x] **外形監視**
+  - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` への到達性と各ノードの死活を監視できている
+  - Cloudflare Tunnel 経由の公開 URL 監視は、公開 URL が未整備のため対象外
+  - アラート通知 (Alertmanager → ntfy) は未接続。3 章の別項目「アラート通知経路の整備」で扱う
 - [ ] **Dashboard 作成 (README TODO)**
   - Homepage / Homarr 系のポータルを `manifests/apps/` に足し、Argo CD・Grafana・Proxmox・TrueNAS へのリンクとヘルス表示を集約する
 
