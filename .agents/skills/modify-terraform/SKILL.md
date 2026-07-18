@@ -38,7 +38,7 @@ export PATH=$HOME/.nix-profile/bin:$PATH
 terragrunt --terragrunt-working-dir terraform/vpc/<zone> plan
 
 # フォーマット・静的検証一式 (tflint + validate をダミーシークレットで実行)
-bash scripts/validate-iac.sh
+bash scripts/validate-tf.sh
 terragrunt hclfmt
 
 # AI が実行してよいのはここまで
