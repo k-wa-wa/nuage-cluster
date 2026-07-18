@@ -1,5 +1,9 @@
-variable "cloudflare_account_id" {
-  type = string
+data "sops_file" "bluray_extractor_secrets" {
+  source_file = "${path.module}/../../secrets.yaml"
+}
+
+locals {
+  cloudflare_account_id = data.sops_file.bluray_extractor_secrets.data["cloudflare_account_id"]
 }
 
 resource "random_password" "tunnel_secret" {
@@ -8,14 +12,14 @@ resource "random_password" "tunnel_secret" {
 }
 
 resource "cloudflare_zero_trust_tunnel_cloudflared" "zero_trust_tunnel" {
-  account_id = "${var.cloudflare_account_id}"
-  name = "tunnel-common"
-  config_src = "cloudflare"
+  account_id    = local.cloudflare_account_id
+  name          = "tunnel-common"
+  config_src    = "cloudflare"
   tunnel_secret = base64encode(random_password.tunnel_secret.result)
 }
 
 resource "cloudflare_zero_trust_tunnel_cloudflared_route" "network_route" {
-  account_id = var.cloudflare_account_id
+  account_id = local.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.zero_trust_tunnel.id
   network    = "10.0.0.0/8"
 }
@@ -47,15 +51,15 @@ runcmd:
   - dpkg -i /tmp/cloudflared.deb
   # v5 では属性がないため、jsonencode と base64encode でトークンを自作する
   - cloudflared service install ${base64encode(jsonencode({
-      "a" = var.cloudflare_account_id,
-      "t" = cloudflare_zero_trust_tunnel_cloudflared.zero_trust_tunnel.id,
-      "s" = base64encode(random_password.tunnel_secret.result)
-    }))}
+    "a" = local.cloudflare_account_id,
+    "t" = cloudflare_zero_trust_tunnel_cloudflared.zero_trust_tunnel.id,
+    "s" = base64encode(random_password.tunnel_secret.result)
+}))}
   - systemctl start cloudflared
   - sysctl -w net.ipv4.ip_forward=1
   - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 EOF
-  }
+}
 }
 
 # 3. VM の定義 (サンプルをベースに修正)
