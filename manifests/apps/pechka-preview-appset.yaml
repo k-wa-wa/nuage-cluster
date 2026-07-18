@@ -1,0 +1,76 @@
+# pechka リポジトリの open な PR ごとに preview 環境を自動デプロイする。
+# docs/ideas/nash/nash-preview.yaml と同じやり方 (ArgoCDネイティブのkustomize.namespace/images/patches
+# 上書き) で実装しており、argocd-vault-plugin等のCMP設定には一切手を加えていない。
+#
+# api/frontend/nginx に加え、postgres/mongodb/elasticsearch/benthos は preview 専用の
+# 自前コンテナ (k8s/overlays/local 相当)。minio のみ prod の実体を直接参照する。
+# postgres への prod データの初期投入(postgres-seed-from-prod Job)はこのoverlayに含まれるが、
+# 読み取り用の実credential (postgres-seed-secret) は同じnamespaceに別途デプロイされる
+# pechka-preview-secret ApplicationSet (k8s/overlays/preview-secret, plugin使用) が用意する。
+#
+# PR が close/merge されると pullRequest generator の出力から外れ、
+# Application に付与した resources-finalizer により生成済みリソース (Namespace 含む) ごと自動で削除される。
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: pechka-preview
+  namespace: argocd
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: k-wa-wa
+        repo: pechka
+        # public repo のため未認証でも動作するが、レート制限(60 req/h)に余裕を持たせたい場合は
+        # tokenRef で PAT (repo:read scope) を argocd namespace の Secret から参照する。
+        # tokenRef:
+        #   secretName: pechka-preview-github-token
+        #   key: token
+      requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: 'pechka-pr-{{number}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/pechka.git
+        targetRevision: '{{head_sha}}'
+        path: k8s/overlays/preview
+        kustomize:
+          namespace: 'pechka-pr-{{number}}'
+          images:
+            - 'ghcr.io/k-wa-wa/pechka-api:sha-{{head_sha}}'
+            - 'ghcr.io/k-wa-wa/pechka-frontend:sha-{{head_sha}}'
+          patches:
+            - target:
+                kind: Namespace
+                name: pechka-preview
+              patch: |-
+                - op: replace
+                  path: /metadata/name
+                  value: 'pechka-pr-{{number}}'
+            - target:
+                kind: Ingress
+                name: pechka-ingress
+              patch: |-
+                - op: replace
+                  path: /spec/rules/0/host
+                  value: 'pechka-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/hosts/0
+                  value: 'pechka-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/secretName
+                  value: 'pechka-pr-{{number}}-tls-secret'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'pechka-pr-{{number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
