@@ -1,74 +1,332 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1400px" height="760px" viewBox="0 0 1400 760" content="&lt;mxfile host=&quot;app.diagrams.net&quot; agent=&quot;nuage-cluster-docs&quot; version=&quot;24.0.0&quot;&gt;&lt;diagram id=&quot;physical&quot; name=&quot;physical&quot;&gt;&lt;mxGraphModel dx=&quot;800&quot; dy=&quot;600&quot; grid=&quot;0&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1400&quot; pageHeight=&quot;760&quot; math=&quot;0&quot; shadow=&quot;0&quot; background=&quot;#121212&quot;&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;mxCell id=&quot;frame-nodes&quot; value=&quot;物理ノード (Proxmox VE)&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;340&quot; y=&quot;580&quot; width=&quot;1035&quot; height=&quot;150&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;internet&quot; value=&quot;&amp;lt;b&amp;gt;Internet&amp;lt;/b&amp;gt;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#3a2b45;strokeColor=#9673a6;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;40&quot; y=&quot;36&quot; width=&quot;200&quot; height=&quot;64&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;onu&quot; value=&quot;&amp;lt;b&amp;gt;ONU / メインルーター&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;192.168.1.0/24&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;300&quot; y=&quot;36&quot; width=&quot;240&quot; height=&quot;64&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;er605&quot; value=&quot;&amp;lt;b&amp;gt;Omada VLAN ルーター (ER605)&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;192.168.1.201&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;300&quot; y=&quot;150&quot; width=&quot;240&quot; height=&quot;64&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;es200&quot; value=&quot;&amp;lt;b&amp;gt;Omada L2 スイッチ (ES200GMP)&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;管理 LAN / 予備 の VLAN を収容&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;300&quot; y=&quot;260&quot; width=&quot;240&quot; height=&quot;64&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;fabsw&quot; value=&quot;&amp;lt;b&amp;gt;L2 スイッチ (SDN Fabric 専用)&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;10.0.0.0/24 を収容&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;620&quot; y=&quot;260&quot; width=&quot;240&quot; height=&quot;64&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;seg-lan&quot; value=&quot;&amp;lt;b&amp;gt;Proxmox 管理 LAN — 192.168.5.0/24&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr0 (管理・SDN 出口)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#16351f;strokeColor=#69F0AE;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;50&quot; y=&quot;348&quot; width=&quot;280&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;seg-fab&quot; value=&quot;&amp;lt;b&amp;gt;SDN Fabric — 10.0.0.0/24&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr10 (VLAN 1/2/3 で P2P リンク)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#2e2138;strokeColor=#CE93D8;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;50&quot; y=&quot;418&quot; width=&quot;280&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;seg-sp&quot; value=&quot;&amp;lt;b&amp;gt;予備 — 10.0.1.0/24&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr11 (未使用)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#3d2c12;strokeColor=#FFB74D;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;50&quot; y=&quot;488&quot; width=&quot;280&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;nuc-1&quot; value=&quot;&amp;lt;b&amp;gt;nuc-1&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr0: enp89s0 — 192.168.5.21&amp;lt;br&amp;gt;vmbr10: USB NIC — 10.0.0.10&amp;lt;br&amp;gt;vmbr11: USB NIC — 10.0.1.10&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3a5c;strokeColor=#6c8ebf;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;360&quot; y=&quot;610&quot; width=&quot;230&quot; height=&quot;96&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;nuc-2&quot; value=&quot;&amp;lt;b&amp;gt;nuc-2&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr0: enp89s0 — 192.168.5.22&amp;lt;br&amp;gt;vmbr10: USB NIC — 10.0.0.11&amp;lt;br&amp;gt;vmbr11: USB NIC — 10.0.1.11&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3a5c;strokeColor=#6c8ebf;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;615&quot; y=&quot;610&quot; width=&quot;230&quot; height=&quot;96&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;server-1&quot; value=&quot;&amp;lt;b&amp;gt;server-1&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr0: enp42s0 — 192.168.5.25&amp;lt;br&amp;gt;vmbr10: enp7s0 — 10.0.0.12&amp;lt;br&amp;gt;vmbr11: enp6s0 — 10.0.1.12&amp;lt;br&amp;gt;vmbr1: 192.168.1.0/24 (Proxy 用)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3a5c;strokeColor=#6c8ebf;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;870&quot; y=&quot;610&quot; width=&quot;230&quot; height=&quot;96&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;server-2&quot; value=&quot;&amp;lt;b&amp;gt;server-2 (必要に応じて稼働)&amp;lt;/b&amp;gt;&amp;lt;br&amp;gt;vmbr0: 192.168.5.26&amp;lt;br&amp;gt;lm-server (Ollama) をホスト&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3a5c;strokeColor=#6c8ebf;fontColor=#e8e8e8;dashed=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;1125&quot; y=&quot;610&quot; width=&quot;230&quot; height=&quot;96&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;bus-seg-lan&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;330&quot; y=&quot;370&quot; as=&quot;sourcePoint&quot;/&gt;&lt;mxPoint x=&quot;1270&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;bus-seg-fab&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#CE93D8;fontColor=#e8e8e8;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;330&quot; y=&quot;440&quot; as=&quot;sourcePoint&quot;/&gt;&lt;mxPoint x=&quot;1085&quot; y=&quot;440&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;bus-seg-sp&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#FFB74D;fontColor=#e8e8e8;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;330&quot; y=&quot;510&quot; as=&quot;sourcePoint&quot;/&gt;&lt;mxPoint x=&quot;1085&quot; y=&quot;510&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-inet&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#b0b0b0;fontColor=#e8e8e8;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;internet&quot; target=&quot;onu&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-onu-er&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#4FC3F7;fontColor=#e8e8e8;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;onu&quot; target=&quot;er605&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-er-es&quot; value=&quot;trunk&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#b0b0b0;fontColor=#e8e8e8;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;er605&quot; target=&quot;es200&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-es-lan&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;exitX=0.3333;exitY=1;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;es200&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;380&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-es-sp&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#FFB74D;fontColor=#e8e8e8;exitX=0.8333;exitY=1;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;es200&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;500&quot; y=&quot;510&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-fabsw&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#CE93D8;fontColor=#e8e8e8;exitX=0.5;exitY=1;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;fabsw&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;740&quot; y=&quot;440&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-1-seg-lan&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;exitX=0.1957;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;405&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-1-seg-fab&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#CE93D8;fontColor=#e8e8e8;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;475&quot; y=&quot;440&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-1-seg-sp&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#FFB74D;fontColor=#e8e8e8;exitX=0.8043;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;545&quot; y=&quot;510&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-2-seg-lan&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;exitX=0.1957;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-2&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;660&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-2-seg-fab&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#CE93D8;fontColor=#e8e8e8;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-2&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;730&quot; y=&quot;440&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-nuc-2-seg-sp&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#FFB74D;fontColor=#e8e8e8;exitX=0.8043;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nuc-2&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;800&quot; y=&quot;510&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-server-1-seg-lan&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;exitX=0.1957;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;server-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;915&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-server-1-seg-fab&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#CE93D8;fontColor=#e8e8e8;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;server-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;985&quot; y=&quot;440&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-server-1-seg-sp&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#FFB74D;fontColor=#e8e8e8;exitX=0.8043;exitY=0;exitDx=0;exitDy=0;endArrow=none;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;server-1&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;1055&quot; y=&quot;510&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;e-server-2&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;jumpStyle=arc;jumpSize=6;strokeColor=#69F0AE;fontColor=#e8e8e8;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=none;dashed=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;server-2&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;1240.0&quot; y=&quot;370&quot; as=&quot;targetPoint&quot;/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;">
-  <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b0b0b0"/>
-    </marker>
-  </defs>
-<rect x="0" y="0" width="1400" height="760" fill="#121212"/>
-<rect x="340" y="580" width="1035" height="150" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="350" y="599" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">物理ノード (Proxmox VE)</text>
-<polyline points="330,370 1270,370" fill="none" stroke="#69F0AE" stroke-width="1.4"/>
-<polyline points="330,440 1085,440" fill="none" stroke="#CE93D8" stroke-width="1.4"/>
-<polyline points="330,510 1085,510" fill="none" stroke="#FFB74D" stroke-width="1.4"/>
-<polyline points="240,68 300,68" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<path d="M 420 100 L 420 150" fill="none" stroke="#4FC3F7" stroke-width="1.4"/>
-<path d="M 420 214 L 420 260" fill="none" stroke="#b0b0b0" stroke-width="1.4"/>
-<text x="452" y="241" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">trunk</text>
-<path d="M 380 324 L 380 370" fill="none" stroke="#69F0AE" stroke-width="1.4"/>
-<path d="M 500 324 L 500 364 A 6 6 0 0 1 500 376 L 500 434 A 6 6 0 0 1 500 446 L 500 510" fill="none" stroke="#FFB74D" stroke-width="1.4"/>
-<path d="M 740 324 L 740 364 A 6 6 0 0 1 740 376 L 740 440" fill="none" stroke="#CE93D8" stroke-width="1.4"/>
-<path d="M 405 610 L 405 516 A 6 6 0 0 0 405 504 L 405 446 A 6 6 0 0 0 405 434 L 405 370" fill="none" stroke="#69F0AE" stroke-width="1.4"/>
-<path d="M 475 610 L 475 516 A 6 6 0 0 0 475 504 L 475 440" fill="none" stroke="#CE93D8" stroke-width="1.4"/>
-<path d="M 545 610 L 545 510" fill="none" stroke="#FFB74D" stroke-width="1.4"/>
-<path d="M 660 610 L 660 516 A 6 6 0 0 0 660 504 L 660 446 A 6 6 0 0 0 660 434 L 660 370" fill="none" stroke="#69F0AE" stroke-width="1.4"/>
-<path d="M 730 610 L 730 516 A 6 6 0 0 0 730 504 L 730 440" fill="none" stroke="#CE93D8" stroke-width="1.4"/>
-<path d="M 800 610 L 800 510" fill="none" stroke="#FFB74D" stroke-width="1.4"/>
-<path d="M 915 610 L 915 516 A 6 6 0 0 0 915 504 L 915 446 A 6 6 0 0 0 915 434 L 915 370" fill="none" stroke="#69F0AE" stroke-width="1.4"/>
-<path d="M 985 610 L 985 516 A 6 6 0 0 0 985 504 L 985 440" fill="none" stroke="#CE93D8" stroke-width="1.4"/>
-<path d="M 1055 610 L 1055 510" fill="none" stroke="#FFB74D" stroke-width="1.4"/>
-<path d="M 1240.0 610 L 1240.0 370" fill="none" stroke="#69F0AE" stroke-width="1.4" stroke-dasharray="6 4"/>
-<rect x="40" y="36" width="200" height="64" rx="6" ry="6" fill="#3a2b45" stroke="#9673a6" stroke-width="1.2"/>
-<text x="140.0" y="72.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Internet</text>
-<rect x="300" y="36" width="240" height="64" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="420.0" y="64.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">ONU / メインルーター</text>
-<text x="420.0" y="80.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">192.168.1.0/24</text>
-<rect x="300" y="150" width="240" height="64" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="420.0" y="178.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Omada VLAN ルーター (ER605)</text>
-<text x="420.0" y="194.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">192.168.1.201</text>
-<rect x="300" y="260" width="240" height="64" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="420.0" y="288.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Omada L2 スイッチ (ES200GMP)</text>
-<text x="420.0" y="304.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">管理 LAN / 予備 の VLAN を収容</text>
-<rect x="620" y="260" width="240" height="64" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="740.0" y="288.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">L2 スイッチ (SDN Fabric 専用)</text>
-<text x="740.0" y="304.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">10.0.0.0/24 を収容</text>
-<rect x="50" y="348" width="280" height="44" rx="6" ry="6" fill="#16351f" stroke="#69F0AE" stroke-width="1.2"/>
-<text x="190.0" y="366.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Proxmox 管理 LAN — 192.168.5.0/24</text>
-<text x="190.0" y="382.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr0 (管理・SDN 出口)</text>
-<rect x="50" y="418" width="280" height="44" rx="6" ry="6" fill="#2e2138" stroke="#CE93D8" stroke-width="1.2"/>
-<text x="190.0" y="436.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">SDN Fabric — 10.0.0.0/24</text>
-<text x="190.0" y="452.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr10 (VLAN 1/2/3 で P2P リンク)</text>
-<rect x="50" y="488" width="280" height="44" rx="6" ry="6" fill="#3d2c12" stroke="#FFB74D" stroke-width="1.2"/>
-<text x="190.0" y="506.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">予備 — 10.0.1.0/24</text>
-<text x="190.0" y="522.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr11 (未使用)</text>
-<rect x="360" y="610" width="230" height="96" rx="6" ry="6" fill="#1e3a5c" stroke="#6c8ebf" stroke-width="1.2"/>
-<text x="475.0" y="638.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">nuc-1</text>
-<text x="475.0" y="654.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr0: enp89s0 — 192.168.5.21</text>
-<text x="475.0" y="670.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr10: USB NIC — 10.0.0.10</text>
-<text x="475.0" y="686.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr11: USB NIC — 10.0.1.10</text>
-<rect x="615" y="610" width="230" height="96" rx="6" ry="6" fill="#1e3a5c" stroke="#6c8ebf" stroke-width="1.2"/>
-<text x="730.0" y="638.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">nuc-2</text>
-<text x="730.0" y="654.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr0: enp89s0 — 192.168.5.22</text>
-<text x="730.0" y="670.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr10: USB NIC — 10.0.0.11</text>
-<text x="730.0" y="686.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr11: USB NIC — 10.0.1.11</text>
-<rect x="870" y="610" width="230" height="96" rx="6" ry="6" fill="#1e3a5c" stroke="#6c8ebf" stroke-width="1.2"/>
-<text x="985.0" y="630.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">server-1</text>
-<text x="985.0" y="646.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr0: enp42s0 — 192.168.5.25</text>
-<text x="985.0" y="662.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr10: enp7s0 — 10.0.0.12</text>
-<text x="985.0" y="678.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr11: enp6s0 — 10.0.1.12</text>
-<text x="985.0" y="694.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr1: 192.168.1.0/24 (Proxy 用)</text>
-<rect x="1125" y="610" width="230" height="96" rx="6" ry="6" fill="#1e3a5c" stroke="#6c8ebf" stroke-width="1.2" stroke-dasharray="6 4"/>
-<text x="1240.0" y="646.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">server-2 (必要に応じて稼働)</text>
-<text x="1240.0" y="662.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">vmbr0: 192.168.5.26</text>
-<text x="1240.0" y="678.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">lm-server (Ollama) をホスト</text>
+<svg host="65bd71144e" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1336px" height="695px" viewBox="-0.5 -0.5 1336 695" content="&lt;mxfile&gt;&lt;diagram id=&quot;physical&quot; name=&quot;physical&quot;&gt;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&lt;/diagram&gt;&lt;/mxfile&gt;" style="background-color: rgb(18, 18, 18);">
+    <defs/>
+    <g>
+        <rect x="300" y="544" width="1035" height="150" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 1025px; height: 1px; padding-top: 553px; margin-left: 310px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                物理ノード (Proxmox VE)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="310" y="566" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    物理ノード (Proxmox VE)
+                </text>
+            </switch>
+        </g>
+        <rect x="0" y="0" width="200" height="64" rx="9.6" ry="9.6" fill="#3a2b45" stroke="#9673a6" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 198px; height: 1px; padding-top: 32px; margin-left: 1px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    Internet
+                                </b>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="100" y="36" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Internet
+                </text>
+            </switch>
+        </g>
+        <rect x="260" y="0" width="240" height="64" rx="9.6" ry="9.6" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 32px; margin-left: 261px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    ONU / メインルーター
+                                </b>
+                                <br/>
+                                192.168.1.0/24
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="380" y="36" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    ONU / メインルーター...
+                </text>
+            </switch>
+        </g>
+        <rect x="260" y="114" width="240" height="64" rx="9.6" ry="9.6" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 146px; margin-left: 261px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    Omada VLAN ルーター (ER605)
+                                </b>
+                                <br/>
+                                192.168.1.201
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="380" y="150" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Omada VLAN ルーター (ER605)...
+                </text>
+            </switch>
+        </g>
+        <rect x="260" y="224" width="240" height="64" rx="9.6" ry="9.6" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 256px; margin-left: 261px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    Omada L2 スイッチ (ES200GMP)
+                                </b>
+                                <br/>
+                                管理 LAN / 予備 の VLAN を収容
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="380" y="260" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Omada L2 スイッチ (ES200GMP)...
+                </text>
+            </switch>
+        </g>
+        <rect x="580" y="224" width="240" height="64" rx="9.6" ry="9.6" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 256px; margin-left: 581px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    L2 スイッチ (SDN Fabric 専用)
+                                </b>
+                                <br/>
+                                10.0.0.0/24 を収容
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="700" y="260" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    L2 スイッチ (SDN Fabric 専用)...
+                </text>
+            </switch>
+        </g>
+        <rect x="10" y="312" width="280" height="44" rx="6.6" ry="6.6" fill="#16351f" stroke="#69f0ae" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 278px; height: 1px; padding-top: 334px; margin-left: 11px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    Proxmox 管理 LAN — 192.168.5.0/24
+                                </b>
+                                <br/>
+                                vmbr0 (管理・SDN 出口)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="150" y="338" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Proxmox 管理 LAN — 192.168.5.0/24...
+                </text>
+            </switch>
+        </g>
+        <rect x="10" y="382" width="280" height="44" rx="6.6" ry="6.6" fill="#2e2138" stroke="#ce93d8" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 278px; height: 1px; padding-top: 404px; margin-left: 11px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    SDN Fabric — 10.0.0.0/24
+                                </b>
+                                <br/>
+                                vmbr10 (VLAN 1/2/3 で P2P リンク)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="150" y="408" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    SDN Fabric — 10.0.0.0/24...
+                </text>
+            </switch>
+        </g>
+        <rect x="10" y="452" width="280" height="44" rx="6.6" ry="6.6" fill="#3d2c12" stroke="#ffb74d" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 278px; height: 1px; padding-top: 474px; margin-left: 11px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    予備 — 10.0.1.0/24
+                                </b>
+                                <br/>
+                                vmbr11 (未使用)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="150" y="478" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    予備 — 10.0.1.0/24...
+                </text>
+            </switch>
+        </g>
+        <rect x="320" y="574" width="230" height="96" rx="14.4" ry="14.4" fill="#1e3a5c" stroke="#6c8ebf" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 228px; height: 1px; padding-top: 622px; margin-left: 321px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    nuc-1
+                                </b>
+                                <br/>
+                                vmbr0: enp89s0 — 192.168.5.21
+                                <br/>
+                                vmbr10: USB NIC — 10.0.0.10
+                                <br/>
+                                vmbr11: USB NIC — 10.0.1.10
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="435" y="626" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    nuc-1...
+                </text>
+            </switch>
+        </g>
+        <rect x="575" y="574" width="230" height="96" rx="14.4" ry="14.4" fill="#1e3a5c" stroke="#6c8ebf" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 228px; height: 1px; padding-top: 622px; margin-left: 576px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    nuc-2
+                                </b>
+                                <br/>
+                                vmbr0: enp89s0 — 192.168.5.22
+                                <br/>
+                                vmbr10: USB NIC — 10.0.0.11
+                                <br/>
+                                vmbr11: USB NIC — 10.0.1.11
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="690" y="626" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    nuc-2...
+                </text>
+            </switch>
+        </g>
+        <rect x="830" y="574" width="230" height="96" rx="14.4" ry="14.4" fill="#1e3a5c" stroke="#6c8ebf" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 228px; height: 1px; padding-top: 622px; margin-left: 831px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    server-1
+                                </b>
+                                <br/>
+                                vmbr0: enp42s0 — 192.168.5.25
+                                <br/>
+                                vmbr10: enp7s0 — 10.0.0.12
+                                <br/>
+                                vmbr11: enp6s0 — 10.0.1.12
+                                <br/>
+                                vmbr1: 192.168.1.0/24 (Proxy 用)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="945" y="626" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    server-1...
+                </text>
+            </switch>
+        </g>
+        <rect x="1085" y="574" width="230" height="96" rx="14.4" ry="14.4" fill="#1e3a5c" stroke="#6c8ebf" stroke-dasharray="3 3" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 228px; height: 1px; padding-top: 622px; margin-left: 1086px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                <b>
+                                    server-2 (必要に応じて稼働)
+                                </b>
+                                <br/>
+                                vmbr0: 192.168.5.26
+                                <br/>
+                                lm-server (Ollama) をホスト
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1200" y="626" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    server-2 (必要に応じて稼働)...
+                </text>
+            </switch>
+        </g>
+        <path d="M 290 334 L 1230 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 290 404 L 1045 404" fill="none" stroke="#ce93d8" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 290 474 L 1045 474" fill="none" stroke="#ffb74d" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 200 32 L 253.63 32" fill="none" stroke="#b0b0b0" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 258.88 32 L 251.88 35.5 L 253.63 32 L 251.88 28.5 Z" fill="#b0b0b0" stroke="#b0b0b0" stroke-miterlimit="10" pointer-events="all"/>
+        <path d="M 380 64 L 380 114" fill="none" stroke="#4fc3f7" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 380 178 L 380 224" fill="none" stroke="#b0b0b0" stroke-miterlimit="10" pointer-events="stroke"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 201px; margin-left: 380px;">
+                        <div data-drawio-colors="color: #e8e8e8; background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                trunk
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="380" y="204" fill="#e8e8e8" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    trunk
+                </text>
+            </switch>
+        </g>
+        <path d="M 339.99 288 L 340 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 459.99 288 L 459.99 331 C 463.89 331 463.89 337 459.99 337 L 459.99 337 L 460 401 C 463.9 401 463.9 407 460 407 L 460 407 L 460 474" fill="none" stroke="#ffb74d" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 700 288 L 700 331 C 703.9 331 703.9 337 700 337 L 700 337 L 700 404" fill="none" stroke="#ce93d8" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 365.01 574 L 365.01 477 C 368.91 477 368.91 471 365.01 471 L 365.01 471 L 365 407 C 368.9 407 368.9 401 365 401 L 365 401 L 365 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 435 574 L 435 477 C 438.9 477 438.9 471 435 471 L 435 471 L 435 404" fill="none" stroke="#ce93d8" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 504.99 574 L 505 474" fill="none" stroke="#ffb74d" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 620.01 574 L 620.01 477 C 623.91 477 623.91 471 620.01 471 L 620.01 471 L 620 407 C 623.9 407 623.9 401 620 401 L 620 401 L 620 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 690 574 L 690 477 C 693.9 477 693.9 471 690 471 L 690 471 L 690 404" fill="none" stroke="#ce93d8" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 759.99 574 L 760 474" fill="none" stroke="#ffb74d" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 875.01 574 L 875.01 477 C 878.91 477 878.91 471 875.01 471 L 875.01 471 L 875 407 C 878.9 407 878.9 401 875 401 L 875 401 L 875 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 945 574 L 945 477 C 948.9 477 948.9 471 945 471 L 945 471 L 945 404" fill="none" stroke="#ce93d8" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 1014.99 574 L 1015 474" fill="none" stroke="#ffb74d" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 1200 574 L 1200 334" fill="none" stroke="#69f0ae" stroke-miterlimit="10" stroke-dasharray="3 3" pointer-events="stroke"/>
+    </g>
+    <switch>
+        <g requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"/>
+        <a transform="translate(0,-5)" xlink:href="https://www.diagrams.net/doc/faq/svg-export-text-problems" target="_blank">
+            <text text-anchor="middle" font-size="10px" x="50%" y="100%">
+                Text is not SVG - cannot display
+            </text>
+        </a>
+    </switch>
 </svg>

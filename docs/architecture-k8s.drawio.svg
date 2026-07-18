@@ -1,79 +1,498 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1360px" height="960px" viewBox="0 0 1360 960" content="&lt;mxfile host=&quot;app.diagrams.net&quot; agent=&quot;nuage-cluster-docs&quot; version=&quot;24.0.0&quot;&gt;&lt;diagram id=&quot;k8s&quot; name=&quot;k8s&quot;&gt;&lt;mxGraphModel dx=&quot;800&quot; dy=&quot;600&quot; grid=&quot;0&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1360&quot; pageHeight=&quot;960&quot; math=&quot;0&quot; shadow=&quot;0&quot; background=&quot;#121212&quot;&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;mxCell id=&quot;client&quot; value=&quot;クライアント&amp;lt;br&amp;gt;https://*.cluster.wpc / *.nuage.cluster.wpc&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#2b2b2b;strokeColor=#9a9a9a;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;80&quot; y=&quot;40&quot; width=&quot;340&quot; height=&quot;56&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;lbc&quot; value=&quot;ロードバランサー層 (NixOS LXC × 3)&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;60&quot; y=&quot;180&quot; width=&quot;480&quot; height=&quot;300&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;vip&quot; value=&quot;keepalived VIP&amp;lt;br&amp;gt;外部: 192.168.5.200&amp;lt;br&amp;gt;内部: 10.20.1.20&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;90&quot; y=&quot;240&quot; width=&quot;200&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;coredns&quot; value=&quot;CoreDNS&amp;lt;br&amp;gt;*.cluster.wpc&amp;lt;br&amp;gt;→ 192.168.5.200&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;320&quot; y=&quot;240&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;hap&quot; value=&quot;HAProxy (lb-1 / lb-2 / lb-3)&amp;lt;br&amp;gt;TCP パススルー :80 :443 :6443 :50000&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#4a3118;strokeColor=#d79b00;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;90&quot; y=&quot;370&quot; width=&quot;420&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;k8sc&quot; value=&quot;Talos Kubernetes — cluster: private (endpoint 10.20.1.10)&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;620&quot; y=&quot;140&quot; width=&quot;680&quot; height=&quot;520&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;cpc&quot; value=&quot;Control Plane (VIP 10.20.1.10)&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;650&quot; y=&quot;200&quot; width=&quot;300&quot; height=&quot;190&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;cp01&quot; value=&quot;controlplane-01 : 10.20.1.11&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;675&quot; y=&quot;240&quot; width=&quot;250&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;cp02&quot; value=&quot;controlplane-02 : 10.20.1.12&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;675&quot; y=&quot;288&quot; width=&quot;250&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;cp03b&quot; value=&quot;controlplane-03 : 10.20.1.13&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;675&quot; y=&quot;336&quot; width=&quot;250&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;wkc&quot; value=&quot;Workers&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;980&quot; y=&quot;200&quot; width=&quot;290&quot; height=&quot;190&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;wk01&quot; value=&quot;worker-01 : 10.20.1.16&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;1005&quot; y=&quot;240&quot; width=&quot;240&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;wk02&quot; value=&quot;worker-02 : 10.20.1.17&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;1005&quot; y=&quot;288&quot; width=&quot;240&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;wk03&quot; value=&quot;worker-03 : 10.20.1.18&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;1005&quot; y=&quot;336&quot; width=&quot;240&quot; height=&quot;38&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;ing&quot; value=&quot;Cilium Ingress (CNI: Cilium)&amp;lt;br&amp;gt;NodePort 30080 / 30443&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3d24;strokeColor=#82b366;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;650&quot; y=&quot;440&quot; width=&quot;300&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;apps&quot; value=&quot;Apps&amp;lt;br&amp;gt;argocd / pechka / cert-manager&amp;lt;br&amp;gt;keel / monitoring-stack&amp;lt;br&amp;gt;bare-web-proxy ...&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#1e3a5c;strokeColor=#6c8ebf;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;980&quot; y=&quot;440&quot; width=&quot;290&quot; height=&quot;110&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;extc&quot; value=&quot;クラスター外サービス&quot; style=&quot;rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=13;fontStyle=1;fillColor=none;strokeColor=#999999;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;60&quot; y=&quot;720&quot; width=&quot;1240&quot; height=&quot;200&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;pgbox&quot; value=&quot;PostgreSQL (pg-1/2/3 LXC)&amp;lt;br&amp;gt;10.20.1.25-27&amp;lt;br&amp;gt;primary EndpointSlice: 10.20.1.28&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#46390f;strokeColor=#d6b656;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;100&quot; y=&quot;780&quot; width=&quot;360&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;nfsp&quot; value=&quot;egress-gateway (NixOS LXC)&amp;lt;br&amp;gt;10.20.1.30:2049&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#46390f;strokeColor=#d6b656;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;540&quot; y=&quot;780&quot; width=&quot;300&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;nfsvm&quot; value=&quot;oc1-nfs VM&amp;lt;br&amp;gt;192.168.5.151 (1TB)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#46390f;strokeColor=#d6b656;fontColor=#e8e8e8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;940&quot; y=&quot;780&quot; width=&quot;300&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge0&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.238;entryY=0.0;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;vip&quot; target=&quot;hap&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge1&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.0;entryY=0.318;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;ing&quot; target=&quot;apps&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge2&quot; value=&quot;TCP 2049&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;nfsp&quot; target=&quot;nfsvm&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge3&quot; value=&quot;DNS 解決 → 192.168.5.200&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.8;entryY=0.0;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;client&quot; target=&quot;vip&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge4&quot; value=&quot;:6443 kube-api&amp;lt;br&amp;gt;:50000 talos&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1.0;exitY=0.286;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;hap&quot; target=&quot;cpc&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;Array as=&quot;points&quot;&gt;&lt;mxPoint x=&quot;580&quot; y=&quot;390&quot;/&gt;&lt;mxPoint x=&quot;580&quot; y=&quot;295&quot;/&gt;&lt;/Array&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge5&quot; value=&quot;:80/:443 →&amp;lt;br&amp;gt;NodePort&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1.0;exitY=0.714;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;hap&quot; target=&quot;ing&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;Array as=&quot;points&quot;&gt;&lt;mxPoint x=&quot;560&quot; y=&quot;420&quot;/&gt;&lt;mxPoint x=&quot;560&quot; y=&quot;475&quot;/&gt;&lt;/Array&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge6&quot; value=&quot;Service: pg-cluster/primary&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;apps&quot; target=&quot;pgbox&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;Array as=&quot;points&quot;&gt;&lt;mxPoint x=&quot;1125&quot; y=&quot;690&quot;/&gt;&lt;mxPoint x=&quot;280&quot; y=&quot;690&quot;/&gt;&lt;/Array&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;edge7&quot; value=&quot;PV (NFS)&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.103;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;k8sc&quot; target=&quot;nfsp&quot;&gt;&lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;">
-  <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b0b0b0"/>
-    </marker>
-  </defs>
-<rect x="0" y="0" width="1360" height="960" fill="#121212"/>
-<rect x="60" y="180" width="480" height="300" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="70" y="199" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">ロードバランサー層 (NixOS LXC × 3)</text>
-<rect x="620" y="140" width="680" height="520" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="630" y="159" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">Talos Kubernetes — cluster: private (endpoint 10.20.1.10)</text>
-<rect x="650" y="200" width="300" height="190" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="660" y="219" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">Control Plane (VIP 10.20.1.10)</text>
-<rect x="980" y="200" width="290" height="190" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="990" y="219" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">Workers</text>
-<rect x="60" y="720" width="1240" height="200" fill="none" stroke="#999999" stroke-width="1"/>
-<text x="70" y="739" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#e8e8e8">クラスター外サービス</text>
-<polyline points="190,320 190,370" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<polyline points="950,475 980,475" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<polyline points="840,830 940,830" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="890" y="822" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">TCP 2049</text>
-<polyline points="250,96 250,240" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="255" y="145" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">DNS 解決 → 192.168.5.200</text>
-<polyline points="510,390 580,390 580,295 650,295" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="580" y="243" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">:6443 kube-api</text>
-<text x="580" y="257" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">:50000 talos</text>
-<polyline points="510,420 560,420 560,475 650,475" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="562" y="538" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">:80/:443 →</text>
-<text x="562" y="552" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">NodePort</text>
-<polyline points="1125,550 1125,690 280,690 280,780" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="700" y="682" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Service: pg-cluster/primary</text>
-<polyline points="690,660 690,780" fill="none" stroke="#b0b0b0" stroke-width="1.4" marker-end="url(#arrow)"/>
-<text x="730" y="720" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#e8e8e8" text-anchor="middle" stroke="#121212" stroke-width="4" paint-order="stroke" stroke-linejoin="round">PV (NFS)</text>
-<rect x="80" y="40" width="340" height="56" rx="6" ry="6" fill="#2b2b2b" stroke="#9a9a9a" stroke-width="1.2"/>
-<text x="250.0" y="64.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">クライアント</text>
-<text x="250.0" y="80.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">https://*.cluster.wpc / *.nuage.cluster.wpc</text>
-<rect x="90" y="240" width="200" height="80" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="190.0" y="268.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">keepalived VIP</text>
-<text x="190.0" y="284.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">外部: 192.168.5.200</text>
-<text x="190.0" y="300.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">内部: 10.20.1.20</text>
-<rect x="320" y="240" width="190" height="80" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="415.0" y="268.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">CoreDNS</text>
-<text x="415.0" y="284.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">*.cluster.wpc</text>
-<text x="415.0" y="300.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">→ 192.168.5.200</text>
-<rect x="90" y="370" width="420" height="70" rx="6" ry="6" fill="#4a3118" stroke="#d79b00" stroke-width="1.2"/>
-<text x="300.0" y="401.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">HAProxy (lb-1 / lb-2 / lb-3)</text>
-<text x="300.0" y="417.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">TCP パススルー :80 :443 :6443 :50000</text>
-<rect x="675" y="240" width="250" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="800.0" y="263.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">controlplane-01 : 10.20.1.11</text>
-<rect x="675" y="288" width="250" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="800.0" y="311.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">controlplane-02 : 10.20.1.12</text>
-<rect x="675" y="336" width="250" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="800.0" y="359.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">controlplane-03 : 10.20.1.13</text>
-<rect x="1005" y="240" width="240" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="1125.0" y="263.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">worker-01 : 10.20.1.16</text>
-<rect x="1005" y="288" width="240" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="1125.0" y="311.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">worker-02 : 10.20.1.17</text>
-<rect x="1005" y="336" width="240" height="38" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="1125.0" y="359.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">worker-03 : 10.20.1.18</text>
-<rect x="650" y="440" width="300" height="70" rx="6" ry="6" fill="#1e3d24" stroke="#82b366" stroke-width="1.2"/>
-<text x="800.0" y="471.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Cilium Ingress (CNI: Cilium)</text>
-<text x="800.0" y="487.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">NodePort 30080 / 30443</text>
-<rect x="980" y="440" width="290" height="110" rx="6" ry="6" fill="#1e3a5c" stroke="#6c8ebf" stroke-width="1.2"/>
-<text x="1125.0" y="475.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">Apps</text>
-<text x="1125.0" y="491.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">argocd / pechka / cert-manager</text>
-<text x="1125.0" y="507.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">keel / monitoring-stack</text>
-<text x="1125.0" y="523.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">bare-web-proxy ...</text>
-<rect x="100" y="780" width="360" height="100" rx="6" ry="6" fill="#46390f" stroke="#d6b656" stroke-width="1.2"/>
-<text x="280.0" y="818.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">PostgreSQL (pg-1/2/3 LXC)</text>
-<text x="280.0" y="834.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">10.20.1.25-27</text>
-<text x="280.0" y="850.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">primary EndpointSlice: 10.20.1.28</text>
-<rect x="540" y="780" width="300" height="100" rx="6" ry="6" fill="#46390f" stroke="#d6b656" stroke-width="1.2"/>
-<text x="690.0" y="826.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">egress-gateway (NixOS LXC)</text>
-<text x="690.0" y="842.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">10.20.1.30:2049</text>
-<rect x="940" y="780" width="300" height="100" rx="6" ry="6" fill="#46390f" stroke="#d6b656" stroke-width="1.2"/>
-<text x="1090.0" y="826.2" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#e8e8e8" text-anchor="middle">oc1-nfs VM</text>
-<text x="1090.0" y="842.2" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#e8e8e8" text-anchor="middle">192.168.5.151 (1TB)</text>
+<svg host="65bd71144e" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1241px" height="881px" viewBox="-0.5 -0.5 1241 881" content="&lt;mxfile&gt;&lt;diagram id=&quot;k8s&quot; name=&quot;k8s&quot;&gt;7ZtrT+M4FIZ/TSR2pFa+NGnysS0wM1qG7apoLh/T1KRR0zhy0wv769d2nKsNZWZSYAAqQXzspImf1+c4x8bCk/XhI/PT5Re6ILGFwOJg4XMLoaEN+G9huFMGgHJDyKJFbgKVYRb9R3IjLKzbaEE2ypabMkrjLEqbxoAmCQmyhs1njO6bzW5pvGgYUj8kmmEW+LFu/RYtsqWyYgdUFZ9IFC7VV3tFxdwPViGj20R9n4UwROKTV6/94lqq/WbpL+i+ZsIXFp4wSrP8aH2YkFh0bbPbLu+pLe+bkSR7zAlBHImW8qydH2/V81sX2HKRNbqUB9gaeYVlUBwgVTXG6sB1LeTE/FvHc8aPQnG0zDJBbCRuAF1+6AfxdpMR1t+ngSXujFvBh36y5d3ZrJN9k90VPGSPEnHPkF91v4wyMkv9QNTuuQDlN61jVX1Lk0xJivc7L0dxPKExZfJaGM3Fh9s3GaMrUqvxfPFRV6jZiSs+3K73rurwHWEZOdRMqrc/EromGbvjTVStq8CrgTFQxX2lMlzYljWB2Y4StxJ2WF64gssPFF8z63gemEFzvucFzUlB01MHHmhqoCSOrLFdO8u2xlDIA4Gz6+jwz4wfXH2fCMoTfpEhP8B/PcAVHOcqOjniY3QUR2HCbRkVDXxVismtUNyGnx4l4ZUsnbuV5Ua0PkctfeCirO4JtvSS0IQYpSJ/TisVpykV6OpaGbgGrWAAfl8suyjVxLIiJOXdvePAEPj6eaqPdyEDrgHPsS48qRlXDn4APdSHjtu3+0jcnOk017Fcu30a4O37sF96y9N4hIGPIXRNmBdDbw7AaTF7Tcwml4CAAbPbAeWAMrJINhrpCbefX890Ui0XroNEAqSHdOavlh9GxwFC70QAl74+TD+NpowexB2exfMeLAMtL6B6QfjjNsCbyVQ0Ua4fFo7eax7wETquXD9vj0fiYcTfwQDnB055ZAPwqgXQGsB4aPDTyMB/2AH/lbvRg/qNH1M+psHf2zlhCcnIRjLlQxNYnojQagznTjZl0c7PiJALSRYpjcR8sHS9ELxH7Z+L2i13AA3uwDGFbRt14dBTXQ4T/rCMilbT2E8kaBm83xn/MmO75fKBzhibYnYZB36PMYAa5CCHnArCPQBzz1tnDE/qgSHBCzQw8XDRHDvOiXkM7eNzKNvAA7ud4EBHcCAdB3pLOFz3SXHg+REeWOeB3xAPjJ2n47Ff6RHpG2UrwjbvQeenppnu8aCDTO8ZnQSd/coQdPaSozHcOK94PEEAHhFvTGm8bgaUId4UJAyRZvimSJhCzQlJ4HtJGGKM+5ZIGIPMqUhwh66BmERxtF1z2+ckZGQj3oHPJtefcyZ5pSEBck0XZEqZeAXmM/g8qyETJhjIhMarBdh+pxmYliZM7zRdpDH8NNWTkCNpbAPyWUiDRYklJcFy5ZfFgD9vb+0nfkiYfu6KyGXKvOmaJlFGGZdOb5P5wUpvPuf92duTeS9V+bR+v39qBfh2YFKAE7hkfvu0EwyTAswTDNiBBMghu2d5yrQOWWUkLxtrUGrxQV+eyhOauDr9fe7560tRQ6QrAxqdO+piLSoN5/SgaWNKNxl37LN/r4RnT0OR6b4UFxWR9+r7xODcy/Uku4eGenXKorUvH/tCJUJncSQU0FiLOm0UHzjYA7fGVLYzd+zTR/EmaMOaY7kJouECuuCc3G701Qwig3cv9DOy9+WiRm15+QHGWMy+EBg8NNL/dFz24BG4jHnIjnDt1hovGsAer+HGr18MdMpFQWiLt8YzeDN+KPn8pxPynpUQWYQE6EG13d2iWRF1+NR3SUOa+PFFZR03g+M9nS/K5BBl30Wzvq1KP0RVH6jS+UFdQxbuikLCHyw/TbwOKMMPaSjrq1NlqTj3XkgbumWBesJyN0PGp49EtSvXTsXzPwiTkdjPoh1pXP93wejplKcAU6H40cB0FAxoYsHQ7QJM+eJWB1O9DTwPGT29ki+LG6PJC2Zkd0GoCsp1RDXf/zyM9MSL3K8CrAvXGg2tEZ/pO2JH2nhkqbXvR21LeUmu8BSOsL7fs86zdJDPQ3Og+8JyB8lqOyc9P40Mu43KvSX8WeSWh6cfm8h1nnN0ljGsDrPcBNAdTHnqiDE5Ay8ayFekTe3KU7V5pJiethIK2GttRj7SHnl2S0j5HVSyKh/l0UqzTUpzZUqo3LxUeYv7s4NPr7QhHLw4pZXh+7mV1kpQFPut7lVau/2we6U5mtJmhO3KfEIa9optWOiyzDy84HBkW92Ho2qmV1dVLd/zzLqCEDVXNZwjLqy9v7/VvhNhDTVhTb/KvMjlTH+VPomCIMAvR0PVFsjWBPWpZjS8WP3DTs60+qcofPE/&lt;/diagram&gt;&lt;/mxfile&gt;" style="background-color: rgb(18, 18, 18);">
+    <defs/>
+    <g>
+        <rect x="20" y="0" width="340" height="56" rx="8.4" ry="8.4" fill="#2b2b2b" stroke="#9a9a9a" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 338px; height: 1px; padding-top: 28px; margin-left: 21px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                クライアント
+                                <br/>
+                                https://*.cluster.wpc / *.nuage.cluster.wpc
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="190" y="32" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    クライアント
+https://*.cluster.wpc / *.nuage.cluster.wpc
+                </text>
+            </switch>
+        </g>
+        <rect x="0" y="140" width="480" height="300" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 470px; height: 1px; padding-top: 149px; margin-left: 10px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                ロードバランサー層 (NixOS LXC × 3)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="10" y="162" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    ロードバランサー層 (NixOS LXC × 3)
+                </text>
+            </switch>
+        </g>
+        <rect x="30" y="200" width="200" height="80" rx="12" ry="12" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 198px; height: 1px; padding-top: 240px; margin-left: 31px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                keepalived VIP
+                                <br/>
+                                外部: 192.168.5.200
+                                <br/>
+                                内部: 10.20.1.20
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="130" y="244" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    keepalived VIP...
+                </text>
+            </switch>
+        </g>
+        <rect x="260" y="200" width="190" height="80" rx="12" ry="12" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 188px; height: 1px; padding-top: 240px; margin-left: 261px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                CoreDNS
+                                <br/>
+                                *.cluster.wpc
+                                <br/>
+                                → 192.168.5.200
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="355" y="244" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    CoreDNS...
+                </text>
+            </switch>
+        </g>
+        <rect x="30" y="330" width="420" height="70" rx="10.5" ry="10.5" fill="#4a3118" stroke="#d79b00" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 418px; height: 1px; padding-top: 365px; margin-left: 31px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                HAProxy (lb-1 / lb-2 / lb-3)
+                                <br/>
+                                TCP パススルー :80 :443 :6443 :50000
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="240" y="369" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    HAProxy (lb-1 / lb-2 / lb-3)...
+                </text>
+            </switch>
+        </g>
+        <rect x="560" y="100" width="680" height="520" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 670px; height: 1px; padding-top: 109px; margin-left: 570px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                Talos Kubernetes — cluster: private (endpoint 10.20.1.10)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="570" y="122" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    Talos Kubernetes — cluster: private (endpoint 10.20.1.10)
+                </text>
+            </switch>
+        </g>
+        <rect x="590" y="160" width="300" height="190" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 290px; height: 1px; padding-top: 169px; margin-left: 600px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                Control Plane (VIP 10.20.1.10)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="600" y="182" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    Control Plane (VIP 10.20.1.10)
+                </text>
+            </switch>
+        </g>
+        <rect x="615" y="200" width="250" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 248px; height: 1px; padding-top: 219px; margin-left: 616px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                controlplane-01 : 10.20.1.11
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="740" y="223" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    controlplane-01 : 10.20.1.11
+                </text>
+            </switch>
+        </g>
+        <rect x="615" y="248" width="250" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 248px; height: 1px; padding-top: 267px; margin-left: 616px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                controlplane-02 : 10.20.1.12
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="740" y="271" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    controlplane-02 : 10.20.1.12
+                </text>
+            </switch>
+        </g>
+        <rect x="615" y="296" width="250" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 248px; height: 1px; padding-top: 315px; margin-left: 616px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                controlplane-03 : 10.20.1.13
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="740" y="319" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    controlplane-03 : 10.20.1.13
+                </text>
+            </switch>
+        </g>
+        <rect x="920" y="160" width="290" height="190" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 280px; height: 1px; padding-top: 169px; margin-left: 930px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                Workers
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="930" y="182" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    Workers
+                </text>
+            </switch>
+        </g>
+        <rect x="945" y="200" width="240" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 219px; margin-left: 946px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                worker-01 : 10.20.1.16
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1065" y="223" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    worker-01 : 10.20.1.16
+                </text>
+            </switch>
+        </g>
+        <rect x="945" y="248" width="240" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 267px; margin-left: 946px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                worker-02 : 10.20.1.17
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1065" y="271" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    worker-02 : 10.20.1.17
+                </text>
+            </switch>
+        </g>
+        <rect x="945" y="296" width="240" height="38" rx="5.7" ry="5.7" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 238px; height: 1px; padding-top: 315px; margin-left: 946px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                worker-03 : 10.20.1.18
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1065" y="319" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    worker-03 : 10.20.1.18
+                </text>
+            </switch>
+        </g>
+        <rect x="590" y="400" width="300" height="70" rx="10.5" ry="10.5" fill="#1e3d24" stroke="#82b366" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 298px; height: 1px; padding-top: 435px; margin-left: 591px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                Cilium Ingress (CNI: Cilium)
+                                <br/>
+                                NodePort 30080 / 30443
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="740" y="439" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Cilium Ingress (CNI: Cilium)...
+                </text>
+            </switch>
+        </g>
+        <rect x="920" y="400" width="290" height="110" rx="16.5" ry="16.5" fill="#1e3a5c" stroke="#6c8ebf" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 288px; height: 1px; padding-top: 455px; margin-left: 921px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                Apps
+                                <br/>
+                                argocd / pechka / cert-manager
+                                <br/>
+                                keel / monitoring-stack
+                                <br/>
+                                bare-web-proxy ...
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1065" y="459" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    Apps...
+                </text>
+            </switch>
+        </g>
+        <rect x="0" y="680" width="1240" height="200" fill="none" stroke="#999999" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe flex-start; width: 1230px; height: 1px; padding-top: 689px; margin-left: 10px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
+                            <div style="display: inline-block; font-size: 13px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; overflow-wrap: normal;">
+                                クラスター外サービス
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="10" y="702" fill="#e8e8e8" font-family="Helvetica" font-size="13px" font-weight="bold">
+                    クラスター外サービス
+                </text>
+            </switch>
+        </g>
+        <rect x="40" y="740" width="360" height="100" rx="15" ry="15" fill="#46390f" stroke="#d6b656" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 358px; height: 1px; padding-top: 790px; margin-left: 41px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                PostgreSQL (pg-1/2/3 LXC)
+                                <br/>
+                                10.20.1.25-27
+                                <br/>
+                                primary EndpointSlice: 10.20.1.28
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="220" y="794" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    PostgreSQL (pg-1/2/3 LXC)...
+                </text>
+            </switch>
+        </g>
+        <rect x="480" y="740" width="300" height="100" rx="15" ry="15" fill="#46390f" stroke="#d6b656" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 298px; height: 1px; padding-top: 790px; margin-left: 481px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                egress-gateway (NixOS LXC)
+                                <br/>
+                                10.20.1.30:2049
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="630" y="794" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    egress-gateway (NixOS LXC)...
+                </text>
+            </switch>
+        </g>
+        <rect x="880" y="740" width="300" height="100" rx="15" ry="15" fill="#46390f" stroke="#d6b656" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 298px; height: 1px; padding-top: 790px; margin-left: 881px;">
+                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
+                                oc1-nfs VM
+                                <br/>
+                                192.168.5.151 (1TB)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="1030" y="794" fill="#e8e8e8" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    oc1-nfs VM...
+                </text>
+            </switch>
+        </g>
+        <path d="M 130 280 L 129.97 323.63" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 129.96 328.88 L 126.47 321.88 L 129.97 323.63 L 133.47 321.88 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <path d="M 890 435 L 913.63 434.98" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 918.88 434.98 L 911.88 438.49 L 913.63 434.98 L 911.88 431.49 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <path d="M 780 790 L 873.63 790" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 878.88 790 L 871.88 793.5 L 873.63 790 L 871.88 786.5 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 790px; margin-left: 830px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                TCP 2049
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="830" y="793" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    TCP 2049
+                </text>
+            </switch>
+        </g>
+        <path d="M 190 56 L 190 193.63" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 190 198.88 L 186.5 191.88 L 190 193.63 L 193.5 191.88 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 128px; margin-left: 190px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                DNS 解決 → 192.168.5.200
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="190" y="131" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    DNS 解決 → 192.168.5.200
+                </text>
+            </switch>
+        </g>
+        <path d="M 450 350.02 L 520 350 L 520 255 L 583.63 255" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 588.88 255 L 581.88 258.5 L 583.63 255 L 581.88 251.5 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 302px; margin-left: 520px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                :6443 kube-api
+                                <br/>
+                                :50000 talos
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="520" y="305" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    :6443 kube-api...
+                </text>
+            </switch>
+        </g>
+        <path d="M 450 379.98 L 500 380 L 500 435 L 583.63 435" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 588.88 435 L 581.88 438.5 L 583.63 435 L 581.88 431.5 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 428px; margin-left: 500px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                :80/:443 →
+                                <br/>
+                                NodePort
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="500" y="431" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    :80/:443 →...
+                </text>
+            </switch>
+        </g>
+        <path d="M 1065 510 L 1065 650 L 220 650 L 220 733.63" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 220 738.88 L 216.5 731.88 L 220 733.63 L 223.5 731.88 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 650px; margin-left: 667px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                Service: pg-cluster/primary
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="667" y="653" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    Service: pg-cluster/primary
+                </text>
+            </switch>
+        </g>
+        <path d="M 630.04 620 L 630 733.63" fill="none" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="stroke"/>
+        <path d="M 630 738.88 L 626.5 731.88 L 630 733.63 L 633.5 731.88 Z" fill="rgb(0, 0, 0)" stroke="rgb(0, 0, 0)" stroke-miterlimit="10" pointer-events="all"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 680px; margin-left: 630px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: all; background-color: rgb(255, 255, 255); white-space: nowrap;">
+                                PV (NFS)
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="630" y="683" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="11px" text-anchor="middle">
+                    PV (NFS)
+                </text>
+            </switch>
+        </g>
+    </g>
+    <switch>
+        <g requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"/>
+        <a transform="translate(0,-5)" xlink:href="https://www.diagrams.net/doc/faq/svg-export-text-problems" target="_blank">
+            <text text-anchor="middle" font-size="10px" x="50%" y="100%">
+                Text is not SVG - cannot display
+            </text>
+        </a>
+    </switch>
 </svg>
