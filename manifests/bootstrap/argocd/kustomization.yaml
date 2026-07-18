@@ -34,7 +34,7 @@ patches:
         return hs
 
       resource.exclusions: |
-        ### discovery.k8s.io/EndpointSlice は pg-cluster で手動管理する EndpointSlice を ArgoCD の管理対象とするため除外対象から外す。
+        ### discovery.k8s.io/EndpointSlice は external-service で手動管理する EndpointSlice を ArgoCD の管理対象とするため除外対象から外す。
         ### resource.inclusions を使用すると他の全リソースが暗黙的に除外されるため、exclusions から除外することで対応する。
         ### Network resources created by the Kubernetes control plane and excluded to reduce the number of watched events and UI clutter
         - apiGroups:

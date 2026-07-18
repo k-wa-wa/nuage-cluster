@@ -20,7 +20,7 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: pg-cluster
+  name: external-service
 ---
 apiVersion: v1
 kind: Namespace

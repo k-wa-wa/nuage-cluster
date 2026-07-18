@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+spec:
+  ports:
+  - name: api
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+  - name: console
+    protocol: TCP
+    port: 9001
+    targetPort: 9001
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: minio-slice
+  labels:
+    kubernetes.io/service-name: minio
+addressType: IPv4
+ports:
+- name: api
+  port: 9000
+  protocol: TCP
+- name: console
+  port: 9001
+  protocol: TCP
+endpoints:
+- addresses:
+  - 10.20.1.70
+  conditions: {}
