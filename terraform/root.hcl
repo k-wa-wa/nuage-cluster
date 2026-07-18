@@ -1,9 +1,6 @@
+
 locals {
-  common_secrets = read_terragrunt_config("${get_parent_terragrunt_dir()}/secrets.hcl")
-  _block_deprecated = run_cmd(
-    "sh", "-c",
-    "echo '\n\u001b[1;31m[ERROR] secrets.hcl is no longer supported. Please migrate to root_sops.hcl.\u001b[0m\n' && exit 1"
-  )
+  secrets = yamldecode(sops_decrypt_file("${get_parent_terragrunt_dir()}/secrets.yaml"))
 }
 
 generate "provider" {
@@ -12,9 +9,13 @@ generate "provider" {
   contents  = <<EOF
 terraform {
   required_providers {
+    sops = {
+      source = "carlpett/sops"
+      version = "1.4.1"
+    }
     proxmox = {
       source  = "bpg/proxmox"
-      version = "0.94.0"
+      version = "0.111.0"
     }
     talos = {
       source  = "siderolabs/talos"
@@ -22,16 +23,16 @@ terraform {
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5"
+      version = "5.18.0"
     }
   }
 }
 
 provider "proxmox" {
   insecure = true
-  endpoint = "${local.common_secrets.inputs.proxmox_endpoint}"
-  username = "${local.common_secrets.inputs.proxmox_username}"
-  password = "${local.common_secrets.inputs.proxmox_password}"
+  endpoint = "${local.secrets.proxmox_endpoint}"
+  username = "${local.secrets.proxmox_username}"
+  password = "${local.secrets.proxmox_password}"
   ssh {
     node {
       name    = "nuc-1"
@@ -49,7 +50,7 @@ provider "proxmox" {
 }
 
 provider "cloudflare" {
-  api_token = "${local.common_secrets.inputs.cloudflare_api_token}"
+  api_token = "${local.secrets.cloudflare_api_token}"
 }
 EOF
 }

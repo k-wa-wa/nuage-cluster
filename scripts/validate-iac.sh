@@ -62,9 +62,7 @@ cp "$TEMP_DIR/secrets.yaml.enc" "terraform/secrets.yaml"
 # 一時秘密鍵を環境変数に設定して Terragrunt 検証を実行
 export SOPS_AGE_KEY=$(grep -v "#" "$TEMP_DIR/key.txt")
 
-echo "Running terragrunt init & validate on root_sops.hcl modules..."
-# root_sops.hcl を使用しているモジュールのみを検証対象とする
-# root.hcl を使用している未移行のモジュールは非推奨エラーになるためスキップ
+echo "Running terragrunt init & validate modules..."
 target_dirs=(
   "terraform/vpc/zone-private-k8s"
   "terraform/pve/hosts"
