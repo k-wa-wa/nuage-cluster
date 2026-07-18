@@ -8,11 +8,11 @@
 let
   pechka-extract = pkgs.stdenv.mkDerivation rec {
     pname = "pechka-extract";
-    version = "v0.1.3";
+    version = "v0.1.5";
 
     src = pkgs.fetchurl {
       url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/extract";
-      hash = "sha256:989bacb72ef471e0eaf8ad4aa31c9a32cd40d78eb0f1787ed5b4ff60e652dfe9";
+      hash = "sha256:75d69379c204beb2ceabc13ba3ba2d3e47e05d33e5b1a8dd9f949614ceb1bfad";
     };
 
     dontUnpack = true;
