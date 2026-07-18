@@ -8,11 +8,7 @@ kind: Namespace
 metadata:
   name: argocd
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: keel
----
+
 apiVersion: v1
 kind: Namespace
 metadata:

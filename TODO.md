@@ -130,8 +130,8 @@
   - Tailscale で別拠点 (実家・VPS 等) と繋ぎ、第 2 クラスター or リモートノードを ClusterMesh で接続。EVPN over Tailscale の検証も兼ねられる
 - [ ] **自宅 IoT メトリクスの取り込み (ideas/ble-metrics.yaml)**
   - BLE 温湿度計 → Prometheus → Grafana。監視スタック整備 (3 章) のついでに載せると生活に還元される
-- [ ] **Argo Rollouts / Keel の使い分け整理**
-  - keel が既に apps にいる。外部リポジトリ (pechka 等) のイメージ更新フローを「Keel の自動更新」から「Renovate + Git commit」に寄せると GitOps 純度が上がる — どちらの思想で行くか決める
+- [x] **Argo Rollouts / Keel の使い分け整理**
+  - keel は廃止。外部リポジトリのイメージ更新フローは GitOps (ArgoCD + Kustomize や Renovate による明示的なタグ更新) に寄せる方針としたため、Keel 関連リソースを削除。
 - [ ] **Terragrunt / OpenTofu の GitOps 化 (①層の自動デプロイ)**
   - 現状はローカルから手動実行している `terragrunt apply` を、GitHub Actions (または Atlantis / Digger などのインフラ GitOps ツール) に移行する。PR 上での plan 結果確認からマージ時の自動 apply までを完結させ、インフラの完全宣言的運用を達成する
 - [ ] **Minio を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
