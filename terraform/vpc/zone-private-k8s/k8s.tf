@@ -69,7 +69,7 @@ module "k8s-cluster" {
         vm_id      = 208
         node_name  = "server-1"
         cores      = 8
-        memory     = 16384
+        memory     = 24576
         bridge     = "prvmain"
         ip_address = "10.20.1.18"
         cidr       = 24
