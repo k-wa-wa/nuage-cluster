@@ -174,6 +174,8 @@
     settings.server = {
       http_addr = "0.0.0.0";
       http_port = 3000;
+      root_url = "%(protocol)s://%(domain)s:%(http_port)s/chaos-monitor/";
+      serve_from_sub_path = true;
     };
     provision = {
       enable = true;
