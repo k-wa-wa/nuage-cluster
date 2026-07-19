@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
 - postgres.yaml
 - minio.yaml
+- chaos-monitor-grafana.yaml

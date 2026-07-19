@@ -174,8 +174,16 @@
     settings.server = {
       http_addr = "0.0.0.0";
       http_port = 3000;
-      root_url = "%(protocol)s://%(domain)s:%(http_port)s/chaos-monitor/";
+      root_url = "https://monitoring.cluster.wpc/chaos-monitor/";
       serve_from_sub_path = true;
+    };
+    settings.security = {
+      allow_embedding = true;
+    };
+    settings."auth.anonymous" = {
+      enabled = true;
+      org_name = "Main Org.";
+      org_role = "Viewer";
     };
     provision = {
       enable = true;
