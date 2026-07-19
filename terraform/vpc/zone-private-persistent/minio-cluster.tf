@@ -36,12 +36,12 @@ module "minio-cluster-1" {
   mount_points = [
     {
       volume = "local-zfs"
-      size   = "20G"
+      size   = "100G"
       path   = "/data1"
     },
     {
       volume = "local-zfs"
-      size   = "20G"
+      size   = "100G"
       path   = "/data2"
     }
   ]
@@ -85,12 +85,12 @@ module "minio-cluster-2" {
   mount_points = [
     {
       volume = "local-zfs"
-      size   = "20G"
+      size   = "100G"
       path   = "/data1"
     },
     {
       volume = "local-zfs"
-      size   = "20G"
+      size   = "100G"
       path   = "/data2"
     }
   ]
