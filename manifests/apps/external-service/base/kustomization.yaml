@@ -5,3 +5,4 @@ resources:
 - postgres.yaml
 - minio.yaml
 - chaos-monitor-grafana.yaml
+- chaos-monitor-ingress.yaml
