@@ -11,6 +11,8 @@ spec:
         revision: master
         directories:
           - path: manifests/apps/*/overlays/prod
+          - path: manifests/apps/cert-manager/overlays/prod
+            exclude: true
   template:
     metadata:
       name: '{{ index .path.segments 2 }}-{{ index .path.segments 4 }}' # アプリ名-環境名
