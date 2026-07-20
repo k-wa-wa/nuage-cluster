@@ -173,7 +173,7 @@ TODO:
 | :-- | :-- | :-- |
 | NixOS flake input の更新 | 随時 | `nix flake update nix-config --flake ./nix` → push (autoUpgrade で反映) |
 | Talos / Kubernetes バージョンアップ | 随時 | `modules/k8s-cluster/talos.tf` のバージョンを更新して apply。CP → worker の順にローリング |
-| Cilium 等 Helm チャート更新 | 随時 | `manifests/common/cilium/kustomization.yaml` の version を更新 |
+| Cilium 等 Helm チャート更新 | 随時 | `manifests/bootstrap/cilium/kustomization.yaml` の version を更新 |
 | Terraform provider 更新 | 随時 | `terraform/root_sops.hcl` の version を更新 |
 | terraform.tfstate のバックアップ | 変更時 | ローカル state のため、実行マシンのバックアップに含める |
 | Age マスターキーのバックアップ確認 | 年 1 回程度 | 1Password 等に `~/.config/sops/age/keys.txt` があるか確認 |

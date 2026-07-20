@@ -11,8 +11,7 @@ echo "=== Kubernetes Manifest Validation ==="
 targets=(
   "manifests/bootstrap"
   "manifests/bootstrap/argocd"
-  "manifests/common"
-  "manifests/common/cilium"
+  "manifests/bootstrap/cilium"
 )
 
 # manifests/apps/*/overlays/prod を追加

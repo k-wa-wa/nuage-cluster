@@ -55,7 +55,7 @@
 - [ ] **シークレット漏洩ガード**
   - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
 - [ ] **Renovate の導入**
-  - 更新対象が多層に散っている: Cilium chart version (`manifests/common/cilium/kustomization.yaml`、現在 1.19.6)、Talos version (`modules/k8s-cluster/talos.tf` にハードコード)、nix flake inputs (nixpkgs 24.11)、terraform providers。Renovate はこれら全てに対応しており、PR ベースの更新フローに乗せられる
+  - 更新対象が多層に散っている: Cilium chart version (`manifests/bootstrap/cilium/kustomization.yaml`、現在 1.19.6)、Talos version (`modules/k8s-cluster/talos.tf` にハードコード)、nix flake inputs (nixpkgs 24.11)、terraform providers。Renovate はこれら全てに対応しており、PR ベースの更新フローに乗せられる
 - [ ] **ApplicationSet 自体の GitOps 化 (App of Apps)**
   - 現状 `manifests/apps/*.yaml` (ApplicationSet 2 つ) は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
 
@@ -67,7 +67,7 @@
   - lb (HAProxy/keepalived/CoreDNS)、pg-1/2/3、egress-gateway、Proxmox ホスト自体。NixOS 側に prometheus-node-exporter / haproxy-exporter を Nix モジュールとして足すだけなので、②層の思想と相性が良い
   - Proxmox は `pve-exporter` で VM 単位のメトリクスまで取れる
 - [x] **Hubble の有効化**
-  - `hubble.enabled` / `hubble.relay.enabled` / `hubble.ui.enabled` を有効化し、`hubble.cluster.wpc` で Hubble UI を公開 (`manifests/common/cilium`)。Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提が整った
+  - `hubble.enabled` / `hubble.relay.enabled` / `hubble.ui.enabled` を有効化し、`hubble.cluster.wpc` で Hubble UI を公開 (`manifests/bootstrap/cilium`)。Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提が整った
 - [x] **外形監視**
   - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` への到達性と各ノードの死活を監視できている
   - Cloudflare Tunnel 経由の公開 URL 監視は、公開 URL が未整備のため対象外
