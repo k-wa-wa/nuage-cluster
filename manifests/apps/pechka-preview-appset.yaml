@@ -23,9 +23,9 @@ spec:
         repo: pechka
         # public repo のため未認証でも動作するが、レート制限(60 req/h)に余裕を持たせたい場合は
         # tokenRef で PAT (repo:read scope) を argocd namespace の Secret から参照する。
-        # tokenRef:
-        #   secretName: pechka-preview-github-token
-        #   key: token
+        tokenRef:
+          secretName: pechka-preview-github-token
+          key: token
       requeueAfterSeconds: 180
   template:
     metadata:

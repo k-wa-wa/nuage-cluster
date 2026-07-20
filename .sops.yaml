@@ -1,6 +1,7 @@
 keys:
   - &admin_key     age17e67u5g3j9v6sxxrk448gsgmv9ldc2umqgad579du75fgjkjtcasatrhxr
   - &lb_key        age1g72ttt26gqzjt39nj423vkqtrt7t02x0qdz9g8yvc27eru0cuu4qte2u04
+  - &argocd_key    age1vqgm0gczrwyluk9lyhpz49uea7m04u53q4c60kwn9s6wuguhju3qjznrut
 
 creation_rules:
   - path_regex: terraform/secrets\.yaml$
@@ -11,6 +12,12 @@ creation_rules:
     key_groups:
       - age:
           - *admin_key
+
+  - path_regex: scripts/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *argocd_key
 
   - path_regex: nix/hosts/loadbalancer/secrets\.yaml$
     key_groups:
