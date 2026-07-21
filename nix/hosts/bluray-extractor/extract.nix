@@ -6,21 +6,21 @@
 }:
 
 let
-  pechka-extract = pkgs.stdenv.mkDerivation rec {
-    pname = "pechka-extract";
-    version = "v0.1.5";
+  pechka-etl = pkgs.stdenv.mkDerivation rec {
+    pname = "pechka-etl";
+    version = "v0.1.6";
 
     src = pkgs.fetchurl {
-      url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/extract";
-      hash = "sha256:75d69379c204beb2ceabc13ba3ba2d3e47e05d33e5b1a8dd9f949614ceb1bfad";
+      url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/pechka-etl";
+      hash = "sha256:a19aaa145e418cf81184599d7ee9ea8720d083c2e9dc67a074ddd8b2fa0f8c56";
     };
 
     dontUnpack = true;
 
     installPhase = ''
       mkdir -p $out/bin
-      cp $src $out/bin/extract
-      chmod +x $out/bin/extract
+      cp $src $out/bin/pechka-etl
+      chmod +x $out/bin/pechka-etl
     '';
   };
 in
@@ -99,7 +99,7 @@ in
 
         # Run extraction program from Nix store package
         echo "Starting disk extraction..."
-        ${pechka-extract}/bin/extract
+        ${pechka-etl}/bin/pechka-etl extract
       ''}";
       User = "root";
     };
