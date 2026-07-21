@@ -237,6 +237,14 @@
 
         bluray-extractor = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = {
+            unstablePkgs = import nixpkgs-unstable {
+              system = "x86_64-linux";
+              config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [
+                "makemkv"
+              ];
+            };
+          };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./hosts/bluray-extractor/configuration.nix

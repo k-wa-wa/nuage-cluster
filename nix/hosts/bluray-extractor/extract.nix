@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  unstablePkgs,
   ...
 }:
 
@@ -48,7 +49,7 @@ in
 
   # MakeMKV パッケージをシステムに自動インストール
   environment.systemPackages = [
-    pkgs.makemkv
+    unstablePkgs.makemkv
   ];
 
   # MakeMKV のみ例外的に unfree ライセンスを許可（グローバルな allowUnfree = true は不要）
@@ -78,7 +79,7 @@ in
     description = "Pechka Bluray Extraction and Ingestion Job";
     # サービスの実行環境の PATH に makemkv、blkid(util-linuxのbinとsbin)をバインド
     path = [
-      pkgs.makemkv
+      unstablePkgs.makemkv
       pkgs.util-linux
       "${pkgs.util-linux}/sbin"
     ];
