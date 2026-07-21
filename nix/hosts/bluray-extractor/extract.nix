@@ -9,11 +9,11 @@
 let
   pechka-etl = pkgs.stdenv.mkDerivation rec {
     pname = "pechka-etl";
-    version = "v0.1.6";
+    version = "v0.1.7";
 
     src = pkgs.fetchurl {
       url = "https://github.com/k-wa-wa/pechka/releases/download/${version}/pechka-etl";
-      hash = "sha256:a19aaa145e418cf81184599d7ee9ea8720d083c2e9dc67a074ddd8b2fa0f8c56";
+      hash = "sha256:eb275c230d609a9eea5701a25c59aeb52f8e0f1de3945c2f080260d35a54a552";
     };
 
     dontUnpack = true;
