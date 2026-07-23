@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
-  namespace: argocd
+
 data:
   # デフォルトのサブスクリプション (全アプリケーション対象に PWA 通知を送信する)
   defaultSubscriptions: |

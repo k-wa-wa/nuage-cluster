@@ -6,12 +6,13 @@ resources:
 - namespace.yaml
 - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 - avp-cmp-plugin.yaml
-- notifications.yaml
 
 patches:
+- path: notifications.yaml
 - target:
     kind: ConfigMap
     name: argocd-cm
+
   patch: |-
     apiVersion: v1
     kind: ConfigMap
