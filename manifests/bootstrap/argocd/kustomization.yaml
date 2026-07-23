@@ -9,6 +9,8 @@ resources:
 
 patches:
 - path: notifications.yaml
+
+
 - target:
     kind: ConfigMap
     name: argocd-cm

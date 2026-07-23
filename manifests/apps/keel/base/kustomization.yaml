@@ -11,8 +11,7 @@ helmCharts:
       image:
         repository: keelhq/keel
         tag: latest
-      notification:
-        webhook:
-          enabled: true
-          endpoint: "http://monitoring-pwa-backend.nuage-monitoring-stack.svc.cluster.local/webhook/keel"
+      extraEnv:
+        - name: WEBHOOK_ENDPOINT
+          value: "http://monitoring-pwa-backend.nuage-monitoring-stack.svc.cluster.local/webhook/keel"
       # debug: true
