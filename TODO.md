@@ -54,8 +54,9 @@
   - `nix flake check` + 各 nixosConfiguration の `build` (dry-run) を CI で回す
 - [ ] **シークレット漏洩ガード**
   - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
-- [ ] **Renovate の導入**
+- [x] **Renovate の導入**
   - 更新対象が多層に散っている: Cilium chart version (`manifests/bootstrap/cilium/kustomization.yaml`、現在 1.19.6)、Talos version (`modules/k8s-cluster/talos.tf` にハードコード)、nix flake inputs (nixpkgs 24.11)、terraform providers。Renovate はこれら全てに対応しており、PR ベースの更新フローに乗せられる
+  - agent を使用すればすぐアップデートできるため、メリットが大きくないと判断し、実施しない。
 - [ ] **ApplicationSet 自体の GitOps 化 (App of Apps)**
   - 現状 `manifests/apps/*.yaml` (ApplicationSet 2 つ) は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
 
