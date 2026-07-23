@@ -6,6 +6,7 @@ resources:
 - namespace.yaml
 - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 - avp-cmp-plugin.yaml
+- notifications.yaml
 
 patches:
 - target:

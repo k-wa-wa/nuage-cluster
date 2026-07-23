@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # デフォルトのサブスクリプション (全アプリケーション対象に PWA 通知を送信する)
+  defaultSubscriptions: |
+    - trigger: on-deployed
+      service: webhook:pwa
+    - trigger: on-sync-failed
+      service: webhook:pwa
+
+  # Webhook サービス定義
+  service.webhook.pwa: |
+    url: http://monitoring-pwa-backend.nuage-monitoring-stack.svc.cluster.local/webhook/generic
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # デプロイ完了通知テンプレート
+  template.app-deployed: |
+    webhook:
+      pwa:
+        method: POST
+        body: |
+          {
+            "title": "[ArgoCD] {{.app.metadata.name}} デプロイ完了",
+            "body": "リビジョン {{.app.status.sync.revision}} への Sync が正常に完了した。",
+            "level": "success",
+            "details": "Application: {{.app.metadata.name}}\nRevision: {{.app.status.sync.revision}}"
+          }
+
+  # Sync失敗通知テンプレート
+  template.app-sync-failed: |
+    webhook:
+      pwa:
+        method: POST
+        body: |
+          {
+            "title": "[ArgoCD] {{.app.metadata.name}} Sync失敗",
+            "body": "アプリケーション {{.app.metadata.name}} の Sync に失敗した。",
+            "level": "error",
+            "details": "Application: {{.app.metadata.name}}"
+          }
