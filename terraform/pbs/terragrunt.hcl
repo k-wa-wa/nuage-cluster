@@ -15,6 +15,7 @@ terraform {
     }
     pbs = {
       source  = "registry.terraform.io/mcfitz2/pbs"
+      version = "0.2.1"
     }
   }
 }
