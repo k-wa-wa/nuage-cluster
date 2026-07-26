@@ -10,33 +10,33 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
   description                          = ""
   hook_script_file_id                  = null
   // hotplug                              = null
-  keyboard_layout                      = "en-us"
-  kvm_arguments                        = ""
-  mac_addresses                        = ["BC:24:11:07:AD:24", "BC:24:11:F9:AA:A6"]
-  machine                              = ""
-  migrate                              = false
-  name                                 = "oc1-omada"
-  node_name                            = "server-1"
-  on_boot                              = true
-  pool_id                              = ""
-  protection                           = false
-  purge_on_destroy                     = true
-  reboot                               = false
-  reboot_after_update                  = true
-  scsi_hardware                        = "virtio-scsi-pci"
-  started                              = true
-  stop_on_destroy                      = false
-  tablet_device                        = true
-  tags                                 = []
-  template                             = false
-  timeout_clone                        = 1800
-  timeout_create                       = 1800
-  timeout_migrate                      = 1800
-  timeout_reboot                       = 1800
-  timeout_shutdown_vm                  = 1800
-  timeout_start_vm                     = 1800
-  timeout_stop_vm                      = 300
-  vm_id                                = 1163
+  keyboard_layout     = "en-us"
+  kvm_arguments       = ""
+  mac_addresses       = ["BC:24:11:07:AD:24", "BC:24:11:F9:AA:A6"]
+  machine             = ""
+  migrate             = false
+  name                = "oc1-omada"
+  node_name           = "server-1"
+  on_boot             = true
+  pool_id             = ""
+  protection          = false
+  purge_on_destroy    = true
+  reboot              = false
+  reboot_after_update = true
+  scsi_hardware       = "virtio-scsi-pci"
+  started             = true
+  stop_on_destroy     = false
+  tablet_device       = true
+  tags                = []
+  template            = false
+  timeout_clone       = 1800
+  timeout_create      = 1800
+  timeout_migrate     = 1800
+  timeout_reboot      = 1800
+  timeout_shutdown_vm = 1800
+  timeout_start_vm    = 1800
+  timeout_stop_vm     = 300
+  vm_id               = 1163
   cpu {
     // affinity     = ""
     architecture = ""
@@ -67,14 +67,14 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
     ssd               = false
   }
   initialization {
-    datastore_id         = "local-lvm"
+    datastore_id = "local-lvm"
     // file_format          = ""
     interface            = "ide2"
     meta_data_file_id    = ""
     network_data_file_id = ""
     // type                 = ""
-    user_data_file_id    = ""
-    vendor_data_file_id  = ""
+    user_data_file_id   = ""
+    vendor_data_file_id = ""
     ip_config {
       ipv4 {
         address = "192.168.5.163/24"
@@ -94,8 +94,8 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
     }
   }
   memory {
-    dedicated      = 4096
-    floating       = 4096
+    dedicated = 4096
+    floating  = 4096
     // hugepages      = ""
     keep_hugepages = false
     shared         = 0
@@ -103,27 +103,27 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
   network_device {
     bridge       = "vmbr0"
     disconnected = false
-    enabled      = true
-    firewall     = false
-    mac_address  = "BC:24:11:07:AD:24"
-    model        = "virtio"
-    mtu          = 0
-    queues       = 0
-    rate_limit   = 0
-    trunks       = ""
-    vlan_id      = 0
+    # enabled      = true
+    firewall    = false
+    mac_address = "BC:24:11:07:AD:24"
+    model       = "virtio"
+    mtu         = 0
+    queues      = 0
+    rate_limit  = 0
+    trunks      = ""
+    vlan_id     = 0
   }
   network_device {
     bridge       = "vmbr999"
     disconnected = false
-    enabled      = true
-    firewall     = false
-    mac_address  = "BC:24:11:F9:AA:A6"
-    model        = "virtio"
-    mtu          = 0
-    queues       = 0
-    rate_limit   = 0
-    trunks       = ""
-    vlan_id      = 0
+    # enabled      = true
+    firewall    = false
+    mac_address = "BC:24:11:F9:AA:A6"
+    model       = "virtio"
+    mtu         = 0
+    queues      = 0
+    rate_limit  = 0
+    trunks      = ""
+    vlan_id     = 0
   }
 }
