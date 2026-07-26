@@ -44,6 +44,6 @@ remote_state {
     if_exists = "overwrite_terragrunt"
   }
   config = {
-    path = "${get_terragrunt_dir()}/terraform.tfstate"
+    path = "${get_terragrunt_dir()}/../.state/truenas/terraform.tfstate"
   }
 }
