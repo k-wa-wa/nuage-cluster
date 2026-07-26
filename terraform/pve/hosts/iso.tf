@@ -32,24 +32,6 @@ resource "proxmox_download_file" "talos_iscsi_image" {
 
 ###
 
-resource "proxmox_download_file" "lxc_ubuntu_2504" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
-  content_type = "vztmpl"
-  datastore_id = "local"
-  node_name    = each.key
-  url          = "https://mirrors.servercentral.com/ubuntu-cloud-images/releases/25.04/release/ubuntu-25.04-server-cloudimg-amd64-root.tar.xz"
-}
-
-resource "proxmox_download_file" "lxc_ubuntu_2404" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
-  content_type = "vztmpl"
-  datastore_id = "local"
-  node_name    = each.key
-  url          = "https://mirrors.servercentral.com/ubuntu-cloud-images/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64-root.tar.xz"
-}
-
-###
-
 resource "proxmox_download_file" "nixos_base_lxc" {
   for_each     = toset(["nuc-1", "nuc-2", "server-1"])
   content_type = "vztmpl"
