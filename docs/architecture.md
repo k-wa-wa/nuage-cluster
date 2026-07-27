@@ -85,7 +85,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | 名前 | VMID | 配置 | IP | 役割 |
 | :-- | :-- | :-- | :-- | :-- |
 | dev-server | 1152 | server-1 | 192.168.5.199 | NixOS 開発サーバー (16c/32GB) |
-| autopilot-server | 241 | server-1 | 192.168.5.241 | nuage-autopilot 実行ホスト (8c/16GB) |
+| autopilot-server | 251 | server-1 | 192.168.5.241 | nuage-autopilot 実行ホスト (8c/16GB) |
 | oc1-omada | 1163 | server-1 | - | Omada Controller |
 | lm-server | 200 | server-2 | 192.168.5.222 | Ollama (ROCm) |
 
