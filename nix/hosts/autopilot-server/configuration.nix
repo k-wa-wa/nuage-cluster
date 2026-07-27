@@ -13,8 +13,25 @@
     nameservers = [ "192.168.5.200" ];
   };
 
+  # claude / agy は各 CLI の公式インストーラ (curl | bash) で導入し、TUI でサインインする。
+  # インストーラが配布するのは generic Linux 向けの動的リンクバイナリであり、
+  # NixOS には /lib64/ld-linux-x86-64.so.2 が無いためそのままでは実行できない。
+  # nix-ld がスタブのローダーを用意し、nix-ld.libraries で指定した共有ライブラリを
+  # 見つけられるようにすることで、これらのバイナリを実行可能にする。
+  # dev-server (hosts/dev-server/vscode.nix) と同じ仕組みである。
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    stdenv.cc.cc # libstdc++ / libgcc_s
+    zlib
+    openssl
+    curl
+    icu
+    nss
+    expat
+    fuse3
+  ];
+
   # autopilot が対象リポジトリを clone し、GitHub を操作するために必要なツール。
-  # LLM CLI 本体はサービスの path 経由で渡す (services.nuage-autopilot.extraPackages)。
   environment.systemPackages = with pkgs; [
     git
     gh
