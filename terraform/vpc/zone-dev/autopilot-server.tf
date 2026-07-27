@@ -33,7 +33,7 @@ EOF
 resource "proxmox_virtual_environment_vm" "autopilot_server" {
   name      = "autopilot-server"
   node_name = "server-1"
-  vm_id     = 241
+  vm_id     = 251
 
   on_boot = true
 
