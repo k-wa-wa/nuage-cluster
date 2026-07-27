@@ -10,7 +10,11 @@ helmCharts:
     valuesInline:
       image:
         repository: keelhq/keel
-        tag: latest
+        # :latest は Docker Hub 上で最後にバージョンタグが打たれた 0.20.1-beta.3 より後の
+        # 継続的な master ビルド(build_date で確認)で、:latest タグの digest比較で
+        # 更新イベントが常に空になる不具合(trigger.poll.WatchRepositoryTagsJob: events: []) が
+        # 確認されている。最後にDocker Hubへ正式にpushされたバージョンタグに固定して様子を見る。
+        tag: 0.20.1-beta.3
       extraEnv:
         - name: WEBHOOK_ENDPOINT
           value: "http://monitoring-pwa-backend.nuage-monitoring-stack.svc.cluster.local/webhook/keel"
