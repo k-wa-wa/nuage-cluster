@@ -90,11 +90,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1784120269,
-        "narHash": "sha256-0qFn3fzsHXZ99R2jX1CtVw/jLzxUQ1VTx22mq7ArwtE=",
+        "lastModified": 1785072069,
+        "narHash": "sha256-BZLIyR1D980/51AUawm1HmPV8bx20t4ZLEn4z06Cidc=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "715f1450fa131462e9137b156b622bb6afbb10ef",
+        "rev": "b5a8182304c672a0b49934c9bfe0836ef49acba2",
         "type": "github"
       },
       "original": {
@@ -236,6 +236,26 @@
         "type": "github"
       }
     },
+    "nuage-workspace": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785167734,
+        "narHash": "sha256-BaW2efm5HCzuLW7eltjOGfKNzDBHUr3NDujXRZB7FL0=",
+        "owner": "k-wa-wa",
+        "repo": "nuage-workspace",
+        "rev": "7937ab430cec1e00851cf9134a183ddcb0f71e84",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k-wa-wa",
+        "repo": "nuage-workspace",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "disko": "disko",
@@ -246,6 +266,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-ollama": "nixpkgs-ollama",
         "nixpkgs-unstable": "nixpkgs-unstable_2",
+        "nuage-workspace": "nuage-workspace",
         "sops-nix": "sops-nix"
       }
     },

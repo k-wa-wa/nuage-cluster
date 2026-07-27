@@ -80,7 +80,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
 | `terraform/pve/server-2` | server-2 上の lm-server (import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
-| `terraform/vpc/zone-dev` | dev-server VM |
+| `terraform/vpc/zone-dev` | dev-server VM・autopilot-server VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
