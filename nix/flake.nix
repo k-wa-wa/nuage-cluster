@@ -100,10 +100,10 @@
         # cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
         autopilot-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = { inherit nuage-workspace; };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./hosts/autopilot-server/configuration.nix
-            nuage-workspace.nixosModules.nuage-autopilot
             {
               networking.hostName = "autopilot-server";
             }

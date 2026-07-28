@@ -90,11 +90,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1785072069,
-        "narHash": "sha256-BZLIyR1D980/51AUawm1HmPV8bx20t4ZLEn4z06Cidc=",
+        "lastModified": 1785237549,
+        "narHash": "sha256-Ts15ReeMlFjcoZ8T17VYlb5L/c9UYHmWc22loSLDT6Y=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "b5a8182304c672a0b49934c9bfe0836ef49acba2",
+        "rev": "82658b1fe620a8619f27d97df88e5a32e15e4704",
         "type": "github"
       },
       "original": {
@@ -243,11 +243,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785209108,
-        "narHash": "sha256-rlF8D8anhRF8XMx+jXb12D9w400EssYSYMZu4sGqMvc=",
+        "lastModified": 1785237655,
+        "narHash": "sha256-frf+A7SU8rV51MCDH/Xz6dp80IQzpj5KpoI5FILt+hw=",
         "owner": "k-wa-wa",
         "repo": "nuage-workspace",
-        "rev": "2dfe0c6ab782d94614913e948acd863eb912be63",
+        "rev": "c1c1bd8da56283b0611e9f1b30bf58f1136a7ecd",
         "type": "github"
       },
       "original": {

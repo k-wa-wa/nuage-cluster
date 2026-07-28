@@ -1,27 +1,59 @@
-{ pkgs, ... }:
+{ pkgs, lib, nuage-workspace, ... }:
 
+let
+  repositories = [
+    "k-wa-wa/pechka"
+    "k-wa-wa/nuage-cluster"
+    "k-wa-wa/nuage-monitoring-stack"
+    "k-wa-wa/bare-web-proxy"
+    "k-wa-wa/nuage-workspace"
+  ];
+  allReposArg = lib.concatStringsSep "," repositories;
+  pkg = nuage-workspace.packages.${pkgs.system}.nuage-autopilot;
+  repoBaseName = repo: lib.last (lib.splitString "/" repo);
+  unitName = repo: "nuage-autopilot-${repoBaseName repo}";
+
+  mkRepoService = repo: {
+    name = unitName repo;
+    value = {
+      description = "nuage-autopilot: ${repo} の 1 サイクルを実行する";
+
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+
+      path = [ pkgs.git pkgs.gh "/home/nixos/.local" ];
+
+      environment.NUAGE_STATE_DIR = "/var/lib/nuage-autopilot";
+
+      serviceConfig = {
+        Type = "oneshot";
+
+        StateDirectory = "nuage-autopilot";
+
+        EnvironmentFile = "-/var/lib/nuage-autopilot/secrets.env";
+
+        TimeoutStartSec = "30m";
+
+        ExecStart = "${lib.getExe pkg} --repo ${repo} --all-repos ${allReposArg}";
+
+        User = "nixos";
+      };
+    };
+  };
+in
 {
   networking = {
     hostName = "autopilot-server";
     useDHCP = false;
 
     # lb の CoreDNS (VIP: 192.168.5.200) を参照する。
-    # CoreDNS は cluster.wpc をワイルドカードで 192.168.5.200 に解決し、
-    # それ以外は 8.8.8.8 へ forward する (nix/hosts/loadbalancer/dns.nix)。
-    # preview 環境は PR ごとに pechka-pr-<N>.cluster.wpc という動的な名前になるため、
-    # chaos-monitor のような networking.hosts へのハードコードでは対応できない。
     nameservers = [ "192.168.5.200" ];
   };
 
-  # claude / agy は各 CLI の公式インストーラ (curl | bash) で導入し、TUI でサインインする。
-  # インストーラが配布するのは generic Linux 向けの動的リンクバイナリであり、
-  # NixOS には /lib64/ld-linux-x86-64.so.2 が無いためそのままでは実行できない。
-  # nix-ld がスタブのローダーを用意し、nix-ld.libraries で指定した共有ライブラリを
-  # 見つけられるようにすることで、これらのバイナリを実行可能にする。
-  # dev-server (hosts/dev-server/vscode.nix) と同じ仕組みである。
+  # claude / agy 用の nix-ld 設定
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = with pkgs; [
-    stdenv.cc.cc # libstdc++ / libgcc_s
+    stdenv.cc.cc
     zlib
     openssl
     curl
@@ -38,21 +70,5 @@
     jq
   ];
 
-  services.nuage-autopilot = {
-    enable = true;
-    repositories = [
-      "k-wa-wa/pechka"
-    ];
-
-    # 導入直後のため定期実行は止めておき、まずは手動で 1 サイクルずつ確認する。
-    #   sudo systemctl start nuage-autopilot-pechka.service
-    #   journalctl -u nuage-autopilot-pechka -f
-    # 挙動に納得できたら true に戻す。
-    enableTimer = false;
-
-    # 公式インストーラで導入した claude は ~/.local/bin/claude に置かれ、
-    # 実体は ~/.local/share/claude/versions/<version> への symlink である。
-    # 自動更新時は symlink の向き先が変わるだけなのでこのパスは安定する。
-    extraPathPrefixes = [ "/home/nixos/.local" ];
-  };
+  systemd.services = lib.listToAttrs (map mkRepoService repositories);
 }
