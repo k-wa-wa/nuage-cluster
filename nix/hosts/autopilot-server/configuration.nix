@@ -43,5 +43,10 @@
     repositories = [
       "k-wa-wa/pechka"
     ];
+
+    # 公式インストーラで導入した claude は ~/.local/bin/claude に置かれ、
+    # 実体は ~/.local/share/claude/versions/<version> への symlink である。
+    # 自動更新時は symlink の向き先が変わるだけなのでこのパスは安定する。
+    extraPathPrefixes = [ "/home/nixos/.local" ];
   };
 }
