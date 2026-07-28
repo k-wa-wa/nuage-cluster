@@ -44,6 +44,12 @@
       "k-wa-wa/pechka"
     ];
 
+    # 導入直後のため定期実行は止めておき、まずは手動で 1 サイクルずつ確認する。
+    #   sudo systemctl start nuage-autopilot-pechka.service
+    #   journalctl -u nuage-autopilot-pechka -f
+    # 挙動に納得できたら true に戻す。
+    enableTimer = false;
+
     # 公式インストーラで導入した claude は ~/.local/bin/claude に置かれ、
     # 実体は ~/.local/share/claude/versions/<version> への symlink である。
     # 自動更新時は symlink の向き先が変わるだけなのでこのパスは安定する。
