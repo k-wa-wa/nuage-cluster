@@ -57,7 +57,7 @@ in
 
       EnvironmentFile = "-/var/lib/nuage-autopilot/secrets.env";
 
-      TimeoutStartSec = "30m";
+      TimeoutStartSec = "120m";
 
       ExecStart = "${lib.getExe pkg} --repos ${reposArg}";
 
