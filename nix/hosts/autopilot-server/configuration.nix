@@ -8,38 +8,8 @@ let
     "k-wa-wa/bare-web-proxy"
     "k-wa-wa/nuage-workspace"
   ];
-  allReposArg = lib.concatStringsSep "," repositories;
+  reposArg = lib.concatStringsSep "," repositories;
   pkg = nuage-workspace.packages.${pkgs.system}.nuage-autopilot;
-  repoBaseName = repo: lib.last (lib.splitString "/" repo);
-  unitName = repo: "nuage-autopilot-${repoBaseName repo}";
-
-  mkRepoService = repo: {
-    name = unitName repo;
-    value = {
-      description = "nuage-autopilot: ${repo} の 1 サイクルを実行する";
-
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-
-      path = [ pkgs.git pkgs.gh "/home/nixos/.local" ];
-
-      environment.NUAGE_STATE_DIR = "/var/lib/nuage-autopilot";
-
-      serviceConfig = {
-        Type = "oneshot";
-
-        StateDirectory = "nuage-autopilot";
-
-        EnvironmentFile = "-/var/lib/nuage-autopilot/secrets.env";
-
-        TimeoutStartSec = "30m";
-
-        ExecStart = "${lib.getExe pkg} --repo ${repo} --all-repos ${allReposArg}";
-
-        User = "nixos";
-      };
-    };
-  };
 in
 {
   networking = {
@@ -70,5 +40,28 @@ in
     jq
   ];
 
-  systemd.services = lib.listToAttrs (map mkRepoService repositories);
+  systemd.services.nuage-autopilot = {
+    description = "nuage-autopilot: 全リポジトリを巡回して 1 サイクルを実行する";
+
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+
+    path = [ pkgs.git pkgs.gh "/home/nixos/.local" ];
+
+    environment.NUAGE_STATE_DIR = "/var/lib/nuage-autopilot";
+
+    serviceConfig = {
+      Type = "oneshot";
+
+      StateDirectory = "nuage-autopilot";
+
+      EnvironmentFile = "-/var/lib/nuage-autopilot/secrets.env";
+
+      TimeoutStartSec = "30m";
+
+      ExecStart = "${lib.getExe pkg} --repos ${reposArg}";
+
+      User = "nixos";
+    };
+  };
 }

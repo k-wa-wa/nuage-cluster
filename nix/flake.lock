@@ -243,11 +243,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785237655,
-        "narHash": "sha256-frf+A7SU8rV51MCDH/Xz6dp80IQzpj5KpoI5FILt+hw=",
+        "lastModified": 1785238223,
+        "narHash": "sha256-Gz++U0PEo2ewxne+wD0+X98ZonPn8n3zrIMLWrmbJnY=",
         "owner": "k-wa-wa",
         "repo": "nuage-workspace",
-        "rev": "c1c1bd8da56283b0611e9f1b30bf58f1136a7ecd",
+        "rev": "3f2e8ae3f0062d0590fc6d564e2def67efe56a5c",
         "type": "github"
       },
       "original": {
