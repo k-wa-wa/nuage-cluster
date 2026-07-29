@@ -219,7 +219,7 @@
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
                 package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
                 acceleration = "rocm";
-                loadModels = [ "sorc/qwen3.5-claude-4.6-opus:9b" ];
+                loadModels = [ "batiai/qwen3.6-27b:iq3" ];
                 host = "0.0.0.0";
                 environmentVariables = {
                   OLLAMA_KEEP_ALIVE = "-1";
