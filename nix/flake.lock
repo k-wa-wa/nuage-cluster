@@ -244,11 +244,11 @@
       },
       "locked": {
         "dir": "autopilot",
-        "lastModified": 1785318123,
-        "narHash": "sha256-TMh3usZw4+l10dPo7pGUnibtU6F/izul3Em6fmKa40o=",
+        "lastModified": 1785318744,
+        "narHash": "sha256-EhtZQco0szo1K9047aGTftGRnOqqFMf8BZePQoccqWA=",
         "owner": "k-wa-wa",
         "repo": "nuage-workspace",
-        "rev": "36380a11a219320c0f4408e2fb25c3d3e29e7367",
+        "rev": "6d14f2f1b7aefcefcb9538bb0a2e97799aca4b2a",
         "type": "github"
       },
       "original": {
