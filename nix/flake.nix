@@ -34,7 +34,7 @@
     # nuage-autopilot (GitHub Issue/PR 駆動の自律開発オートパイロット) の
     # パッケージと NixOS モジュールを提供する。autopilot-server で使用する。
     nuage-workspace = {
-      url = "github:k-wa-wa/nuage-workspace";
+      url = "github:k-wa-wa/nuage-workspace?dir=autopilot";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
