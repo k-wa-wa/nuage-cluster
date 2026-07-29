@@ -1,4 +1,4 @@
-{ pkgs, lib, nuage-workspace, ... }:
+{ pkgs, lib, config, nuage-workspace, ... }:
 
 let
   repositories = [
@@ -22,18 +22,7 @@ in
     wants = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
 
-    path = [
-      pkgs.git
-      pkgs.gh
-      pkgs.go
-      pkgs.nodejs_22
-      pkgs.python3
-      pkgs.opentofu
-      pkgs.terragrunt
-      pkgs.kubectl
-      pkgs.kubernetes-helm
-      pkgs.kustomize
-      pkgs.talosctl
+    path = config.environment.systemPackages ++ [
       "/home/nixos/.local"
     ];
 
