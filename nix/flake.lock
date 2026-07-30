@@ -236,25 +236,23 @@
         "type": "github"
       }
     },
-    "nuage-workspace": {
+    "nuage-autopilot": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "dir": "autopilot",
-        "lastModified": 1785430558,
-        "narHash": "sha256-IcJNjC+fBgeuNUPXqgvxlgXXXoRw7llGJQSAI/sRKHo=",
+        "lastModified": 1785431242,
+        "narHash": "sha256-blTIRyPNHBkzCdBUWgXfyaC1/sUo8j/GEA1mfZleRUM=",
         "owner": "k-wa-wa",
-        "repo": "nuage-workspace",
-        "rev": "756e61ee7653173797fc777c99cbe49148e2ef98",
+        "repo": "nuage-autopilot",
+        "rev": "8d16f17b90a83a5e1be3cdb9f6cbaf6b1b72d0d2",
         "type": "github"
       },
       "original": {
-        "dir": "autopilot",
         "owner": "k-wa-wa",
-        "repo": "nuage-workspace",
+        "repo": "nuage-autopilot",
         "type": "github"
       }
     },
@@ -268,7 +266,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-ollama": "nixpkgs-ollama",
         "nixpkgs-unstable": "nixpkgs-unstable_2",
-        "nuage-workspace": "nuage-workspace",
+        "nuage-autopilot": "nuage-autopilot",
         "sops-nix": "sops-nix"
       }
     },

@@ -33,13 +33,13 @@
 
     # nuage-autopilot (GitHub Issue/PR 駆動の自律開発オートパイロット) の
     # パッケージと NixOS モジュールを提供する。autopilot-server で使用する。
-    nuage-workspace = {
-      url = "github:k-wa-wa/nuage-workspace?dir=autopilot";
+    nuage-autopilot = {
+      url = "github:k-wa-wa/nuage-autopilot";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, nuage-workspace, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, nuage-autopilot, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -100,7 +100,7 @@
         # cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
         autopilot-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit nuage-workspace; };
+          specialArgs = { inherit nuage-autopilot; };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./hosts/autopilot-server/configuration.nix

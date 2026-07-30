@@ -1,4 +1,4 @@
-{ pkgs, lib, config, nuage-workspace, ... }:
+{ pkgs, lib, config, nuage-autopilot, ... }:
 
 let
   repositories = [
@@ -7,9 +7,10 @@ let
     "k-wa-wa/nuage-monitoring-stack"
     "k-wa-wa/bare-web-proxy"
     "k-wa-wa/nuage-workspace"
+    "k-wa-wa/nuage-autopilot"
   ];
   reposArg = lib.concatStringsSep "," repositories;
-  pkg = nuage-workspace.packages.${pkgs.system}.nuage-autopilot;
+  pkg = nuage-autopilot.packages.${pkgs.system}.nuage-autopilot;
 in
 {
   # 単一の常駐プロセスとして poll/work/resync/watchdog の 4 goroutine を動かす
