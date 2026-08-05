@@ -1,0 +1,40 @@
+# nuage-autopilot エージェントによるクラスタ調査用の read-only 権限。
+# アラート起点で起票されたIssueについて、原因となっているリポジトリ・ファイルを
+# エージェント自身が特定できるようにするためのものであり、更新系の verb は一切含めない。
+# secrets は調査対象外アプリの機密情報まで読めてしまうため、意図的にリソース一覧から除外する。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autopilot-readonly
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - endpoints
+      - events
+      - nodes
+      - namespaces
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources:
+      - events
+    verbs: ["get", "list", "watch"]
