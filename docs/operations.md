@@ -131,6 +131,25 @@ bash scripts/apply-apps.sh
 
 TODO: 
 
+### 4.1 autopilot: クラスタ調査用kubeconfigの配布
+
+`manifests/apps/autopilot/` は nuage-autopilot エージェントがクラスタ調査に使う read-only
+ServiceAccount（`autopilot-readonly` ClusterRole: 全namespace対象で `get`/`list`/`watch` のみ、
+`secrets` は対象外）をArgo CD経由で発行する。SAのトークンからkubeconfigを組み立て
+autopilot-serverへ配置する手順はスクリプト化されており、SOPSには載せない
+（`secrets.env` と同じ、手動配置の運用）。
+
+```bash
+# manifests/apps/autopilot/ がArgo CDで同期済みであることを確認してから実行する
+cd nuage-cluster
+bash scripts/setup-autopilot-kubeconfig.sh
+```
+
+配置先は autopilot-server のデフォルトkubeconfigパス `~/.kube/config`（= `nixos` ユーザーの
+`/home/nixos/.kube/config`）。デフォルトパスに置くため、autopilot-server側で `KUBECONFIG`
+環境変数を設定する必要はない。ServiceAccountのトークンを再発行した場合や、kubeconfigが
+壊れた場合は同スクリプトを再実行すればよい。
+
 ## 5. 障害対応チェックリスト
 
 ### アプリにアクセスできない (`*.cluster.wpc` が開けない)
