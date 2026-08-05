@@ -96,7 +96,7 @@ in
         export MINIO_ACCESS_KEY=$(cat ${config.sops.secrets.pechka_minio_access_key.path})
         export MINIO_SECRET_KEY=$(cat ${config.sops.secrets.pechka_minio_secret_key.path})
 
-        export PECHKA_API_URL="https://pechka.cluster.wpc"
+        export PECHKA_API_URL="https://pechka.wpcapp.net"
 
         # Run extraction program from Nix store package
         echo "Starting disk extraction..."

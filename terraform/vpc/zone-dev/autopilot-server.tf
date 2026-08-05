@@ -7,9 +7,6 @@
 # キー (autopilot-server) と完全に一致させる必要がある。
 #
 # ネットワークは vmbr0 (192.168.5.0/24) のみとし、prvmain (SDN) には接続しない。
-# 名前解決は lb の CoreDNS (VIP 192.168.5.200) を参照する。CoreDNS は cluster.wpc を
-# ワイルドカードで 192.168.5.200 に解決するため、PR ごとに名前が変わる preview 環境
-# (pechka-pr-<N>.cluster.wpc) にも到達できる。
 #
 # シークレット (GitHub / Claude / Antigravity のトークン) は SOPS で配布しない。
 # 万一の流出時の影響が大きいため、VM 起動後に手作業で

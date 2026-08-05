@@ -57,10 +57,10 @@ spec:
               patch: |-
                 - op: replace
                   path: /spec/rules/0/host
-                  value: 'pechka-pr-{{number}}.cluster.wpc'
+                  value: 'pechka-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/hosts/0
-                  value: 'pechka-pr-{{number}}.cluster.wpc'
+                  value: 'pechka-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/secretName
                   value: 'pechka-pr-{{number}}-tls-secret'

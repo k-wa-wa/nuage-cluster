@@ -10,8 +10,8 @@
     nameservers = [ "8.8.8.8" ];
     hosts = {
       "192.168.5.200" = [
-        "pechka.cluster.wpc"
-        "pechka-workflow.cluster.wpc"
+        "pechka.wpcapp.net"
+        "pechka-workflow.wpcapp.net"
         "argocd.cluster.wpc"
         "bwproxy.cluster.wpc"
       ];
@@ -241,13 +241,13 @@
         };
         static_configs = [
           {
-            targets = [ "https://pechka.cluster.wpc/" ];
+            targets = [ "https://pechka.wpcapp.net/" ];
             labels = {
               service = "pechka";
             };
           }
           {
-            targets = [ "https://pechka-workflow.cluster.wpc/" ];
+            targets = [ "https://pechka-workflow.wpcapp.net/" ];
             labels = {
               service = "pechka-workflow";
             };
