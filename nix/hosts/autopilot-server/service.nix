@@ -28,11 +28,6 @@ in
     ];
 
     environment.NUAGE_STATE_DIR = "/var/lib/nuage-autopilot";
-    # クラスタ調査用のread-only kubeconfig（manifests/apps/autopilot/ で発行した
-    # ServiceAccountのトークンから scripts/setup-autopilot-kubeconfig.sh が生成し、
-    # 手動で配置したもの）。claude はこのプロセスの子として起動するため、環境変数の
-    # 継承（internal/runner の buildEnv()）を通じてそのままkubectlに使われる。
-    environment.KUBECONFIG = "/var/lib/nuage-autopilot/kubeconfig";
 
     serviceConfig = {
       Type = "notify";
