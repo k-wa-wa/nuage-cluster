@@ -41,8 +41,8 @@ spec:
         kustomize:
           namespace: 'pechka-pr-{{number}}'
           images:
-            - 'ghcr.io/k-wa-wa/pechka-api:sha-{{head_sha}}'
-            - 'ghcr.io/k-wa-wa/pechka-frontend:sha-{{head_sha}}'
+            - 'ghcr.io/k-wa-wa/pechka-api:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka-frontend:pr-{{number}}'
           patches:
             - target:
                 kind: Namespace
