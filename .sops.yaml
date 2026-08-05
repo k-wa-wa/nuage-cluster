@@ -13,6 +13,11 @@ creation_rules:
       - age:
           - *admin_key
 
+  - path_regex: terraform/cloudflare/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+
   - path_regex: scripts/secrets\.yaml$
     key_groups:
       - age:
@@ -43,7 +48,7 @@ creation_rules:
           - *admin_key
           - *lb_key
 
-  - path_regex: manifests/apps/cert-manager/base/secrets.yaml
+  - path_regex: manifests/apps/cert-manager/overlays/prod/secrets.yaml
     key_groups:
       - age:
           - *admin_key
