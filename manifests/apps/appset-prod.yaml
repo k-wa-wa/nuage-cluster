@@ -20,6 +20,11 @@ spec:
         repoURL: https://github.com/k-wa-wa/nuage-cluster
         targetRevision: HEAD
         path: '{{ .path.path }}' # 検知したディレクトリ（apps/app-A/overlays/prod等）
+        plugin:
+          name: argocd-vault-plugin-kustomize
+          env:
+            - name: AVP_TYPE
+              value: sops
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{ index .path.segments 2 }}' # アプリ名と同じnamespaceにデプロイ

@@ -42,3 +42,9 @@ creation_rules:
       - age:
           - *admin_key
           - *lb_key
+
+  - path_regex: manifests/apps/cert-manager/base/secrets.yaml
+    key_groups:
+      - age:
+          - *admin_key
+          - *argocd_key
