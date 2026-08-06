@@ -331,7 +331,7 @@
     settings.server = {
       http_addr = "0.0.0.0";
       http_port = 3000;
-      root_url = "https://monitoring.cluster.wpc/chaos-monitor/";
+      root_url = "https://monitoring.wpcapp.net/chaos-monitor/";
       serve_from_sub_path = true;
     };
     settings.security = {

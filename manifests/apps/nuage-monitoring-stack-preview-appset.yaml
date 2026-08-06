@@ -54,10 +54,10 @@ spec:
               patch: |-
                 - op: replace
                   path: /spec/rules/0/host
-                  value: 'monitoring-pr-{{number}}.cluster.wpc'
+                  value: 'monitoring-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/hosts/0
-                  value: 'monitoring-pr-{{number}}.cluster.wpc'
+                  value: 'monitoring-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/secretName
                   value: 'monitoring-pr-{{number}}-tls-secret'
