@@ -1,0 +1,73 @@
+# nuage-monitoring-stack リポジトリの open な PR ごとに preview 環境を自動デプロイする。
+# pechka-preview-appset.yaml と同じやり方 (ArgoCDネイティブのkustomize.namespace/images/patches
+# 上書き) で実装しており、argocd-vault-plugin等のCMP設定には一切手を加えていない。
+#
+# デプロイされるのは monitoring-pwa (frontend/backend) だけで、Helm チャート一式
+# (kube-prometheus-stack / loki / promtail / holmesgpt) と PrometheusRule 類は
+# k8s/overlays/preview 側で意図的に外している (理由はそのkustomization.yamlを参照)。
+# VAPIDキーもpreview用ダミーを平文で持つため、AVP用の2つ目のApplicationSetは不要。
+#
+# PR が close/merge されると pullRequest generator の出力から外れ、
+# Application に付与した resources-finalizer により生成済みリソース (Namespace 含む) ごと自動で削除される。
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nuage-monitoring-stack-preview
+  namespace: argocd
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: k-wa-wa
+        repo: nuage-monitoring-stack
+        tokenRef:
+          secretName: pechka-preview-github-token
+          key: token
+      requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: 'nuage-monitoring-stack-pr-{{number}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/nuage-monitoring-stack.git
+        targetRevision: '{{head_sha}}'
+        path: k8s/overlays/preview
+        kustomize:
+          namespace: 'nuage-monitoring-stack-pr-{{number}}'
+          images:
+            - 'ghcr.io/k-wa-wa/nuage-monitoring-stack-monitoring-pwa-backend:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/nuage-monitoring-stack-monitoring-pwa-frontend:pr-{{number}}'
+          patches:
+            - target:
+                kind: Namespace
+                name: monitoring-preview
+              patch: |-
+                - op: replace
+                  path: /metadata/name
+                  value: 'nuage-monitoring-stack-pr-{{number}}'
+            - target:
+                kind: Ingress
+                name: monitoring-pwa-ingress
+              patch: |-
+                - op: replace
+                  path: /spec/rules/0/host
+                  value: 'nuage-monitoring-stack-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/hosts/0
+                  value: 'nuage-monitoring-stack-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/secretName
+                  value: 'nuage-monitoring-stack-pr-{{number}}-tls-secret'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'nuage-monitoring-stack-pr-{{number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

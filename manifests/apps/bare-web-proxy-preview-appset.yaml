@@ -1,0 +1,70 @@
+# bare-web-proxy リポジトリの open な PR ごとに preview 環境を自動デプロイする。
+# pechka-preview-appset.yaml と同じやり方 (ArgoCDネイティブのkustomize.namespace/images/patches
+# 上書き) で実装しており、argocd-vault-plugin等のCMP設定には一切手を加えていない。
+#
+# bare-web-proxy は Secret も PVC も持たないため、pechka のように AVP 用の
+# 2つ目の ApplicationSet を用意する必要はなく、これ1本で完結する。
+#
+# PR が close/merge されると pullRequest generator の出力から外れ、
+# Application に付与した resources-finalizer により生成済みリソース (Namespace 含む) ごと自動で削除される。
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: bare-web-proxy-preview
+  namespace: argocd
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: k-wa-wa
+        repo: bare-web-proxy
+        tokenRef:
+          secretName: pechka-preview-github-token
+          key: token
+      requeueAfterSeconds: 180
+  template:
+    metadata:
+      name: 'bare-web-proxy-pr-{{number}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/k-wa-wa/bare-web-proxy.git
+        targetRevision: '{{head_sha}}'
+        path: k8s/overlays/preview
+        kustomize:
+          namespace: 'bare-web-proxy-pr-{{number}}'
+          images:
+            - 'ghcr.io/k-wa-wa/bare-web-proxy:pr-{{number}}'
+          patches:
+            - target:
+                kind: Namespace
+                name: bare-web-proxy-preview
+              patch: |-
+                - op: replace
+                  path: /metadata/name
+                  value: 'bare-web-proxy-pr-{{number}}'
+            - target:
+                kind: Ingress
+                name: bare-web-proxy-ingress
+              patch: |-
+                - op: replace
+                  path: /spec/rules/0/host
+                  value: 'bwproxy-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/hosts/0
+                  value: 'bwproxy-pr-{{number}}.cluster.wpc'
+                - op: replace
+                  path: /spec/tls/0/secretName
+                  value: 'bwproxy-pr-{{number}}-tls-secret'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'bare-web-proxy-pr-{{number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
