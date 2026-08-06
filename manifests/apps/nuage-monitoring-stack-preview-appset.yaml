@@ -54,13 +54,13 @@ spec:
               patch: |-
                 - op: replace
                   path: /spec/rules/0/host
-                  value: 'nuage-monitoring-stack-pr-{{number}}.cluster.wpc'
+                  value: 'monitoring-pr-{{number}}.cluster.wpc'
                 - op: replace
                   path: /spec/tls/0/hosts/0
-                  value: 'nuage-monitoring-stack-pr-{{number}}.cluster.wpc'
+                  value: 'monitoring-pr-{{number}}.cluster.wpc'
                 - op: replace
                   path: /spec/tls/0/secretName
-                  value: 'nuage-monitoring-stack-pr-{{number}}-tls-secret'
+                  value: 'monitoring-pr-{{number}}-tls-secret'
       destination:
         server: https://kubernetes.default.svc
         namespace: 'nuage-monitoring-stack-pr-{{number}}'
