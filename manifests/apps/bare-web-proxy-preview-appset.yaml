@@ -51,10 +51,10 @@ spec:
               patch: |-
                 - op: replace
                   path: /spec/rules/0/host
-                  value: 'bwproxy-pr-{{number}}.cluster.wpc'
+                  value: 'bwproxy-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/hosts/0
-                  value: 'bwproxy-pr-{{number}}.cluster.wpc'
+                  value: 'bwproxy-pr-{{number}}.wpcapp.net'
                 - op: replace
                   path: /spec/tls/0/secretName
                   value: 'bwproxy-pr-{{number}}-tls-secret'
