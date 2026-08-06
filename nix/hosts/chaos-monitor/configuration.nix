@@ -259,7 +259,7 @@
             };
           }
           {
-            targets = [ "https://bwproxy.cluster.wpc/" ];
+            targets = [ "https://bwproxy.wpcapp.net/" ];
             labels = {
               service = "bare-web-proxy";
             };
