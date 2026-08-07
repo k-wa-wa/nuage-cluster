@@ -209,6 +209,14 @@
 
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = {
+            # facefusion (ROCm/MIGraphX) 用。nixos-24.11 の rocmPackages.migraphx は broken のため
+            # nixpkgs-unstable (nixpkgs-ollama と同じ入力) から取得する
+            unstablePkgs = import nixpkgs-unstable {
+              system = "x86_64-linux";
+              config.allowUnfree = true;
+            };
+          };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./hosts/lm-server/configuration.nix
