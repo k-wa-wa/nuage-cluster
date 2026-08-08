@@ -1,16 +1,8 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    disko = {
-      url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    nixos-vscode-server = {
-      url = "github:nix-community/nixos-vscode-server";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -18,14 +10,6 @@
 
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    home-manager = {
-      url = "github:nix-community/home-manager/release-24.11";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    nix-config = {
-      url = "github:k-wa-wa/nix-config";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     sops-nix = {
       url = "github:Mic92/sops-nix/3433ea14fbd9e6671d0ff0dd45ed15ee4c156ffa";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -39,7 +23,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, nuage-autopilot, ... }:
+  outputs = { self, nixpkgs, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, sops-nix, nuage-autopilot, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -65,33 +49,6 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-vm/configuration.nix
-          ];
-        };
-
-        dev-server = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            home-manager.nixosModules.home-manager
-            disko.nixosModules.disko
-            nixos-vscode-server.nixosModules.default
-            ./hosts/base-vm/disko-config.nix
-            ./hosts/base-vm/configuration.nix
-            ./hosts/dev-server/configuration.nix
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.extraSpecialArgs = {
-                unstablePkgs = import nixpkgs-unstable {
-                  system = "x86_64-linux";
-                  config.allowUnfree = true;
-                };
-              };
-              home-manager.users.nixos = {
-                imports = [
-                  "${nix-config}/hosts/nixos/home.nix"
-                ];
-              };
-            }
           ];
         };
 

@@ -55,7 +55,7 @@ sudo systemctl start nixos-upgrade.service
 journalctl -u nixos-upgrade.service -f
 ```
 
-VM ホスト (dev-server, lm-server) は手動 Push 型:
+VM ホスト (lm-server) は手動 Push 型:
 
 ```bash
 # TODO: VM ホストの運用自動化
