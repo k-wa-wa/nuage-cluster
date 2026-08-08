@@ -21,7 +21,11 @@
 | kube-vip による HA Cluster 化 | 一旦実装したものの、**外部 HAProxy によるロードバランス**に変更 |
 | AZ を追加して VPN で繋ぐ | 実施済み |
 | Ansible のコンテナ実行・リファクタ | **Terraform + Nix により Ansible を排除**する方針とし、クローズ |
-| DB の外出し (VM 化) or Operator 使用 | **NFS / Minio / PostgreSQL のみ外出し**。他は一時 DB としてクラスター内に作成する方針 |
+| DB の外出し (VM 化) or Operator 使用 | **NFS / Minio / PostgreSQL のみ外出し**。NixOS LXC (Patroni+etcd HA / Minio Cluster) で構築 |
+| 外形死活監視のアーキテクチャ | k8s / Argo CD に非依存の **chaos-monitor (NixOS LXC + Prometheus + Blackbox Exporter + Grafana)** を構築 |
+| 自律開発基盤の導入 | **autopilot-server VM** + クラスタ調査用 read-only ServiceAccount 配布スクリプトを導入 |
+| PR プレビュー環境の動的管理 | 各アプリリポジトリの PR 用に **動的 ApplicationSet** (`*-preview-appset.yaml`) を導入 |
+| Keel と Argo CD の使い分け | PR 環境等のコンテナイメージ自動更新に **Keel** を採用し、Argo CD と共存運用 |
 
 ---
 
@@ -32,10 +36,9 @@
   - クラスター外で稼働している **Minio (S3 互換) を backend に使う**のが構成的に自然。ただし「Minio 自体を作る terraform」だけはローカル state に残す、という鶏卵の切り分けが必要
   - 併せて OpenTofu の **state encryption** 機能を試すのも面白い (Age/PBKDF2 でクライアントサイド暗号化できる)
 - [x] **バックアップ基盤 (PBS) の構築**
-  - spec/cloud.md で要件化済みだが未構築。Proxmox Backup Server を立て、NIC1 (管理セグメント) 経由で VM/LXC の増分バックアップを取る
-  - TrueNAS があるので **PBS のデータストアを TrueNAS に置く** or TrueNAS の zfs replication と役割分担を決める
+  - Proxmox Backup Server を立て、TrueNAS 上のデータストアと連携して NIC1 (管理セグメント) 経由で VM/LXC の増分バックアップを取得可能にした (`terraform/pbs`)
 - [ ] **PostgreSQL (pg-1/2/3) のバックアップ・リストア手順の整備**
-  - pgBackRest / wal-g で Minio へ WAL アーカイブ + 定期フルバックアップ。リストア演習まで一度やっておく
+  - 現状 `patroni.nix` は `archive_command = "true"` であり WAL アーカイブが未配線。pgBackRest / wal-g で Minio へ WAL アーカイブ + 定期フルバックアップを設定し、リストア演習まで一度やっておく
 - [x] ~~**etcd スナップショットの定期取得**~~ (実施しない)
   - 構成・思想的に、クラスター全損はリスクではない（復旧時間は必要）ため実施しない。
 - [x] ~~**k8s の PV バックアップ (Velero)**~~ (実施しない)
@@ -45,56 +48,53 @@
 
 ## 2. CI / 自動化 (優先度: 高)
 
-現状 GitHub Actions は `nix-images.yaml` (LXC イメージビルド) のみ。master push = 即本番同期 (prune + selfHeal) なので、push 前の検証が手薄い。
-
-- [x] **マニフェスト検証 CI**
-  - `kustomize build --enable-helm` を全 overlay に対して実行 + **kubeconform** でスキーマ検証。壊れた YAML が Argo CD に届く前に落とす
-- [x] **IaC 検証 CI**
-  - `tofu validate` / `terragrunt hclfmt --check` / `tflint`。state 不要な範囲だけでも価値がある
-  - `nix flake check` + 各 nixosConfiguration の `build` (dry-run) を CI で回す
+- [x] **マニフェスト・IaC・NixOS のローカル検証スクリプト整備**
+  - `scripts/validate-manifests.sh` (`kustomize build --enable-helm` + kubeconform スキーマ検証 + kube-linter) を整備
+  - `scripts/validate-tf.sh` (`tofu validate` + `terragrunt hclfmt --check` + `tflint`) を整備
+  - `scripts/validate-nix.sh` (`nix flake check`) を整備
+- [ ] **GitHub Actions によるマニフェスト / IaC 検証 CI の自動化**
+  - 現状 GitHub Actions は `nix-images.yaml` (LXC イメージビルド) のみ。master push = 即本番同期 (prune + selfHeal) なので、PR / push 時にローカル検証スクリプトと同等の CI を回して壊れた変更を事前に防ぐ
 - [ ] **シークレット漏洩ガード**
   - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
-- [x] **Renovate の導入**
-  - 更新対象が多層に散っている: Cilium chart version (`manifests/bootstrap/cilium/kustomization.yaml`、現在 1.19.6)、Talos version (`modules/k8s-cluster/talos.tf` にハードコード)、nix flake inputs (nixpkgs 24.11)、terraform providers。Renovate はこれら全てに対応しており、PR ベースの更新フローに乗せられる
-  - agent を使用すればすぐアップデートできるため、メリットが大きくないと判断し、実施しない。
+- [x] ~~**Renovate の導入**~~ (実施しない)
+  - 更新対象が多層に散っているが、agent を使用すればすぐアップデートできるため、メリットが大きくないと判断し実施しない。
 - [ ] **ApplicationSet 自体の GitOps 化 (App of Apps)**
-  - 現状 `manifests/apps/*.yaml` (ApplicationSet 2 つ) は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
+  - 現状 `manifests/apps/*.yaml` は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
 
 ## 3. 監視・可観測性 (README TODO「監視・バックアップなど運用の効率化」の具体化)
 
 - [ ] **アラート通知経路の整備**
-  - nuage-monitoring-stack (外部リポジトリ) に Alertmanager → **ntfy** (ideas/ntfy.yaml が既にある) の経路を作り、スマホに届くようにする。Argo CD Notifications も同じ ntfy に集約すると面白い
-- [ ] **クラスター外コンポーネントの監視**
-  - lb (HAProxy/keepalived/CoreDNS)、pg-1/2/3、egress-gateway、Proxmox ホスト自体。NixOS 側に prometheus-node-exporter / haproxy-exporter を Nix モジュールとして足すだけなので、②層の思想と相性が良い
-  - Proxmox は `pve-exporter` で VM 単位のメトリクスまで取れる
+  - Argo CD Notifications は `monitoring-pwa-backend` への Webhook 連携を設定済み (`manifests/bootstrap/argocd/notifications.yaml`)。Alertmanager からの通知経路 (ntfy / PWA 連携) を整備してスマホ等に届くようにする
+- [x] **クラスター外コンポーネント (NixOS LXC) の監視**
+  - chaos-monitor (NixOS LXC) にて、lb-1/2/3, egress-gateway, pg-cluster-1/2/3, minio-cluster-1/2 の `prometheus-node-exporter` (9100) および `haproxy-exporter` (8404) をスクレイプし、死活とメトリクスを監視中
+- [x] ~~**Proxmox ホスト自体の監視 (pve-exporter)**~~ (実施しない)
+  - ホストOS側には極力手動変更や追加パッケージを入れない運用方針とし、導入しない。
 - [x] **Hubble の有効化**
-  - `hubble.enabled` / `hubble.relay.enabled` / `hubble.ui.enabled` を有効化し、`hubble.cluster.wpc` で Hubble UI を公開 (`manifests/bootstrap/cilium`)。Pod 間フローが可視化でき、NetworkPolicy 導入 (後述) の前提が整った
+  - `hubble.enabled` / `hubble.relay.enabled` / `hubble.ui.enabled` を有効化し、`hubble.cluster.wpc` で Hubble UI を公開 (`manifests/bootstrap/cilium`)。Pod 間フローが可視化できている
 - [x] **外形監視**
-  - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` への到達性と各ノードの死活を監視できている
-  - Cloudflare Tunnel 経由の公開 URL 監視は、公開 URL が未整備のため対象外
-  - アラート通知 (Alertmanager → ntfy) は未接続。3 章の別項目「アラート通知経路の整備」で扱う
+  - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` や Ingress URL、TCP ポートの到達性と死活を監視できている
 - [ ] **Dashboard 作成 (README TODO)**
   - Homepage / Homarr 系のポータルを `manifests/apps/` に足し、Argo CD・Grafana・Proxmox・TrueNAS へのリンクとヘルス表示を集約する
 
 ## 4. リファクタ・技術的負債の返済
 
 - [x] **`scripts/apply-datastore.sh` の削除**
-  - 参照先 (`terraform/environments/dev-persistent`, `playbooks/postgres.yml`) が現存しない旧構成向け (operations.md 7 章)。混乱の元なので消す
+  - 参照先 (`terraform/environments/dev-persistent`, `playbooks/postgres.yml`) が現存しない旧構成向け (operations.md 7 章)。削除完了
 - [ ] **`playbooks/` の完全撤去**
-  - 残っているのは data-store (NFS/Minio) と omada-controller。「Ansible 排除」の思想を完遂するには、NFS/Minio を TrueNAS or NixOS VM へ、Omada Controller を LXC (Nix or 公式コンテナ) へ移行する。README の取り消し線 TODO 2 件がこれで完全クローズできる
+  - NFS / Minio / Postgres は NixOS / TrueNAS へ移行完了し playbook も削除済み。残っている `omada-controller.yml` を LXC (NixOS or 公式コンテナ) へ移行し、「Ansible 排除」の思想を完遂して `playbooks/` を完全撤去する
 - [ ] **nix/flake.nix の重複排除**
-  - lb-1/2/3 がほぼ同一定義の 3 連コピー。`map` / `genAttrs` で `mkLb = name: ...` に畳む。ホストが増えたときの雛形にもなる
+  - lb-1/2/3, pg-cluster-1/2/3, minio-cluster-1/2 等が同一定義のコピーになっている。`map` / `genAttrs` で共通ファクトリ関数に畳む
 - [ ] **nixpkgs 24.11 のアップグレード**
-  - 24.11 は EOL 済みのはず。25.x へ上げ、sops-nix のコミット固定も release ブランチ追従に変える
+  - 24.11 は EOL のため 25.x へ上げ、sops-nix のコミット固定も release ブランチ追従に変える
 - [ ] **Longhorn の残骸整理 or 導入判断**
-  - talos.tf に `/var/lib/longhorn` の extraMount・iscsi-tools 拡張・データ用空ディスク (scsi1) が仕込み済みだが、実際は local-path-provisioner を使用中。**Longhorn を導入する**か、**残骸を消して local-path に一本化する**かを決める (中途半端が一番良くない)
+  - talos.tf に `/var/lib/longhorn` の extraMount・iscsi-tools 拡張・データ用空ディスク (scsi1) が仕込み済みだが、実際は local-path-provisioner を使用中。**Longhorn を導入する**か、**残骸を消して local-path に一本化する**かを決める
 - [ ] **ドキュメントと実装の乖離修正**
-  - secrets-management.md は Secret 名を `argocd-sops-key` と書くが、apply-apps.sh が作るのは `sops-age-key`。どちらかに統一する
-  - spec/network_design.md の IPAM 設計 (10.101.x 系 / SDN Overlay 10.0.1.0/24) と実装 (prvmain 10.20.1.0/24 / vmbr10 10.0.0.0/24) がズレている。spec を「将来の理想形」として残すなら、その旨と現状とのマッピングを冒頭に書く
+  - `docs/secrets-management.md` は Secret 名を `argocd-sops-key` と書くが、`apply-apps.sh` や AVP プラグインが使うのは `sops-age-key`。統一する
+  - `docs/network_design.md` の IPAM 設計 (10.101.x 系 / SDN Overlay 10.0.1.0/24) と実装 (prvmain 10.20.1.0/24 / vmbr10 10.0.0.0/24) の差異について、ドキュメント冒頭に現状とのマッピングを追記する
 - [ ] **EVPN Controller の手動設定の扱い**
   - Terraform 管理外 (GUI 手動) が唯一の「Git に無い構成」。bpg/proxmox provider が対応するまでの間、最低限 `pvesh` コマンド or 設定値スナップショットを setup.md に残して再現可能にする
 - [ ] **setup.md の「TODO: 手順再作成」の解消**
-  - ゼロからの再構築手順が途切れている。1 章から通しで再構築演習をやり、そのログで埋めるのが確実
+  - ゼロからの再構築手順が途切れている。1 章から通しで再構築演習をやり、そのログで埋める
 
 ## 5. セキュリティ強化
 
@@ -124,8 +124,8 @@
 
 - [ ] **Cilium BGP Control Plane で lb 層を薄くする**
   - 既にアンダーレイが BGP EVPN なので、Cilium の BGP Control Plane + LB-IPAM で Service type=LoadBalancer の VIP を直接広報できる可能性がある。成功すれば HAProxy の NodePort 中継が不要になり、lb LXC は API サーバー用に縮退できる。kube-vip → 外部 HAProxy と変遷してきた歴史の次の一手として面白い
-- [ ] **LMServer (lm-server) の再構築 + KEDA / PVE API による自律電源制御 (サーバーレス LLM)**
-  - nixos-anywhere + `flake.nix#lm-server` で作り直し、モデル選定 (現在 qwen3.5:35b-a3b) と ROCm 周りの設定を見直す
+- [ ] **LMServer (lm-server) の自律電源制御 (サーバーレス LLM)**
+  - `flake.nix` にて `lm-server` (qwen3.6-27b + ROCm) は構築済み。
   - 発展として、Ollama へのリクエストを Kubernetes KEDA やリバースプロキシで検知し、自動で Proxmox API 経由で server-2 を WoL 起動、一定時間のアイドル状態で自動サスペンド/シャットダウンするオンデマンド電源制御を構築する
 - [ ] **Self-hosted GitHub Actions Runner (ARC) をクラスターに置く**
   - nix-images のビルドや CI (2 章) を自宅で回せる。Terragrunt の plan だけ CI で実行 → 結果を PR コメント、まで行くと「手動 push 型」の①層が半自動化される
@@ -133,14 +133,15 @@
   - Tailscale で別拠点 (実家・VPS 等) と繋ぎ、第 2 クラスター or リモートノードを ClusterMesh で接続。EVPN over Tailscale の検証も兼ねられる
 - [ ] **自宅 IoT メトリクスの取り込み (ideas/ble-metrics.yaml)**
   - BLE 温湿度計 → Prometheus → Grafana。監視スタック整備 (3 章) のついでに載せると生活に還元される
-- [x] **Argo Rollouts / Keel の使い分け整理**
-  - keel は廃止。外部リポジトリのイメージ更新フローは GitOps (ArgoCD + Kustomize や Renovate による明示的なタグ更新) に寄せる方針としたため、Keel 関連リソースを削除。
+- [x] **Keel によるコンテナイメージ自動更新の運用**
+  - `manifests/apps/keel` により PR プレビュー環境等のイメージ自動更新を安定稼働中。本番 GitOps (Argo CD) との住み分けを確立
 - [ ] **Terragrunt / OpenTofu の GitOps 化 (①層の自動デプロイ)**
   - 現状はローカルから手動実行している `terragrunt apply` を、GitHub Actions (または Atlantis / Digger などのインフラ GitOps ツール) に移行する。PR 上での plan 結果確認からマージ時の自動 apply までを完結させ、インフラの完全宣言的運用を達成する
 - [ ] **Minio を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
   - クラスター外の Minio を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。dev-server や CI でのビルド結果を Minio にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
-- [ ] **AI-driven 自律運用 (AI Copilot Operator) の構築**
-  - Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語で「最近のクラスターの調子は？」と対話できる機能に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
+- [ ] **AI-driven 自律運用 (AI Copilot Operator) の発展**
+  - `autopilot-server` VM および調査用 read-only ServiceAccount 配布基盤は構築済み。
+  - 発展として、Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語での対話に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
 - [ ] **永続データの外部オブジェクトストレージへの自動暗号化レプリケーション**
   - クラスター内は揮発とする割り切りを補完するため、外部の永続データ (PostgreSQL WAL, Minio, NFS) について、`restic` や `rclone` を用いて外部オブジェクトストレージ (Cloudflare R2 や Backblaze B2) へ自動で暗号化バックアップする。これにより、自宅の物理災害時にもデータ損失を避ける 3-2-1 バックアップルールを確立する
 - [ ] **Prometheus と物理空間の双方向連携 (Ambient IoT-Ops)**
