@@ -10,9 +10,6 @@
 # loadbalancer (例: lb-1)
 nixos-rebuild switch --flake ./nix#lb-1 --target-host nixos@192.168.5.201 --use-remote-sudo
 
-# dev-server (ローカル適用)
-sudo nixos-rebuild switch --flake ./nix#dev-server
-
 # lm-server
 nixos-rebuild switch --flake ./nix#lm-server --target-host nixos@192.168.5.222 --use-remote-sudo
 ```
@@ -22,11 +19,6 @@ nixos-rebuild switch --flake ./nix#lm-server --target-host nixos@192.168.5.222 -
 新規マシンの初期セットアップを行う場合:
 
 ```bash
-# dev-server
-nix run github:numtide/nixos-anywhere -- \
-  --flake ./nix#base-vm \
-  --target-host nixos@192.168.5.199
-
 # lm-server
 nix run github:numtide/nixos-anywhere -- \
   --flake ./nix#base-vm \
@@ -53,6 +45,6 @@ journalctl -u nixos-upgrade.service -f
 ## アップデート
 
 ```bash
-# nix-config 入力などの更新
-nix flake update nix-config --flake ./nix
+# 入力の更新
+nix flake update --flake ./nix
 ```

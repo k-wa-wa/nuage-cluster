@@ -47,7 +47,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 | 層 | ツール | 対象 | 適用方法 |
 | :-- | :-- | :-- | :-- |
 | ① インフラ | Terragrunt + OpenTofu/Terraform (bpg/proxmox, siderolabs/talos, cloudflare) | SDN・VM・LXC・Talos マシン設定・Cloudflare Tunnel | ローカルから `terragrunt apply` (手動 Push 型) |
-| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (dev-server, autopilot-server, lm-server) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
+| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (autopilot-server, lm-server) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
 | ③ アプリ | Argo CD (ApplicationSet + Kustomize + argocd-vault-plugin/SOPS) | Kubernetes 上の全アプリ | master ブランチへの push で自動同期 |
 
 ### Argo CD の Application 検出規則
