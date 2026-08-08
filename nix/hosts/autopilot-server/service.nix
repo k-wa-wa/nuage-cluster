@@ -1,4 +1,10 @@
-{ pkgs, lib, config, nuage-autopilot, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  nuage-autopilot,
+  ...
+}:
 
 let
   repositories = [
@@ -43,7 +49,7 @@ in
       # 実行中の claude に猶予を与えて終了させるため長めに取る。
       TimeoutStopSec = "5m";
 
-      ExecStart = "${lib.getExe pkg} --repos ${reposArg}";
+      ExecStart = "${lib.getExe pkg} --repos ${reposArg} --verify-cli=agy --verify-model=gemini-3.6-flash-high";
 
       User = "nixos";
     };
