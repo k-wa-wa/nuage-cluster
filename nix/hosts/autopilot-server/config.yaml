@@ -15,7 +15,6 @@ database: /var/lib/autopilot/autopilot.db
 # 対象リポジトリ内の品質ゲート定義ファイル（存在すれば検証フェーズのプロンプトに含まれる）。
 gate_file: .agents/autopilot-gate.md
 
-# TODO: `autopilot setup-project` で作成した実際の Projects v2 の値に差し替える。
 project:
   owner: k-wa-wa
   number: 2
