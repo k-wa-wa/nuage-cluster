@@ -13,7 +13,7 @@ let
   # /nix/store ではなくこの固定パスを参照させる。
   configPath = "/etc/autopilot/config.yaml";
 
-  # 手動実行用: secrets.env が存在すれば自動で読み込んでから autopilot を実行するラッパー
+  # 手動実行用: secrets.env のロードと config.yaml の自動指定を行うラッパー
   autopilotWrapped = pkgs.writeShellScriptBin "autopilot" ''
     if [ -f "${cfg.environmentFile}" ]; then
       set -a
@@ -21,6 +21,30 @@ let
       . "${cfg.environmentFile}"
       set +a
     fi
+
+    # -c または --config が未指定の場合、既定で ${configPath} を補完する
+    has_config=0
+    for arg in "$@"; do
+      case "$arg" in
+        -c|--config|--config=*)
+          has_config=1
+          ;;
+      esac
+    done
+
+    if [ "$has_config" -eq 0 ] && [ "$#" -gt 0 ]; then
+      case "$1" in
+        -h|--help|help)
+          exec ${lib.getExe cfg.package} "$@"
+          ;;
+        *)
+          cmd="$1"
+          shift
+          exec ${lib.getExe cfg.package} "$cmd" -c "${configPath}" "$@"
+          ;;
+      esac
+    fi
+
     exec ${lib.getExe cfg.package} "$@"
   '';
 in
