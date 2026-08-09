@@ -43,6 +43,7 @@ spec:
           images:
             - 'ghcr.io/k-wa-wa/pechka-api:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/pechka-frontend:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka-vrt-report:pr-{{number}}'
           patches:
             - target:
                 kind: Namespace
