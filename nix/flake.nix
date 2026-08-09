@@ -31,15 +31,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # nuage-autopilot (GitHub Issue/PR 駆動の自律開発オートパイロット) の
+    # autopilot (GitHub Projects をステートマシンとする自律開発ワーカー) の
     # パッケージと NixOS モジュールを提供する。autopilot-server で使用する。
-    nuage-autopilot = {
-      url = "github:k-wa-wa/nuage-autopilot";
+    autopilot = {
+      url = "github:k-wa-wa/nuage-autopilot2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, nuage-autopilot, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, nixos-vscode-server, nixpkgs-ollama, nixpkgs-unstable, home-manager, nix-config, sops-nix, autopilot, ... }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -95,13 +95,13 @@
           ];
         };
 
-        # nuage-autopilot の実行ホスト。
+        # autopilot の実行ホスト。
         # lm-server / bluray-extractor と同じく base-vm イメージから起動し、
         # cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
         autopilot-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit nuage-autopilot; };
           modules = [
+            autopilot.nixosModules.autopilot
             ./hosts/base-vm/configuration.nix
             ./hosts/autopilot-server/configuration.nix
             {

@@ -1,0 +1,21 @@
+name: Nix Check
+
+on:
+  pull_request:
+    paths:
+      - "nix/**"
+
+jobs:
+  flake-check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Check Flake Evaluation
+        run: nix flake check ./nix

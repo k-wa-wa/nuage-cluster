@@ -1,0 +1,61 @@
+# autopilot (k-wa-wa/nuage-autopilot2) の設定。
+# このファイルがそのまま /etc/autopilot/config.yaml へコピーされ、
+# systemd の autopilot.service と手動の `autopilot doctor` の両方が参照する。
+#
+# 認証トークンはここに書かない。/var/lib/autopilot/secrets.env に
+# GH_TOKEN=ghp_xxxx を置く（classic PAT / repo + project スコープ）。
+#
+# 未知のキーはパースエラーになる（KnownFields(true)）ため、
+# 書式は config.example.yaml に従うこと。
+
+# systemd の StateDirectory (/var/lib/autopilot) 配下に置く。
+workspace: /var/lib/autopilot/workspaces
+database: /var/lib/autopilot/autopilot.db
+
+# 対象リポジトリ内の品質ゲート定義ファイル（存在すれば検証フェーズのプロンプトに含まれる）。
+gate_file: .agents/autopilot-gate.md
+
+# TODO: `autopilot setup-project` で作成した実際の Projects v2 の値に差し替える。
+project:
+  owner: k-wa-wa
+  number: 1
+  owner_type: user
+  status_field: Status
+
+repos:
+  - owner: k-wa-wa
+    name: pechka
+  - owner: k-wa-wa
+    name: nuage-cluster
+  - owner: k-wa-wa
+    name: nuage-monitoring-stack
+  - owner: k-wa-wa
+    name: bare-web-proxy
+  - owner: k-wa-wa
+    name: nuage-workspace
+  - owner: k-wa-wa
+    name: nuage-autopilot2
+
+# statuses / poll / limits は省略時に Go 側の既定値が入る。
+# ボード上の表示名を変えた場合のみここで上書きする。
+# statuses:
+#   inbox: "📥 Inbox"
+#   ready: "🎯 Ready"
+#   in_progress: "🚧 In Progress"
+#   verifying: "🔍 Verifying"
+#   in_review: "👀 In Review"
+#   blocked: "⏸ Blocked"
+#   done: "✅ Done"
+
+# claude / agy は Nix 管理外で /home/nixos/.local/bin に入れている
+# （service.nix の extraPath 参照）。
+agents:
+  refine:
+    command: claude
+  implement:
+    command: claude
+  review:
+    command: agy
+    model: gemini-3.6-flash-high
+  triage:
+    command: claude

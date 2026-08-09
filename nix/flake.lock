@@ -1,5 +1,25 @@
 {
   "nodes": {
+    "autopilot": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786259244,
+        "narHash": "sha256-qsaUku/dl60CqxUUCJzQ+/2KFXflwcFpyZgCOKv5dPc=",
+        "owner": "k-wa-wa",
+        "repo": "nuage-autopilot2",
+        "rev": "c71b803dd439547f37284a3e6bd3b23abfdb6426",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k-wa-wa",
+        "repo": "nuage-autopilot2",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -236,28 +256,9 @@
         "type": "github"
       }
     },
-    "nuage-autopilot": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1786173676,
-        "narHash": "sha256-b4XW9NaCjPeuz373zNdIoGWW/Izi7ev31Ru8ZVCsqF0=",
-        "owner": "k-wa-wa",
-        "repo": "nuage-autopilot",
-        "rev": "83a5eeeab408ec556609be3eb048ccd5845c925c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "k-wa-wa",
-        "repo": "nuage-autopilot",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
+        "autopilot": "autopilot",
         "disko": "disko",
         "home-manager": "home-manager",
         "nix-config": "nix-config",
@@ -266,7 +267,6 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-ollama": "nixpkgs-ollama",
         "nixpkgs-unstable": "nixpkgs-unstable_2",
-        "nuage-autopilot": "nuage-autopilot",
         "sops-nix": "sops-nix"
       }
     },

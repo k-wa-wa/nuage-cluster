@@ -1,57 +1,50 @@
 {
-  pkgs,
   lib,
   config,
-  nuage-autopilot,
   ...
 }:
 
 let
-  repositories = [
-    "k-wa-wa/pechka"
-    "k-wa-wa/nuage-cluster"
-    "k-wa-wa/nuage-monitoring-stack"
-    "k-wa-wa/bare-web-proxy"
-    "k-wa-wa/nuage-workspace"
-    "k-wa-wa/nuage-autopilot"
-  ];
-  reposArg = lib.concatStringsSep "," repositories;
-  pkg = nuage-autopilot.packages.${pkgs.system}.nuage-autopilot;
+  cfg = config.services.autopilot;
+
+  # 設定は ./config.yaml を /etc へコピーして使う。
+  # systemd の ExecStart と手動の `autopilot doctor -c` が同じ実体を見るように、
+  # /nix/store ではなくこの固定パスを参照させる。
+  configPath = "/etc/autopilot/config.yaml";
 in
 {
-  # 単一の常駐プロセスとして poll/work/resync/watchdog の 4 goroutine を動かす
-  # （autopilot/DESIGN.md 5章・16章）。oneshot + timer 構成から、この 1 service のみに
-  # 統合した。間隔はプロセス内部が管理するため timer unit は使わない。
-  systemd.services.nuage-autopilot = {
-    description = "nuage-autopilot";
+  environment.etc."autopilot/config.yaml".source = ./config.yaml;
 
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
+  services.autopilot = {
+    enable = true;
 
-    path = config.environment.systemPackages ++ [
-      "/home/nixos/.local"
-    ];
+    configFile = configPath;
 
-    environment.NUAGE_STATE_DIR = "/var/lib/nuage-autopilot";
+    # claude / agy を /home/nixos/.local/bin に入れているため、
+    # 専用ユーザーを作らず nixos ユーザーで動かす。
+    user = "nixos";
+    group = "users";
+    createUser = false;
 
-    serviceConfig = {
-      Type = "notify";
-      NotifyAccess = "main";
-      WatchdogSec = "120s";
-      Restart = "always";
-      RestartSec = "10s";
+    environmentFile = "/var/lib/autopilot/secrets.env";
 
-      StateDirectory = "nuage-autopilot";
-
-      EnvironmentFile = "-/var/lib/nuage-autopilot/secrets.env";
-
-      # 実行中の claude に猶予を与えて終了させるため長めに取る。
-      TimeoutStopSec = "5m";
-
-      ExecStart = "${lib.getExe pkg} --repos ${reposArg} --verify-cli=agy --verify-model=gemini-3.6-flash-high";
-
-      User = "nixos";
-    };
+    # 対象リポジトリのビルド・テストに必要なツール（devtools.nix）をそのまま通す。
+    extraPackages = config.environment.systemPackages;
+    extraPath = [ "/home/nixos/.local" ];
   };
+
+  # 手動検証フェーズのため、起動はさせない（`systemctl start autopilot` で任意に起動できる）。
+  systemd.services.autopilot.wantedBy = lib.mkForce [ ];
+
+  # サービスを起動しないと StateDirectory が作られないため、
+  # doctor を手動実行できるようここで先に作る。
+  systemd.tmpfiles.rules = [
+    "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} -"
+    "d ${cfg.stateDir}/workspaces 0750 ${cfg.user} ${cfg.group} -"
+  ];
+
+  # `autopilot doctor -c /etc/autopilot/config.yaml` を直接叩けるようにする。
+  environment.systemPackages = [ cfg.package ];
+
+  environment.shellAliases.autopilot-doctor = "autopilot doctor -c ${configPath}";
 }
