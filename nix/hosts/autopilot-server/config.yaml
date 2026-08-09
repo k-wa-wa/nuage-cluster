@@ -18,7 +18,7 @@ gate_file: .agents/autopilot-gate.md
 # TODO: `autopilot setup-project` で作成した実際の Projects v2 の値に差し替える。
 project:
   owner: k-wa-wa
-  number: 1
+  number: 2
   owner_type: user
   status_field: Status
 
