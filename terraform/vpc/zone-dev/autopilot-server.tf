@@ -6,7 +6,7 @@
 # したがって cloud-config の hostname は nix/flake.nix の nixosConfigurations の
 # キー (autopilot-server) と完全に一致させる必要がある。
 #
-# ネットワークは vmbr0 (192.168.5.0/24) のみとし、prvmain (SDN) には接続しない。
+# ネットワークは prvmain (SDN: 10.20.1.0/24) のみとする。
 #
 # シークレット (GitHub / Claude / Antigravity のトークン) は SOPS で配布しない。
 # 万一の流出時の影響が大きいため、VM 起動後に手作業で
@@ -54,8 +54,8 @@ resource "proxmox_virtual_environment_vm" "autopilot_server" {
   initialization {
     ip_config {
       ipv4 {
-        address = "192.168.5.241/24"
-        gateway = "192.168.5.1"
+        address = "10.20.1.51/24"
+        gateway = "10.20.1.1"
       }
     }
     user_data_file_id = proxmox_virtual_environment_file.autopilot_server_cloud_config.id
@@ -70,7 +70,7 @@ resource "proxmox_virtual_environment_vm" "autopilot_server" {
   }
 
   network_device {
-    bridge = "vmbr0"
+    bridge = "prvmain"
   }
 }
 

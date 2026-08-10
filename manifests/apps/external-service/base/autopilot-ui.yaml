@@ -24,7 +24,7 @@ ports:
   protocol: TCP
 endpoints:
 - addresses:
-  - 192.168.5.241
+  - 10.20.1.51
   conditions: {}
 ---
 apiVersion: networking.k8s.io/v1

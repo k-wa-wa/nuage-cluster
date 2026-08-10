@@ -10,8 +10,7 @@
     hostName = "autopilot-server";
     useDHCP = false;
 
-    # lb の CoreDNS (VIP: 192.168.5.200) を参照する。
-    nameservers = [ "192.168.5.200" ];
+    nameservers = [ "8.8.8.8" ];
   };
 
   # claude / agy 用の nix-ld 設定
