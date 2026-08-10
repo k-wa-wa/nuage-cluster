@@ -1,0 +1,54 @@
+# autopilot-ui: 192.168.5.241:8787 を k8s 内部サービスとして引き込む。
+# 今後他の外部IPを追加する際は同じパターンで <name>.yaml を追加し、kustomization.yaml に列挙する。
+apiVersion: v1
+kind: Service
+metadata:
+  name: autopilot-ui
+spec:
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8787
+    targetPort: 8787
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: autopilot-ui-slice
+  labels:
+    kubernetes.io/service-name: autopilot-ui
+addressType: IPv4
+ports:
+- name: http
+  port: 8787
+  protocol: TCP
+endpoints:
+- addresses:
+  - 192.168.5.241
+  conditions: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: autopilot-ui-ingress
+  annotations:
+    # cert-manager が external-service namespace に証明書を発行する。
+    # cross-namespace Secret 参照は不可のため、namespace ごとに cert-manager へ発行させる方針を採る。
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-prod"
+spec:
+  ingressClassName: cilium
+  tls:
+  - hosts:
+    - autopilot-ui.wpcapp.net
+    secretName: autopilot-ui-tls
+  rules:
+  - host: autopilot-ui.wpcapp.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: autopilot-ui
+            port:
+              number: 8787
