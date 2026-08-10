@@ -81,4 +81,5 @@ in
 
   # secrets.env を自動ロードする autopilot ラッパーを配置する。
   environment.systemPackages = [ autopilotWrapped ];
+  networking.firewall.allowedTCPPorts = [ 8787 ];
 }
