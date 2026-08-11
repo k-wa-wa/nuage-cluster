@@ -5,6 +5,7 @@
     ./dns.nix
     ./haproxy.nix
     ./keepalived.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {

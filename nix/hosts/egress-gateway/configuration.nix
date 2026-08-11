@@ -3,6 +3,7 @@
 {
   imports = [
     ./haproxy.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
