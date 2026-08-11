@@ -11,9 +11,10 @@ description: Reference of conventions, commands, and validation techniques for c
 
 - `manifests/bootstrap/`: namespace・Argo CD 本体 (クラスタ構築時に `scripts/apply-apps.sh` で適用)
 - `manifests/common/`: Cilium 等の基盤コンポーネント
+- `manifests/apps/root-app.yaml`: app of apps のルート Application。`manifests/apps` 直下 (非再帰) を automated sync し、配下の ApplicationSet 定義ファイル自体を GitOps 管理する。クラスタ構築時に `scripts/apply-apps.sh` でこの 1 ファイルだけを apply する
 - `manifests/apps/<app>/overlays/prod`: 本リポジトリ管理アプリ。作成すると ApplicationSet (`appset-prod.yaml`) が自動検出し、`<app>` namespace にデプロイする
 - `manifests/apps/multi-repo-deploy.yaml`: 外部リポジトリのアプリ一覧。対象リポジトリ側に `k8s/overlays/prod` が必要。AVP プラグイン (sops モード) 経由で同期される
-- master へ push するだけで Argo CD が自動同期する (prune + selfHeal 有効、ServerSideApply)
+- master へ push するだけで Argo CD が自動同期する (prune + selfHeal 有効、ServerSideApply)。`manifests/apps/` 直下の ApplicationSet ファイル自体の追加・変更も root-app.yaml 経由で同様に自動反映される
 - k8s から PostgreSQL primary への宛先 IP は `manifests/apps/pg-cluster/base/service.yaml` の EndpointSlice (`primary` Service) で定義
 
 ## ローカル検証
