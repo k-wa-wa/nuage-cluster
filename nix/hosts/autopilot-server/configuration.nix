@@ -30,4 +30,13 @@
   system.activationScripts.nuageAutopilotSetupScript = lib.stringAfter [ "users" ] ''
     install -D -m 0755 -o nixos ${./setup.sh} /home/nixos/setup.sh
   '';
+
+  # 外部ホストとしてPrometheusのスクレイプ対象に含めるためのノードエクスポーターを有効化する
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    extraFlags = [ "--collector.systemd" ];
+  };
+
+  networking.firewall.allowedTCPPorts = [ 9100 ];
 }

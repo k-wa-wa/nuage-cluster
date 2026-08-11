@@ -23,5 +23,12 @@
     ];
   };
 
-  networking.firewall.allowedTCPPorts = [ 11434 ];
+  networking.firewall.allowedTCPPorts = [ 11434 9100 ];
+
+  # 外部ホストとしてPrometheusのスクレイプ対象に含めるためのノードエクスポーターを有効化する
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    extraFlags = [ "--collector.systemd" ];
+  };
 }
