@@ -4,6 +4,7 @@
   imports = [
     ./minio.nix
     ./keepalived.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
