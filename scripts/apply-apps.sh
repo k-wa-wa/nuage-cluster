@@ -17,7 +17,11 @@ kubectl create secret generic pechka-preview-github-token \
 
 # CRDの確立を待つ
 kubectl wait --for=condition=Established crd/appprojects.argoproj.io --timeout=60s
+kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=60s
 kubectl wait --for=condition=Established crd/applicationsets.argoproj.io --timeout=60s
 kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
 
-kubectl apply -f manifests/apps/
+#################### app of apps ルート ####################
+# manifests/apps/ 直下の ApplicationSet 定義群 (root-app.yaml 自身を含む) は、
+# このルート Application の automated sync に以降委譲される。
+kubectl apply -f manifests/apps/root-app.yaml

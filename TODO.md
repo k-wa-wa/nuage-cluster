@@ -58,8 +58,8 @@
   - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
 - [x] ~~**Renovate の導入**~~ (実施しない)
   - 更新対象が多層に散っているが、agent を使用すればすぐアップデートできるため、メリットが大きくないと判断し実施しない。
-- [ ] **ApplicationSet 自体の GitOps 化 (App of Apps)**
-  - 現状 `manifests/apps/*.yaml` は `apply-apps.sh` で手動 apply する。この層も Argo CD 自身に管理させると、ブートストラップ後の手作業がゼロに近づく
+- [x] **ApplicationSet 自体の GitOps 化 (App of Apps)**
+  - `manifests/apps/root-app.yaml` (ルート Application) が `manifests/apps/*.yaml` を automated sync するようになり、`apply-apps.sh` はこの 1 ファイルを apply するだけで済むようになった
 
 ## 3. 監視・可観測性 (README TODO「監視・バックアップなど運用の効率化」の具体化)
 
