@@ -18,7 +18,7 @@ SA_NAME=autopilot
 REMOTE_PATH='~/.kube/config'
 
 CLUSTER_NAME=$(kubectl config view --minify -o jsonpath='{.clusters[0].name}')
-SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+SERVER="https://10.20.1.10:6443"
 
 echo "Waiting for Secret/${SECRET_NAME} token to be populated..."
 TOKEN=""
