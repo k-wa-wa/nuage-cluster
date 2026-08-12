@@ -42,6 +42,10 @@ repos:
 web:
   addr: "0.0.0.0:8787"
 
+summary:
+  schedule: "0 */6 * * *"
+  keep: 30 # 保持する生成結果の件数
+
 # statuses / poll / limits は省略時に Go 側の既定値が入る。
 # ボード上の表示名を変えた場合のみここで上書きする。
 # statuses:
