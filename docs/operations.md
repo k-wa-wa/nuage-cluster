@@ -30,6 +30,7 @@ Argo CD が master ブランチを監視しているため、**master へ push �
 - **本リポジトリ管理のアプリ**: `manifests/apps/<アプリ名>/overlays/prod` を作成すると ApplicationSet (`appset-prod.yaml`) が自動検出し、`<アプリ名>` namespace にデプロイする
 - **外部リポジトリのアプリ**: `manifests/apps/multi-repo-deploy.yaml` の `elements` にリポジトリを追加する。対象リポジトリ側には `k8s/overlays/prod` が必要
 - **ApplicationSet 定義自体の追加・変更**: `manifests/apps/` 直下に ApplicationSet ファイルを追加・変更する。ルートの Application (`root-app.yaml`, app of apps) が `manifests/apps` を automated sync するため、これも push だけで反映される (`apply-apps.sh` の再実行は不要)
+- **root Application (`root-app.yaml`) 自体の変更**: 自己参照による selfHeal ループを避けるため `manifests/bootstrap/argocd/root-app.yaml` に置かれており GitOps 管理対象外。変更した場合は `kubectl apply -f manifests/bootstrap/argocd/root-app.yaml` (または `apply-apps.sh` の再実行) で手動反映する
 - **シークレットを含むマニフェスト**: SOPS で暗号化してコミットする (argocd-vault-plugin が同期時に復号)
 
 ```bash

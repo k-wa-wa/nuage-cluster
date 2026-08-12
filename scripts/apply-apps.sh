@@ -22,6 +22,7 @@ kubectl wait --for=condition=Established crd/applicationsets.argoproj.io --timeo
 kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
 
 #################### app of apps ルート ####################
-# manifests/apps/ 直下の ApplicationSet 定義群 (root-app.yaml 自身を含む) は、
-# このルート Application の automated sync に以降委譲される。
-kubectl apply -f manifests/apps/root-app.yaml
+# manifests/apps/ 直下の ApplicationSet 定義群は、このルート Application の automated sync に以降委譲される。
+# root-app.yaml 自身は自己参照による selfHeal ループを避けるため manifests/apps/ の外に置いており、
+# GitOps 管理対象外 (この apply のみで反映される)。
+kubectl apply -f manifests/bootstrap/argocd/root-app.yaml
