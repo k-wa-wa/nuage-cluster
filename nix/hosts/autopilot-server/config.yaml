@@ -5,15 +5,15 @@ repos:
   # - owner: k-wa-wa
   #   name: nuage-autopilot3
   - owner: k-wa-wa
-    name: pechka
+    name: nuage-workspace
   - owner: k-wa-wa
     name: nuage-cluster
-  # - owner: k-wa-wa
-  #   name: nuage-monitoring-stack
-  # - owner: k-wa-wa
-  #   name: bare-web-proxy
-  # - owner: k-wa-wa
-  #   name: nuage-workspace
+  - owner: k-wa-wa
+    name: pechka
+  - owner: k-wa-wa
+    name: nuage-monitoring-stack
+  - owner: k-wa-wa
+    name: bare-web-proxy
 
 workspace: /var/lib/autopilot/workspaces
 database: /var/lib/autopilot/autopilot.db
