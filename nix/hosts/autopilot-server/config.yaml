@@ -6,8 +6,8 @@ repos:
   #   name: nuage-autopilot3
   - owner: k-wa-wa
     name: pechka
-  # - owner: k-wa-wa
-  #   name: nuage-cluster
+  - owner: k-wa-wa
+    name: nuage-cluster
   # - owner: k-wa-wa
   #   name: nuage-monitoring-stack
   # - owner: k-wa-wa
