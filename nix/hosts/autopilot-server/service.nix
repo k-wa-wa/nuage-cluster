@@ -56,27 +56,40 @@ in
 
     configFile = configPath;
 
-    # claude / agy を /home/nixos/.local/bin に入れているため、
+    # claude を /home/nixos/.local/bin に入れているため、
     # 専用ユーザーを作らず nixos ユーザーで動かす。
     user = "nixos";
     group = "users";
     createUser = false;
 
+    # GH_TOKEN を置く。bot-wa-wa の PAT（v2 から流用でよい）。
+    # 人間（k-wa-wa）本人のトークンを置くと、自分の発言を Worker 自身の発言として
+    # 全部無視するため、パイプラインが無言で停止する。
     environmentFile = "/var/lib/autopilot/secrets.env";
 
     # 対象リポジトリのビルド・テストに必要なツール（devtools.nix）をそのまま通す。
+    # git と gh は autopilot のラッパーが PATH に入れるので、ここでは不要。
     extraPackages = config.environment.systemPackages;
     extraPath = [ "/home/nixos/.local" ];
   };
 
-  # 手動検証フェーズのため、起動はさせない（`systemctl start autopilot` で任意に起動できる）。
+  # v3 は実 GitHub に対して未検証のため、当面は自動起動させない。
+  # `systemctl start autopilot` で任意に起動し、journalctl を見ながら確かめる。
+  # 常用に切り替えるときはこの行を消す。
   systemd.services.autopilot.wantedBy = lib.mkForce [ ];
+
+  # config.yaml の更新時に systemd サービスが自動再起動するようにトリガーを設定する。
+  systemd.services.autopilot.restartTriggers = [
+    config.environment.etc."autopilot/config.yaml".source
+  ];
 
   # サービスを起動しないと StateDirectory が作られないため、
   # doctor を手動実行できるようここで先に作る。
+  # logs は v3 で追加（エージェントのプロンプトと出力が 1 実行 1 ファイルで残る）。
   systemd.tmpfiles.rules = [
     "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} -"
     "d ${cfg.stateDir}/workspaces 0750 ${cfg.user} ${cfg.group} -"
+    "d ${cfg.stateDir}/logs 0750 ${cfg.user} ${cfg.group} -"
   ];
 
   # secrets.env を自動ロードする autopilot ラッパーを配置する。

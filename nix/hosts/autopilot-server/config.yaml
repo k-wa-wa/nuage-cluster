@@ -1,71 +1,44 @@
-# autopilot (k-wa-wa/nuage-autopilot2) の設定。
-# このファイルがそのまま /etc/autopilot/config.yaml へコピーされ、
-# systemd の autopilot.service と手動の `autopilot doctor` の両方が参照する。
-#
-# 認証トークンはここに書かない。/var/lib/autopilot/secrets.env に
-# GH_TOKEN=ghp_xxxx を置く（classic PAT / repo + project スコープ）。
-#
-# 未知のキーはパースエラーになる（KnownFields(true)）ため、
-# 書式は config.example.yaml に従うこと。
-
-# systemd の StateDirectory (/var/lib/autopilot) 配下に置く。
-workspace: /var/lib/autopilot/workspaces
-database: /var/lib/autopilot/autopilot.db
-
-# 対象リポジトリ内の品質ゲート定義ファイル（存在すれば検証フェーズのプロンプトに含まれる）。
-gate_file: .agents/autopilot-gate.md
-
-project:
-  owner: k-wa-wa
-  number: 2
-  owner_type: user
-  status_field: Status
+allowed_actors:
+  - k-wa-wa
 
 repos:
+  # - owner: k-wa-wa
+  #   name: nuage-autopilot3
   - owner: k-wa-wa
     name: pechka
-  - owner: k-wa-wa
-    name: nuage-cluster
-  - owner: k-wa-wa
-    name: nuage-monitoring-stack
-  - owner: k-wa-wa
-    name: bare-web-proxy
-  - owner: k-wa-wa
-    name: nuage-workspace
-  - owner: k-wa-wa
-    name: nuage-autopilot2
+  # - owner: k-wa-wa
+  #   name: nuage-cluster
+  # - owner: k-wa-wa
+  #   name: nuage-monitoring-stack
+  # - owner: k-wa-wa
+  #   name: bare-web-proxy
+  # - owner: k-wa-wa
+  #   name: nuage-workspace
 
-# 状態を参照する Web UI（run に同居する）。参照専用で更新機能は持たない。
-#
-# 認証を持たないため、既定はループバックに閉じている。外から見る場合は
-# トンネルを張るか、前段で守ること。空文字にすると起動しない。
-web:
-  addr: "0.0.0.0:8787"
+workspace: /var/lib/autopilot/workspaces
+database: /var/lib/autopilot/autopilot.db
+log_dir: /var/lib/autopilot/logs
 
-summary:
-  schedule: "0 */6 * * *"
-  keep: 30 # 保持する生成結果の件数
+dashboard:
+  host: 0.0.0.0
+  port: 8787
 
-# statuses / poll / limits は省略時に Go 側の既定値が入る。
-# ボード上の表示名を変えた場合のみここで上書きする。
-# statuses:
-#   inbox: "📥 Inbox"
-#   ready: "🎯 Ready"
-#   in_progress: "🚧 In Progress"
-#   verifying: "🔍 Verifying"
-#   in_review: "👀 In Review"
-#   blocked: "⏸ Blocked"
-#   done: "✅ Done"
+poll:
+  interval_sec: 60
+  review_interval_sec: 120
+  since_rewind_sec: 30
 
-# claude / agy は Nix 管理外で /home/nixos/.local/bin に入れている
-# （service.nix の extraPath 参照）。
-agents:
-  refine:
-    command: claude
-  implement:
-    command: claude
-  review:
-    command: agy
-    model: gemini-3.6-flash-high
-  triage:
-    command: claude
+verify:
+  grace_period_sec: 180
+  wait_limit_sec: 1800
+  max_retry: 5
+
+agent:
+  command: claude
+  args: ["-p", "--permission-mode", "bypassPermissions"]
+  refine_timeout_sec: 900
+  implement_timeout_sec: 3600
+  lease_margin_sec: 300
+
+queue:
+  max_concurrent: 2

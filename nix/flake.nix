@@ -31,10 +31,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # autopilot (GitHub Projects をステートマシンとする自律開発ワーカー) の
+    # autopilot (GitHub の Issue / PR を真実源とする自律開発ワーカー) の
     # パッケージと NixOS モジュールを提供する。autopilot-server で使用する。
+    #
+    # v2 (nuage-autopilot2) から v3 へ移行済み。v3 は GitHub Projects を使わず、
+    # Issue / PR のコメントだけで駆動する。設定の書式も別物なので、
+    # 差し戻す場合は hosts/autopilot-server/config.yaml も一緒に戻すこと。
     autopilot = {
-      url = "github:k-wa-wa/nuage-autopilot2";
+      url = "github:k-wa-wa/nuage-autopilot3";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
