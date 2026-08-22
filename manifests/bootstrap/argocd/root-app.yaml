@@ -1,6 +1,13 @@
 # app of apps のルート Application。manifests/apps/ 直下 (非再帰) を automated sync することで、
 # appset-prod.yaml・multi-repo-deploy.yaml・各 preview ApplicationSet 等の ApplicationSet 定義自体を
-# Argo CD 管理下に置く。このファイル自身も manifests/apps/ 直下にあるため自己を含めて selfHeal される。
+# Argo CD 管理下に置く。
+#
+# このファイル自体は意図的に manifests/apps/ の外 (manifests/bootstrap/argocd/) に置いている。
+# manifests/apps/ 直下に置くと root Application が自分自身の Application リソースを sync 対象に含めてしまい、
+# 適用のたびに自身を differs と判定して selfHeal を無限に繰り返すループが発生するため。
+# そのためこのファイルは manifests/bootstrap と同様に GitOps 管理対象外であり、
+# クラスタ構築時に scripts/apply-apps.sh から一度だけ kubectl apply される。
+# spec を変更した場合は `kubectl apply -f manifests/bootstrap/argocd/root-app.yaml` で手動反映すること。
 #
 # manifests/apps/<app>/overlays/prod のような個別アプリのマニフェストは appset-prod.yaml 側の
 # directories generator が別途検出するため、ここでは対象にならない (recurse: false のため下位ディレクトリは無視)。

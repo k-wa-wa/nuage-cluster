@@ -52,7 +52,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 ### Argo CD の Application 検出規則
 
-`manifests/apps/` 直下の ApplicationSet 定義ファイル自体は、ルートの Application (`root-app.yaml`, app of apps) が `manifests/apps` ディレクトリを非再帰 (`directory.recurse: false`) で automated sync (prune + selfHeal) することで管理される。`root-app.yaml` 自身も同じディレクトリに置かれているため自己を含めて selfHeal され、ApplicationSet の追加・変更は master への push だけで反映される (`apply-apps.sh` の再実行は不要)。
+`manifests/apps/` 直下の ApplicationSet 定義ファイル自体は、ルートの Application (`root-app.yaml`, app of apps) が `manifests/apps` ディレクトリを非再帰 (`directory.recurse: false`) で automated sync (prune + selfHeal) することで管理される。`root-app.yaml` 自身は自己参照による selfHeal ループを避けるため `manifests/bootstrap/argocd/` に置かれており、GitOps 管理対象外 (クラスタ構築時に `apply-apps.sh` から一度だけ apply される)。ApplicationSet の追加・変更は master への push だけで反映される (`apply-apps.sh` の再実行は不要)。
 
 - `appset-prod.yaml`: 本リポジトリの `manifests/apps/*/overlays/prod` ディレクトリを自動検出し、`<アプリ名>` namespace にデプロイする
 - `multi-repo-deploy.yaml`: 外部リポジトリ (`bare-web-proxy`, `nuage-monitoring-stack`, `pechka`) の `k8s/overlays/prod` を SOPS プラグイン付きでデプロイする
