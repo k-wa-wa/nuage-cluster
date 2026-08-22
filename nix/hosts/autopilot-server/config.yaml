@@ -28,17 +28,27 @@ poll:
   review_interval_sec: 120
   since_rewind_sec: 30
 
-verify:
+ci:
   grace_period_sec: 180
   wait_limit_sec: 1800
   max_retry: 5
 
 agent:
-  command: claude
-  args: ["-p", "--permission-mode", "bypassPermissions"]
   refine_timeout_sec: 900
   implement_timeout_sec: 3600
+  evaluate_timeout_sec: 1800
   lease_margin_sec: 300
+
+agents:
+  refine:
+    command: claude
+    # model: opus
+  implement:
+    command: claude
+    # model: opus
+  evaluate:
+    command: claude
+    # model: opus
 
 queue:
   max_concurrent: 2
