@@ -1,9 +1,20 @@
-allowed_actors:
+# autopilot v4 の設定。
+#
+# 置き場（DB・ワークスペース・ログ・ロック）はここには書かない。
+# AUTOPILOT_HOME（service.nix の stateDir = /var/lib/autopilot）から導出される。
+#
+# 閾値（ポーリング間隔 60 秒 / CI 猶予 10 分 / CI 待機上限 30 分 / 自動修正 5 回 など）も
+# 設定項目ではなく実装側の既定値。変えたい場合は autopilot 側の src/config.ts を直す。
+
+# パイプラインを駆動できる人間の login。
+# Issue とコメントはそのままエージェントへの指示になるため、ここに無い人の発言は
+# パイプラインを一切動かさない。bot アカウント (bot-wa-wa) を含めてはならない
+# （含めると doctor が起動を拒否する）。
+allowlist:
   - k-wa-wa
 
+# 監視対象。base_branch を省略すると GitHub の既定ブランチを起動時に解決する。
 repos:
-  # - owner: k-wa-wa
-  #   name: nuage-autopilot3
   - owner: k-wa-wa
     name: nuage-workspace
   - owner: k-wa-wa
@@ -15,40 +26,34 @@ repos:
   - owner: k-wa-wa
     name: bare-web-proxy
 
-workspace: /var/lib/autopilot/workspaces
-database: /var/lib/autopilot/autopilot.db
-log_dir: /var/lib/autopilot/logs
-
-dashboard:
-  host: 0.0.0.0
-  port: 8787
-
-poll:
-  interval_sec: 60
-  review_interval_sec: 120
-  since_rewind_sec: 30
-
-ci:
-  grace_period_sec: 180
-  wait_limit_sec: 1800
-  max_retry: 5
-
-agent:
-  refine_timeout_sec: 900
-  implement_timeout_sec: 3600
-  evaluate_timeout_sec: 1800
-  lease_margin_sec: 300
-
+# ジョブ種別ごとのエージェント CLI とモデル。
+# command のコマンド名から claude / agy / exec のアダプタを解決する。
 agents:
+  # 判定専用。イベントごとに 1 回走り本数が最も多いので、速くて安いモデルを充てる。
+  # GitHub への書き込み権限も GH_TOKEN も渡らない純関数的な呼び出しになる。
+  triage:
+    command: claude
+    model: haiku
+    timeout_sec: 120
   refine:
     command: claude
-    # model: opus
+    timeout_sec: 900
   implement:
     command: claude
-    # model: opus
+    timeout_sec: 3600
+  # 読むだけのジョブなので、実装とは別のモデルにして書き手と読み手を分けてもよい。
   evaluate:
     command: claude
-    # model: opus
+    timeout_sec: 1800
 
 queue:
-  max_concurrent: 2
+  # 全リポジトリ合計の同時実行数。同一リポジトリ内は常に 1 件ずつ。
+  max_parallel: 2
+
+dashboard:
+  # 認証を持たないので、LAN に晒すのは信頼できるネットワークに限ること。
+  # 書き込み API は無いため、影響は Issue の題名と状態が読まれるまでに閉じている。
+  # 絞る場合は host を消して SSH ポートフォワードで見る:
+  #   ssh -L 8787:127.0.0.1:8787 autopilot-server
+  host: 0.0.0.0
+  port: 8787

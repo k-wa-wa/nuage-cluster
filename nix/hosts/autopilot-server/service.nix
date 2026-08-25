@@ -9,11 +9,13 @@ let
   cfg = config.services.autopilot;
 
   # 設定は ./config.yaml を /etc へコピーして使う。
-  # systemd の ExecStart と手動の `autopilot doctor -c` が同じ実体を見るように、
+  # systemd の ExecStart と手動実行が同じ実体を見るように、
   # /nix/store ではなくこの固定パスを参照させる。
   configPath = "/etc/autopilot/config.yaml";
 
-  # 手動実行用: secrets.env のロードと config.yaml の自動指定を行うラッパー
+  # 手動実行用のラッパー。
+  # v4 は AUTOPILOT_HOME / AUTOPILOT_CONFIG を環境変数で受けるので、
+  # v3 のような引数の補完は要らない。secrets.env を読んで環境を揃えるだけ。
   autopilotWrapped = pkgs.writeShellScriptBin "autopilot" ''
     if [ -f "${cfg.environmentFile}" ]; then
       set -a
@@ -21,30 +23,8 @@ let
       . "${cfg.environmentFile}"
       set +a
     fi
-
-    # -c または --config が未指定の場合、既定で ${configPath} を補完する
-    has_config=0
-    for arg in "$@"; do
-      case "$arg" in
-        -c|--config|--config=*)
-          has_config=1
-          ;;
-      esac
-    done
-
-    if [ "$has_config" -eq 0 ] && [ "$#" -gt 0 ]; then
-      case "$1" in
-        -h|--help|help)
-          exec ${lib.getExe cfg.package} "$@"
-          ;;
-        *)
-          cmd="$1"
-          shift
-          exec ${lib.getExe cfg.package} "$cmd" -c "${configPath}" "$@"
-          ;;
-      esac
-    fi
-
+    export AUTOPILOT_HOME="''${AUTOPILOT_HOME:-${cfg.stateDir}}"
+    export AUTOPILOT_CONFIG="''${AUTOPILOT_CONFIG:-${configPath}}"
     exec ${lib.getExe cfg.package} "$@"
   '';
 in
@@ -63,17 +43,20 @@ in
     createUser = false;
 
     # GH_TOKEN を置く。bot-wa-wa の PAT（v2 から流用でよい）。
-    # 人間（k-wa-wa）本人のトークンを置くと、自分の発言を Worker 自身の発言として
-    # 全部無視するため、パイプラインが無言で停止する。
+    # 人間（k-wa-wa）本人のトークンを置くと自己トリガーの無限ループになるため、
+    # doctor が「GH_TOKEN の所有者が allowlist に含まれている」として起動を拒否する。
     environmentFile = "/var/lib/autopilot/secrets.env";
 
     # 対象リポジトリのビルド・テストに必要なツール（devtools.nix）をそのまま通す。
-    # git と gh は autopilot のラッパーが PATH に入れるので、ここでは不要。
+    # git と gh は autopilot のパッケージが wrapProgram で PATH に入れるので、ここでは不要。
     extraPackages = config.environment.systemPackages;
     extraPath = [ "/home/nixos/.local" ];
+
+    # config.yaml で dashboard.host = 0.0.0.0 にしているので、ポートも開ける。
+    openFirewall = true;
   };
 
-  # v3 は実 GitHub に対して未検証のため、当面は自動起動させない。
+  # v4 はまだ実 GitHub に対して一周していないため、当面は自動起動させない。
   # `systemctl start autopilot` で任意に起動し、journalctl を見ながら確かめる。
   # 常用に切り替えるときはこの行を消す。
   systemd.services.autopilot.wantedBy = lib.mkForce [ ];
@@ -85,14 +68,15 @@ in
 
   # サービスを起動しないと StateDirectory が作られないため、
   # doctor を手動実行できるようここで先に作る。
-  # logs は v3 で追加（エージェントのプロンプトと出力が 1 実行 1 ファイルで残る）。
+  # v4 は AUTOPILOT_HOME 配下に run/（プロンプトと結果ファイル）と
+  # autopilot.lock（多重起動の防止）も作る。
   systemd.tmpfiles.rules = [
     "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} -"
     "d ${cfg.stateDir}/workspaces 0750 ${cfg.user} ${cfg.group} -"
     "d ${cfg.stateDir}/logs 0750 ${cfg.user} ${cfg.group} -"
+    "d ${cfg.stateDir}/run 0750 ${cfg.user} ${cfg.group} -"
   ];
 
-  # secrets.env を自動ロードする autopilot ラッパーを配置する。
+  # secrets.env と AUTOPILOT_HOME を自動で揃える autopilot ラッパーを配置する。
   environment.systemPackages = [ autopilotWrapped ];
-  networking.firewall.allowedTCPPorts = [ 8787 ];
 }
