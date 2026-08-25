@@ -13,6 +13,9 @@
     nameservers = [ "8.8.8.8" ];
   };
 
+  # ~/.local/bin のパスを通す
+  environment.localBinInPath = true;
+
   # claude / agy 用の nix-ld 設定
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = with pkgs; [
