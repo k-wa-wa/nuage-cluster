@@ -1,26 +1,11 @@
 args@{ pkgs, lib, ... }:
 
 let
-  # hostName は一部のホストのみ specialArgs 経由で渡される (postgres-cluster / minio-cluster / loadbalancer)。
-  # 未指定のホストではデフォルトの自動アップグレード設定にフォールバックする。
-  hostName = args.hostName or "";
-
-  # ホストごとの nixos-upgrade 自動適用設定。適用時刻が重複しないよう分散させる。
-  # ここに列挙されないホストはデフォルト (enable = true, dates = "daily") にフォールバックする。
-  autoUpgradeByHost = {
-    "pg-cluster-1" = { dates = "03:00"; };
-    "pg-cluster-2" = { dates = "03:10"; };
-    "pg-cluster-3" = { dates = "03:20"; };
-    "lb-1" = { dates = "03:30"; };
-    "lb-2" = { dates = "03:40"; };
-    "lb-3" = { dates = "03:50"; };
-    "minio-cluster-1" = { dates = "04:00"; };
-    "minio-cluster-2" = { dates = "04:10"; };
-  };
-
-  autoUpgradeCfg = autoUpgradeByHost.${hostName} or { };
-  autoUpgradeEnable = autoUpgradeCfg.enable or true;
-  autoUpgradeDates = autoUpgradeCfg.dates or "daily";
+  # autoUpgradeSchedule は各ホストの nixosConfigurations (nix/flake.nix) の
+  # specialArgs 経由で渡される。未指定のホストはデフォルト (enable = true, dates = "daily") にフォールバックする。
+  autoUpgradeSchedule = args.autoUpgradeSchedule or { };
+  autoUpgradeEnable = autoUpgradeSchedule.enable or true;
+  autoUpgradeDates = autoUpgradeSchedule.dates or "daily";
 in
 
 {
