@@ -118,6 +118,7 @@
 
         lb-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = { hostName = "lb-1"; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -130,6 +131,7 @@
 
         lb-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = { hostName = "lb-2"; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -142,6 +144,7 @@
 
         lb-3 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = { hostName = "lb-3"; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix

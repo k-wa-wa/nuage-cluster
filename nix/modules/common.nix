@@ -1,4 +1,27 @@
-{ pkgs, ... }:
+args@{ pkgs, lib, ... }:
+
+let
+  # hostName は一部のホストのみ specialArgs 経由で渡される (postgres-cluster / minio-cluster / loadbalancer)。
+  # 未指定のホストではデフォルトの自動アップグレード設定にフォールバックする。
+  hostName = args.hostName or "";
+
+  # ホストごとの nixos-upgrade 自動適用設定。適用時刻が重複しないよう分散させる。
+  # ここに列挙されないホストはデフォルト (enable = true, dates = "daily") にフォールバックする。
+  autoUpgradeByHost = {
+    "pg-cluster-1" = { dates = "03:00"; };
+    "pg-cluster-2" = { dates = "03:10"; };
+    "pg-cluster-3" = { dates = "03:20"; };
+    "lb-1" = { dates = "03:30"; };
+    "lb-2" = { dates = "03:40"; };
+    "lb-3" = { dates = "03:50"; };
+    "minio-cluster-1" = { dates = "04:00"; };
+    "minio-cluster-2" = { dates = "04:10"; };
+  };
+
+  autoUpgradeCfg = autoUpgradeByHost.${hostName} or { };
+  autoUpgradeEnable = autoUpgradeCfg.enable or true;
+  autoUpgradeDates = autoUpgradeCfg.dates or "daily";
+in
 
 {
   nix.settings = {
@@ -37,12 +60,12 @@
   environment.systemPackages = [ pkgs.git ];
 
   system.autoUpgrade = {
-    enable = true;
+    enable = autoUpgradeEnable;
     flake = "https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix";
-    dates = "daily";
+    dates = autoUpgradeDates;
   };
 
-  systemd.timers.nixos-upgrade.timerConfig = {
+  systemd.timers.nixos-upgrade.timerConfig = lib.mkIf autoUpgradeEnable {
     OnBootSec = "30s";
   };
 
