@@ -43,5 +43,8 @@
   };
 
   # HAProxyが待ち受けるポート（5430, 5431）をファイアウォールで開放する
-  networking.firewall.allowedTCPPorts = [ 5430 5431 ];
+  networking.firewall.allowedTCPPorts = [
+    5430
+    5431
+  ];
 }

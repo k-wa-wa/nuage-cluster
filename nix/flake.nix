@@ -29,9 +29,22 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixos-generators, nixpkgs-ollama, nixpkgs-unstable, sops-nix, autopilot, ... }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      nixos-generators,
+      nixpkgs-ollama,
+      nixpkgs-unstable,
+      sops-nix,
+      autopilot,
+      ...
+    }:
     let
-      systems = [ "x86_64-linux" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
 
       mkBaseLxc = nixos-generators.nixosGenerate {
@@ -49,7 +62,8 @@
           ./hosts/base-vm/configuration.nix
         ];
       };
-    in {
+    in
+    {
       nixosConfigurations = {
         base-vm = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
@@ -75,7 +89,11 @@
 
         lb-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:30"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:30";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -88,7 +106,11 @@
 
         lb-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:40"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:40";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -101,7 +123,11 @@
 
         lb-3 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:50"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:50";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -114,7 +140,11 @@
 
         pg-cluster-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:00"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:00";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -127,7 +157,11 @@
 
         pg-cluster-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:10"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:10";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -140,7 +174,11 @@
 
         pg-cluster-3 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "03:20"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "03:20";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -199,7 +237,11 @@
 
         minio-cluster-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "04:00"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:00";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/minio-cluster/configuration.nix
@@ -212,7 +254,11 @@
 
         minio-cluster-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { autoUpgradeSchedule = { dates = "04:10"; }; };
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:10";
+            };
+          };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/minio-cluster/configuration.nix
@@ -228,9 +274,11 @@
           specialArgs = {
             unstablePkgs = import nixpkgs-unstable {
               system = "x86_64-linux";
-              config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [
-                "makemkv"
-              ];
+              config.allowUnfreePredicate =
+                pkg:
+                builtins.elem (nixpkgs.lib.getName pkg) [
+                  "makemkv"
+                ];
             };
           };
           modules = [

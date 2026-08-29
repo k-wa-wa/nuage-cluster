@@ -21,6 +21,9 @@ description: Reference of commands and techniques for changing, validating, appl
 # 評価エラーの検出 (ビルドせず確認)
 nix build ./nix#nixosConfigurations.<host>.config.system.build.toplevel --dry-run
 
+# コードフォーマットの適用
+nix run nixpkgs#nixfmt-tree -- ./nix
+
 # flake input の更新
 nix flake update nix-config --flake ./nix
 ```

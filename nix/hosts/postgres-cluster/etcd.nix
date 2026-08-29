@@ -1,11 +1,22 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   # 各ホストのIPとホスト名のマッピングを定義する
   hosts = {
-    pg-cluster-1 = { ip = "10.20.1.41"; };
-    pg-cluster-2 = { ip = "10.20.1.42"; };
-    pg-cluster-3 = { ip = "10.20.1.43"; };
+    pg-cluster-1 = {
+      ip = "10.20.1.41";
+    };
+    pg-cluster-2 = {
+      ip = "10.20.1.42";
+    };
+    pg-cluster-3 = {
+      ip = "10.20.1.43";
+    };
   };
 
   hostname = config.networking.hostName;
@@ -15,7 +26,7 @@ in
   services.etcd = {
     enable = true;
     name = hostname;
-    
+
     # ピア間通信用リスナーとアドバタイズURLを設定する
     listenPeerUrls = [ "http://0.0.0.0:2380" ];
     initialAdvertisePeerUrls = [ "http://${myIp}:2380" ];

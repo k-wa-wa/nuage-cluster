@@ -1,20 +1,35 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   # 各ホストのIPとホスト名のマッピングを定義する
   hosts = {
-    pg-cluster-1 = { ip = "10.20.1.41"; };
-    pg-cluster-2 = { ip = "10.20.1.42"; };
-    pg-cluster-3 = { ip = "10.20.1.43"; };
+    pg-cluster-1 = {
+      ip = "10.20.1.41";
+    };
+    pg-cluster-2 = {
+      ip = "10.20.1.42";
+    };
+    pg-cluster-3 = {
+      ip = "10.20.1.43";
+    };
   };
 
   hostName = config.networking.hostName;
   myIp = hosts.${hostName}.ip;
 
   # ホスト名に応じて優先度を決定する
-  priority = if hostName == "pg-cluster-1" then 102
-             else if hostName == "pg-cluster-2" then 101
-             else 100;
+  priority =
+    if hostName == "pg-cluster-1" then
+      102
+    else if hostName == "pg-cluster-2" then
+      101
+    else
+      100;
 
   keepalivedNotify = pkgs.writeShellScript "keepalived-notify.sh" ''
     TYPE=$1

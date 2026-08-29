@@ -1,4 +1,9 @@
-{ modulesPath, pkgs, lib, ... }:
+{
+  modulesPath,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   imports = [
@@ -15,9 +20,19 @@
   systemd.services.nixos-bootstrap = {
     description = "Bootstrap NixOS configuration from Cloud-Init hostname";
     wantedBy = [ "multi-user.target" ];
-    after = [ "cloud-init.service" "network-online.target" ];
+    after = [
+      "cloud-init.service"
+      "network-online.target"
+    ];
     wants = [ "network-online.target" ];
-    path = with pkgs; [ git nix nixos-rebuild coreutils gnugrep gawk ];
+    path = with pkgs; [
+      git
+      nix
+      nixos-rebuild
+      coreutils
+      gnugrep
+      gawk
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -64,7 +79,10 @@
   fileSystems."/" = lib.mkDefault {
     device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
-    options = [ "x-systemd.growfs" "x-initrd.mount" ];
+    options = [
+      "x-systemd.growfs"
+      "x-initrd.mount"
+    ];
   };
 
   fileSystems."/boot" = lib.mkDefault {

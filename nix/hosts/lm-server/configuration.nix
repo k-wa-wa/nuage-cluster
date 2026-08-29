@@ -5,7 +5,7 @@
   ];
 
   environment.systemPackages = with pkgs; [
-    pciutils  # lspci を含むパッケージ
+    pciutils # lspci を含むパッケージ
     radeontop
   ];
 

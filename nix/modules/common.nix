@@ -10,11 +10,18 @@ in
 
 {
   nix.settings = {
-    trusted-users = [ "root" "nixos" "@wheel" ];
+    trusted-users = [
+      "root"
+      "nixos"
+      "@wheel"
+    ];
 
     trusted-public-keys = [ ];
     substituters = [ "https://cache.nixos.org" ];
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
   };
 
   users.users.nixos = {
@@ -55,7 +62,8 @@ in
   };
 
   # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
-  systemd.services.nix-daemon.serviceConfig.EnvironmentFile = "-/var/lib/nix-provisioning/access-tokens-env";
+  systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
+    "-/var/lib/nix-provisioning/access-tokens-env";
 
   system.stateVersion = "24.11";
 }
