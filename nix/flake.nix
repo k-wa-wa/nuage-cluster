@@ -87,15 +87,10 @@
           ];
         };
 
-        # nixpkgs 25.05 への移行検証中 (#39) につき、pg-cluster-1/2/3・lb-1/2/3・minio-cluster-1/2 の
-        # system.autoUpgrade を一時的に enable = false にしている。
-        # 人間による最低1ホストの手動検証・動作確認が完了し次第、各ホストの autoUpgradeSchedule から
-        # enable = false を取り除いて (dates のみに戻して) master へ push し、自動適用を再開すること。
         lb-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:30";
             };
           };
@@ -113,7 +108,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:40";
             };
           };
@@ -131,7 +125,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:50";
             };
           };
@@ -149,7 +142,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:00";
             };
           };
@@ -167,7 +159,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:10";
             };
           };
@@ -185,7 +176,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "03:20";
             };
           };
@@ -249,7 +239,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "04:00";
             };
           };
@@ -267,7 +256,6 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
-              enable = false;
               dates = "04:10";
             };
           };
