@@ -1,4 +1,12 @@
-{ pkgs, ... }:
+args@{ pkgs, lib, ... }:
+
+let
+  # autoUpgradeSchedule は各ホストの nixosConfigurations (nix/flake.nix) の
+  # specialArgs 経由で渡される。未指定のホストはデフォルト (enable = true, dates = "daily") にフォールバックする。
+  autoUpgradeSchedule = args.autoUpgradeSchedule or { };
+  autoUpgradeEnable = autoUpgradeSchedule.enable or true;
+  autoUpgradeDates = autoUpgradeSchedule.dates or "daily";
+in
 
 {
   nix.settings = {
@@ -37,12 +45,12 @@
   environment.systemPackages = [ pkgs.git ];
 
   system.autoUpgrade = {
-    enable = true;
+    enable = autoUpgradeEnable;
     flake = "https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix";
-    dates = "daily";
+    dates = autoUpgradeDates;
   };
 
-  systemd.timers.nixos-upgrade.timerConfig = {
+  systemd.timers.nixos-upgrade.timerConfig = lib.mkIf autoUpgradeEnable {
     OnBootSec = "30s";
   };
 
