@@ -157,7 +157,7 @@
 
         pg-cluster-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "pg-cluster-1"; autoUpgradeSchedule = { dates = "03:00"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:00"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -170,7 +170,7 @@
 
         pg-cluster-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "pg-cluster-2"; autoUpgradeSchedule = { dates = "03:10"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:10"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -183,7 +183,7 @@
 
         pg-cluster-3 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "pg-cluster-3"; autoUpgradeSchedule = { dates = "03:20"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:20"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/postgres-cluster/configuration.nix
@@ -242,7 +242,7 @@
 
         minio-cluster-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "minio-cluster-1"; autoUpgradeSchedule = { dates = "04:00"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "04:00"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/minio-cluster/configuration.nix
@@ -255,7 +255,7 @@
 
         minio-cluster-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "minio-cluster-2"; autoUpgradeSchedule = { dates = "04:10"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "04:10"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/minio-cluster/configuration.nix

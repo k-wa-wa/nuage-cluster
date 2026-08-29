@@ -2,22 +2,9 @@
   config,
   lib,
   pkgs,
-  hostName,
   ...
 }:
 
-let
-  hosts = {
-    minio-cluster-1 = {
-      ip = "10.20.1.71";
-    };
-    minio-cluster-2 = {
-      ip = "10.20.1.72";
-    };
-  };
-
-  myIp = hosts.${hostName}.ip;
-in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;

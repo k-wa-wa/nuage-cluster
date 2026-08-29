@@ -9,7 +9,7 @@ description: Reference of commands and techniques for changing, validating, appl
 
 ## 構成
 
-- `nix/flake.nix`: 全ホストの `nixosConfigurations` 定義。新規ホストは `specialArgs` (`hostName`) でホスト名を渡す
+- `nix/flake.nix`: 全ホストの `nixosConfigurations` 定義。各ホストは `networking.hostName` でホスト名を定義する
 - `nix/hosts/<name>/`: ホストごとの `configuration.nix`・ミドルウェア定義・`secrets.yaml` (SOPS)
 - `nix/hosts/base-lxc` / `base-vm`: LXC / VM のベースイメージ構成
 - `nix/modules/common.nix`: 共通モジュール

@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  hostName,
   ...
 }:
 
@@ -20,7 +19,7 @@ let
     };
   };
 
-  hostname = hostName;
+  hostname = config.networking.hostName;
   myIp = hosts.${hostname}.ip;
 
   # 他ノードのIPリストを生成する

@@ -1,4 +1,4 @@
-{ config, pkgs, lib, hostName, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   # 各ホストのIPとホスト名のマッピングを定義する
@@ -8,7 +8,7 @@ let
     pg-cluster-3 = { ip = "10.20.1.43"; };
   };
 
-  hostname = hostName;
+  hostname = config.networking.hostName;
   myIp = hosts.${hostname}.ip;
 in
 {

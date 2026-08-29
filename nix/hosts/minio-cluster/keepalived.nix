@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  hostName,
   ...
 }:
 
@@ -16,6 +15,7 @@ let
     };
   };
 
+  hostName = config.networking.hostName;
   myIp = hosts.${hostName}.ip;
 
   # ホスト名に応じて優先度を決定する
