@@ -57,8 +57,10 @@ in
     dates = autoUpgradeDates;
   };
 
-  systemd.timers.nixos-upgrade.timerConfig = lib.mkIf autoUpgradeEnable {
-    OnBootSec = "30s";
+  systemd.timers = lib.mkIf autoUpgradeEnable {
+    nixos-upgrade.timerConfig = {
+      OnBootSec = "30s";
+    };
   };
 
   # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
