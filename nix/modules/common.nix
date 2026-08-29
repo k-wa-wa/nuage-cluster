@@ -49,6 +49,8 @@ in
     useDHCP = false;
   };
 
+  time.timeZone = "Asia/Tokyo";
+
   environment.systemPackages = [ pkgs.git ];
 
   system.autoUpgrade = {
