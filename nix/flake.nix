@@ -118,7 +118,7 @@
 
         lb-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "lb-1"; autoUpgradeSchedule = { dates = "03:30"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:30"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -131,7 +131,7 @@
 
         lb-2 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "lb-2"; autoUpgradeSchedule = { dates = "03:40"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:40"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
@@ -144,7 +144,7 @@
 
         lb-3 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "lb-3"; autoUpgradeSchedule = { dates = "03:50"; }; };
+          specialArgs = { autoUpgradeSchedule = { dates = "03:50"; }; };
           modules = [
             ./hosts/base-lxc/configuration.nix
             ./hosts/loadbalancer/configuration.nix
