@@ -47,7 +47,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 | 層 | ツール | 対象 | 適用方法 |
 | :-- | :-- | :-- | :-- |
 | ① インフラ | Terragrunt + OpenTofu/Terraform (bpg/proxmox, siderolabs/talos, cloudflare) | SDN・VM・LXC・Talos マシン設定・Cloudflare Tunnel | ローカルから `terragrunt apply` (手動 Push 型) |
-| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (dev-server, autopilot-server, lm-server) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
+| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (autopilot-server, lm-server, bluray-extractor) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
 | ③ アプリ | Argo CD (ApplicationSet + Kustomize + argocd-vault-plugin/SOPS) | Kubernetes 上の全アプリ | master ブランチへの push で自動同期 |
 
 ### Argo CD の Application 検出規則
@@ -86,9 +86,9 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 
 | 名前 | VMID | 配置 | IP | 役割 |
 | :-- | :-- | :-- | :-- | :-- |
-| dev-server | 1152 | server-1 | 192.168.5.199 | NixOS 開発サーバー (16c/32GB) |
 | autopilot-server | 251 | server-1 | 192.168.5.241 | nuage-autopilot 実行ホスト (8c/16GB) |
 | oc1-omada | 1163 | server-1 | - | Omada Controller |
 | lm-server | 200 | server-2 | 192.168.5.222 | Ollama (ROCm) |
+| bluray-extractor | 240 | server-1 | 192.168.5.240 | MakeMKV リッピング VM |
 
 このほか、追加で払い出した EVPN ゾーン上にも VM を配置できる(上記一覧は zone: private と管理系のみを記載)。

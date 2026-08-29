@@ -138,7 +138,7 @@
 - [ ] **Terragrunt / OpenTofu の GitOps 化 (①層の自動デプロイ)**
   - 現状はローカルから手動実行している `terragrunt apply` を、GitHub Actions (または Atlantis / Digger などのインフラ GitOps ツール) に移行する。PR 上での plan 結果確認からマージ時の自動 apply までを完結させ、インフラの完全宣言的運用を達成する
 - [ ] **Minio を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
-  - クラスター外の Minio を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。dev-server や CI でのビルド結果を Minio にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
+  - クラスター外の Minio を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。ローカル環境や CI でのビルド結果を Minio にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
 - [ ] **AI-driven 自律運用 (AI Copilot Operator) の発展**
   - `autopilot-server` VM および調査用 read-only ServiceAccount 配布基盤は構築済み。
   - 発展として、Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語での対話に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する

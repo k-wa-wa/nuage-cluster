@@ -57,7 +57,7 @@ sudo systemctl start nixos-upgrade.service
 journalctl -u nixos-upgrade.service -f
 ```
 
-VM ホスト (dev-server, lm-server) は手動 Push 型:
+VM ホスト (autopilot-server, lm-server, bluray-extractor) は手動 Push 型:
 
 ```bash
 # TODO: VM ホストの運用自動化
@@ -82,7 +82,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
 | `terraform/pve/server-2` | server-2 上の lm-server (import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
-| `terraform/vpc/zone-dev` | dev-server VM・autopilot-server VM |
+| `terraform/vpc/zone-dev` | autopilot-server VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |

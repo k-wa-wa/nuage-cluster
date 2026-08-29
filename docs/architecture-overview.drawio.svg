@@ -324,29 +324,6 @@
                 </text>
             </switch>
         </g>
-        <rect x="944" y="231" width="200" height="44" rx="6.6" ry="6.6" fill="#2b2b2b" stroke="#777777" pointer-events="all"/>
-        <g transform="translate(-0.5 -0.5)">
-            <switch>
-                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
-                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe flex-start; width: 188px; height: 1px; padding-top: 253px; margin-left: 956px;">
-                        <div data-drawio-colors="color: #e8e8e8; " style="box-sizing: border-box; font-size: 0px; text-align: left;">
-                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(232, 232, 232); line-height: 1.2; pointer-events: all; white-space: normal; overflow-wrap: normal;">
-                                <b>
-                                    dev-server
-                                </b>
-                                <br/>
-                                <font color="#b0b0b0" style="font-size:11px">
-                                    NixOS 開発サーバー
-                                </font>
-                            </div>
-                        </div>
-                    </div>
-                </foreignObject>
-                <text x="956" y="257" fill="#e8e8e8" font-family="Helvetica" font-size="12px">
-                    dev-server...
-                </text>
-            </switch>
-        </g>
         <rect x="944" y="287" width="200" height="44" rx="6.6" ry="6.6" fill="#2b2b2b" stroke="#777777" pointer-events="all"/>
         <g transform="translate(-0.5 -0.5)">
             <switch>
