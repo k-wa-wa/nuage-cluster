@@ -19,6 +19,7 @@ repos:
     name: nuage-workspace
   - owner: k-wa-wa
     name: nuage-cluster
+    patrol: true
   - owner: k-wa-wa
     name: pechka
   - owner: k-wa-wa
