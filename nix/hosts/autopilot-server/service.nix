@@ -56,11 +56,6 @@ in
     openFirewall = true;
   };
 
-  # v4 はまだ実 GitHub に対して一周していないため、当面は自動起動させない。
-  # `systemctl start autopilot` で任意に起動し、journalctl を見ながら確かめる。
-  # 常用に切り替えるときはこの行を消す。
-  systemd.services.autopilot.wantedBy = lib.mkForce [ ];
-
   # config.yaml の更新時に systemd サービスが自動再起動するようにトリガーを設定する。
   systemd.services.autopilot.restartTriggers = [
     config.environment.etc."autopilot/config.yaml".source
