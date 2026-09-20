@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -91,6 +91,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:30";
             };
           };
@@ -108,6 +109,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:40";
             };
           };
@@ -125,6 +127,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:50";
             };
           };
@@ -142,6 +145,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:00";
             };
           };
@@ -159,6 +163,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:10";
             };
           };
@@ -176,6 +181,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "03:20";
             };
           };
@@ -239,6 +245,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "04:00";
             };
           };
@@ -256,6 +263,7 @@
           system = "x86_64-linux";
           specialArgs = {
             autoUpgradeSchedule = {
+              enable = false;
               dates = "04:10";
             };
           };
