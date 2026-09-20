@@ -43,7 +43,7 @@ agents:
     timeout_sec: 3600
   # 読むだけのジョブなので、実装とは別のモデルにして書き手と読み手を分けてもよい。
   evaluate:
-    command: claude
+    command: agy
     timeout_sec: 1800
 
 queue:
