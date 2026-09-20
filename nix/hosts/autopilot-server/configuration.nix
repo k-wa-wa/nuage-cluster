@@ -10,7 +10,14 @@
     hostName = "autopilot-server";
     useDHCP = false;
 
-    nameservers = [ "8.8.8.8" ];
+    # LB の CoreDNS は SDN 内のクライアントに *.wpcapp.net を SDN 側 VIP (10.20.1.20) で返す。
+    # これにより PR プレビュー (bwproxy-pr-N.wpcapp.net 等) へ到達できる。
+    # 8.8.8.8 は LB の DNS 停止時に外部名前解決だけを維持するためのフォールバックで、
+    # wpcapp.net を引くと到達不能な 192.168.5.200 が返る。
+    nameservers = [
+      "10.20.1.20"
+      "8.8.8.8"
+    ];
   };
 
   # ~/.local/bin のパスを通す
