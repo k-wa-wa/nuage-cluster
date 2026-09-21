@@ -1,0 +1,4 @@
+import {
+  to = proxmox_network_linux_bridge.vmbr0_server2
+  id = "server-2:vmbr0"
+}
