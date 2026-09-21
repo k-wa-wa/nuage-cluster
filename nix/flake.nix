@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -221,8 +221,9 @@
               services.ollama = {
                 enable = true;
                 # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
+                # acceleration オプションは 26.05 で廃止され package 明示指定のみが有効になった。
+                # 元々 package を明示指定していたため、旧 acceleration の指定は実効を持っていなかった。
                 package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
-                acceleration = "rocm";
                 loadModels = [ "batiai/qwen3.6-27b:iq3" ];
                 host = "0.0.0.0";
                 environmentVariables = {

@@ -336,6 +336,10 @@
     };
     settings.security = {
       allow_embedding = true;
+      # 26.05 で secret_key のデフォルト値が廃止された。
+      # このホストは匿名 Viewer のみで暗号化が必要なシークレットを持たないため、
+      # 26.05 以前の実装上のデフォルト値をそのまま踏襲する。
+      secret_key = "SW2YcwTIb9zpOOhoPsMm";
     };
     settings."auth.anonymous" = {
       enabled = true;
