@@ -42,6 +42,10 @@ provider "proxmox" {
       name    = "server-1"
       address = "192.168.5.25"
     }
+    node {
+      name    = "server-2"
+      address = "192.168.5.26"
+    }
   }
 }
 EOF

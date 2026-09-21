@@ -20,7 +20,12 @@ output "talos_schematic_id" {
 }
 
 resource "proxmox_download_file" "talos_iscsi_image" {
-  for_each = toset(["nuc-1", "nuc-2", "server-1"])
+  for_each = toset([
+    "nuc-1",
+    # "nuc-2",
+    "server-1",
+    "server-2",
+  ])
 
   content_type = "iso"
   datastore_id = "local"
@@ -33,7 +38,12 @@ resource "proxmox_download_file" "talos_iscsi_image" {
 ###
 
 resource "proxmox_download_file" "nixos_base_lxc" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1"])
+  for_each = toset([
+    "nuc-1",
+    # "nuc-2",
+    "server-1",
+    "server-2",
+  ])
   content_type = "vztmpl"
   datastore_id = "local"
   node_name    = each.key
@@ -43,7 +53,12 @@ resource "proxmox_download_file" "nixos_base_lxc" {
   overwrite = true
 }
 resource "proxmox_download_file" "nixos_base_vm" {
-  for_each     = toset(["nuc-1", "nuc-2", "server-1", "server-2"])
+  for_each = toset([
+    "nuc-1",
+    # "nuc-2",
+    "server-1",
+    "server-2",
+  ])
   content_type = "import"
   datastore_id = "local"
   node_name    = each.key

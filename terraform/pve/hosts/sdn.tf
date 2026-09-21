@@ -1,7 +1,7 @@
 resource "proxmox_sdn_fabric_ospf" "main" {
   id        = "main"
   ip_prefix = "10.254.1.0/24"
-  area = 1
+  area      = 1
 
   depends_on = [
     proxmox_sdn_applier.finalizer
@@ -13,13 +13,20 @@ resource "proxmox_sdn_fabric_node_ospf" "main_nuc1" {
   node_id         = "nuc-1"
   ip              = "10.254.1.21"
   interface_names = ["vmbr10.1", "vmbr10.3"]
-  
+
 }
 
-resource "proxmox_sdn_fabric_node_ospf" "main_nuc2" {
+# resource "proxmox_sdn_fabric_node_ospf" "main_nuc2" {
+#   fabric_id       = proxmox_sdn_fabric_ospf.main.id
+#   node_id         = "nuc-2"
+#   ip              = "10.254.1.22"
+#   interface_names = ["vmbr10.1", "vmbr10.2"]
+# }
+
+resource "proxmox_sdn_fabric_node_ospf" "main_server2" {
   fabric_id       = proxmox_sdn_fabric_ospf.main.id
-  node_id         = "nuc-2"
-  ip              = "10.254.1.22"
+  node_id         = "server-2"
+  ip              = "10.254.1.26"
   interface_names = ["vmbr10.1", "vmbr10.2"]
 }
 
@@ -35,7 +42,7 @@ resource "proxmox_sdn_applier" "example_applier" {
     replace_triggered_by = [
       proxmox_sdn_fabric_ospf.main,
       proxmox_sdn_fabric_node_ospf.main_nuc1,
-      proxmox_sdn_fabric_node_ospf.main_nuc2,
+      proxmox_sdn_fabric_node_ospf.main_server2,
       proxmox_sdn_fabric_node_ospf.main_server1,
     ]
   }
@@ -43,7 +50,7 @@ resource "proxmox_sdn_applier" "example_applier" {
   depends_on = [
     proxmox_sdn_fabric_ospf.main,
     proxmox_sdn_fabric_node_ospf.main_nuc1,
-    proxmox_sdn_fabric_node_ospf.main_nuc2,
+    proxmox_sdn_fabric_node_ospf.main_server2,
     proxmox_sdn_fabric_node_ospf.main_server1,
   ]
 }

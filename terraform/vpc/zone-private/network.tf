@@ -1,10 +1,20 @@
 resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_private" {
-  id                         = "private"
-  nodes                      = ["nuc-1", "nuc-2", "server-1"]
-  controller                 = "bgp-evpn"
-  vrf_vxlan                  = 4001
-  mtu                        = 1450
-  exit_nodes                 = ["nuc-1", "nuc-2", "server-1"]
+  id = "private"
+  nodes = [
+    "nuc-1",
+    # "nuc-2",
+    "server-1",
+    "server-2",
+  ]
+  controller = "bgp-evpn"
+  vrf_vxlan  = 4001
+  mtu        = 1450
+  exit_nodes = [
+    "nuc-1",
+    # "nuc-2",
+    "server-1",
+    "server-2",
+  ]
   advertise_subnets          = true
   disable_arp_nd_suppression = true
 
