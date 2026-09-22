@@ -47,7 +47,7 @@
 | NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179) → **server-2 へ移植** |
 | その他 | Wi-Fi 6E / Bluetooth 5.2、Thunderbolt |
 | 購入 | 2024-12 (Amazon, 販売: GEEK+ Store, ASIN: B0CF9CH9QP) |
-| 状態 | **2026-09-21 に電源障害（基板故障）で停止、退役**。データ用 SSD と USB NIC は server-2 へ移植し、ワークロードを退避稼働中 ([nuc-2-migration-to-server-2.md](./nuc-2-migration-to-server-2.md) 参照) |
+| 状態 | **2026-09-21 に電源障害（基板故障）で停止、退役**。データ用 SSD と USB NIC は server-2 へ移植し、ワークロードを退避稼働中 ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md) 参照) |
 
 ### 2.3 server-1 (自作 PC)
 
