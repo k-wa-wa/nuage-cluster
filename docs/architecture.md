@@ -4,7 +4,7 @@
 
 Proxmox VE の物理 4 ノード (nuc-1 / nuc-2 / server-1 / server-2) で構成する。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
 
-- **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH) と SDN の出口 (SNAT)。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES200GMP」
+- **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH) と SDN の出口 (SNAT)。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES220GMP」
 - **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1/nuc-2 は USB NIC を使用
 - **vmbr11 — 予備 (10.0.1.0/24)**: 未使用の予備セグメント
 - server-1 のみ `vmbr1` (192.168.1.0/24 接続) を追加で持ち、Proxy 用に使用する
