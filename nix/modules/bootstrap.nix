@@ -1,4 +1,4 @@
-args@{ lib, ... }:
+args@{ lib, config, ... }:
 
 let
   # autoUpgradeSchedule.enable は各ホストの nixosConfigurations (nix/flake.nix) の
@@ -63,6 +63,31 @@ in
     nixos-upgrade.timerConfig = {
       OnBootSec = "30s";
     };
+  };
+
+  # nixos-rebuild (switch-to-configuration-ng) には、起動直後のように systemd 側の
+  # target がまだ収束しきっていないタイミングで初回switchすると、新規ユニット
+  # (今回は haproxy/keepalived/coredns等) が「新規」として認識されず起動されないまま
+  # 完了してしまうことがある、という既知の不安定さがある
+  # (nixpkgs#23221, #353450, #378535, #347315)。
+  # 同じ設定でもう一度switchするだけで正しく起動されることを確認済みなので、
+  # 初回の nixos-upgrade 成功直後に一度だけ追加でswitchし直す。
+  systemd.services.nixos-upgrade.unitConfig.OnSuccess = [ "bootstrap-second-switch.service" ];
+
+  systemd.services.bootstrap-second-switch = {
+    description = "初回switchで起動されなかった新規ユニットを拾うため、初回のみもう一度switchする";
+    serviceConfig = {
+      Type = "oneshot";
+    };
+    script = ''
+      marker=/var/lib/bootstrap-second-switch-done
+      if [ -e "$marker" ]; then
+        exit 0
+      fi
+      mkdir -p /var/lib
+      touch "$marker"
+      ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch --flake "${config.system.autoUpgrade.flake}"
+    '';
   };
 
   system.stateVersion = "24.11";
