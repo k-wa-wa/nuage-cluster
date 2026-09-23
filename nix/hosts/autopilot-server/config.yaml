@@ -26,6 +26,8 @@ repos:
     name: nuage-monitoring-stack
   - owner: k-wa-wa
     name: bare-web-proxy
+  - owner: k-wa-wa
+    name: nuage-autopilot4
 
 # ジョブ種別ごとのエージェント CLI とモデル。
 # command のコマンド名から claude / agy / exec のアダプタを解決する。
