@@ -72,6 +72,13 @@ in
   # (nixpkgs#23221, #353450, #378535, #347315)。
   # 同じ設定でもう一度switchするだけで正しく起動されることを確認済みなので、
   # 初回の nixos-upgrade 成功直後に一度だけ追加でswitchし直す。
+  #
+  # 注意: --flake <url> のようにホスト名を省略した自動解決だと、解決先が
+  # 現在の世代と同じ場合にアクティベーション自体を丸ごとスキップしてしまい
+  # (nixos-upgrade と全く同じ状況を再現してしまう)、この対策が効かない。
+  # 明示的に --flake <url>#<hostname> を指定した場合はスキップされず、
+  # 毎回きちんとアクティベーションが走ることを実機で確認済みなので、
+  # ここでは現在の hostname を明示的に埋め込む。
   systemd.services.nixos-upgrade.unitConfig.OnSuccess = [ "bootstrap-second-switch.service" ];
 
   systemd.services.bootstrap-second-switch = {
@@ -86,7 +93,8 @@ in
       fi
       mkdir -p /var/lib
       touch "$marker"
-      ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch --flake "${config.system.autoUpgrade.flake}"
+      hostname=$(cat /proc/sys/kernel/hostname)
+      ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch --flake "${config.system.autoUpgrade.flake}#$hostname"
     '';
   };
 
