@@ -89,7 +89,7 @@ in
       attempts=0
       [ -f "$attemptsFile" ] && attempts=$(cat "$attemptsFile")
 
-      currentHostname=$(hostname)
+      currentHostname=$(cat /proc/sys/kernel/hostname)
       if [ "$currentHostname" != "nixos" ]; then
         echo "hostname is '$currentHostname'; looks fine, continuing."
         exit 0
