@@ -45,8 +45,8 @@ in
 
   networking.useDHCP = false;
 
-  # base-lxc / base-vm 共通: どちらもプロビジョニング時に cloud-init 経由で
-  # hostname 等の初期情報を受け取るため。
+  # base-vm は cloud-init で hostname を受け取る (nixos-bootstrap が参照する)。
+  # base-lxc の hostname は cloud-init ではなく Proxmox が起動前に /etc/hostname へ直接書き込む。
   services.cloud-init.enable = true;
   services.cloud-init.network.enable = true;
 
@@ -63,55 +63,6 @@ in
     nixos-upgrade.timerConfig = {
       OnBootSec = "30s";
     };
-  };
-
-  # LXCコンテナは Proxmox が cloud-init 経由で本来のhostnameを渡すが、
-  # まれに cloud-init のデータソース探索がコンテナ起動に間に合わず、
-  # hostname が汎用デフォルト値 "nixos" のまま止まってしまうことがある。
-  # その場合 nixos-upgrade は hostname から nixosConfigurations.<hostname> を
-  # 解決できず初回switchに失敗し、かつ自然には回復しない
-  # (cloud-init のデータソース探索は起動につき1回きりで、以降のnixos-upgradeの
-  # 再試行では直らないため)。
-  # ここでは nixos-upgrade が走る前に hostname を確認し、まだ "nixos" のままなら
-  # 再起動してcloud-initにもう一度チャンスを与える。無限再起動を避けるため
-  # 再起動回数の上限を設ける。
-  systemd.services.bootstrap-hostname-guard = {
-    description = "hostnameがProxmoxから正しく反映されるまでcloud-initの再試行(再起動)を試みる";
-    after = [ "cloud-init.service" ];
-    before = [ "nixos-upgrade.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      attemptsFile=/var/lib/bootstrap-hostname-guard-attempts
-      maxAttempts=3
-      attempts=0
-      [ -f "$attemptsFile" ] && attempts=$(cat "$attemptsFile")
-
-      currentHostname=$(cat /proc/sys/kernel/hostname)
-      if [ "$currentHostname" != "nixos" ]; then
-        echo "hostname is '$currentHostname'; looks fine, continuing."
-        exit 0
-      fi
-
-      if [ "$attempts" -ge "$maxAttempts" ]; then
-        echo "hostname is still the generic default 'nixos' after $attempts reboot(s); giving up."
-        echo "Manual intervention needed: nixos-rebuild switch --flake <flake>#<hostname>"
-        exit 0
-      fi
-
-      mkdir -p /var/lib
-      echo $((attempts + 1)) > "$attemptsFile"
-      echo "hostname is stuck at the generic default 'nixos' (attempt $((attempts + 1))/$maxAttempts);"
-      echo "rebooting to give cloud-init another chance to pick up the Proxmox-assigned hostname..."
-      systemctl reboot
-    '';
-  };
-
-  systemd.services.nixos-upgrade = {
-    after = [ "bootstrap-hostname-guard.service" ];
-    requires = [ "bootstrap-hostname-guard.service" ];
   };
 
   system.stateVersion = "24.11";
