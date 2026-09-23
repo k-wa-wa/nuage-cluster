@@ -1,73 +1,32 @@
-args@{ pkgs, lib, ... }:
+args@{ pkgs, ... }:
 
 let
   # autoUpgradeSchedule は各ホストの nixosConfigurations (nix/flake.nix) の
-  # specialArgs 経由で渡される。未指定のホストはデフォルト (enable = true, dates = "daily") にフォールバックする。
+  # specialArgs 経由で渡される。未指定のホストはデフォルト (dates = "daily") にフォールバックする。
+  # enable (初回起動トリガーのため tar 側に焼き込む必要がある) は modules/bootstrap.nix 側で扱う。
   autoUpgradeSchedule = args.autoUpgradeSchedule or { };
-  autoUpgradeEnable = autoUpgradeSchedule.enable or true;
   autoUpgradeDates = autoUpgradeSchedule.dates or "daily";
 in
 
 {
-  nix.settings = {
-    trusted-users = [
-      "root"
-      "nixos"
-      "@wheel"
-    ];
-
-    trusted-public-keys = [ ];
-    substituters = [ "https://cache.nixos.org" ];
-    experimental-features = [
-      "nix-command"
-      "flakes"
-    ];
-  };
-
-  users.users.nixos = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIi6KgfT6hU8CWl7Xm7bnKen80++7lHrQ+OqvEuAe+80 nixos-sever"
-    ];
-  };
-
-  security.sudo.enable = true;
-  security.sudo.wheelNeedsPassword = false;
-
-  services.openssh = {
-    enable = true;
-    settings = {
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PermitRootLogin = "no";
-    };
-  };
-
-  networking = {
-    useDHCP = false;
+  services.openssh.settings = {
+    PasswordAuthentication = false;
+    KbdInteractiveAuthentication = false;
+    PermitRootLogin = "no";
   };
 
   time.timeZone = "Asia/Tokyo";
 
+  # nixpkgs のデフォルト値変更 (例: 26.05 での dbus -> dbus-broker) に自動追従させない。
+  # デフォルト変更が switch inhibitor に該当する場合、自動アップグレードのライブ switch 中に
+  # ハングする既知の nixpkgs バグ (NixOS/nixpkgs#428577) を踏むため、明示的に固定する。
+  services.dbus.implementation = "broker";
+
   environment.systemPackages = [ pkgs.git ];
 
-  system.autoUpgrade = {
-    enable = autoUpgradeEnable;
-    flake = "https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix";
-    dates = autoUpgradeDates;
-  };
-
-  systemd.timers = lib.mkIf autoUpgradeEnable {
-    nixos-upgrade.timerConfig = {
-      OnBootSec = "30s";
-    };
-  };
+  system.autoUpgrade.dates = autoUpgradeDates;
 
   # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
   systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
     "-/var/lib/nix-provisioning/access-tokens-env";
-
-  system.stateVersion = "24.11";
 }

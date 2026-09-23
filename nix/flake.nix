@@ -80,6 +80,7 @@
           modules = [
             autopilot.nixosModules.autopilot
             ./hosts/base-vm/configuration.nix
+            ./modules/common.nix
             ./hosts/autopilot-server/configuration.nix
             {
               networking.hostName = "autopilot-server";
@@ -96,6 +97,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/loadbalancer/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -113,6 +115,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/loadbalancer/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -130,6 +133,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/loadbalancer/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -147,6 +151,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/postgres-cluster/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -164,6 +169,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/postgres-cluster/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -181,6 +187,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/postgres-cluster/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -193,6 +200,7 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/egress-gateway/configuration.nix
             {
               networking.hostName = "egress-gateway";
@@ -204,6 +212,7 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/chaos-monitor/configuration.nix
             {
               networking.hostName = "chaos-monitor";
@@ -215,6 +224,7 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-vm/configuration.nix
+            ./modules/common.nix
             ./hosts/lm-server/configuration.nix
             {
               networking.hostName = "lm-server";
@@ -245,6 +255,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/minio-cluster/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -262,6 +273,7 @@
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
             ./hosts/minio-cluster/configuration.nix
             sops-nix.nixosModules.sops
             {
@@ -284,6 +296,7 @@
           };
           modules = [
             ./hosts/base-vm/configuration.nix
+            ./modules/common.nix
             ./hosts/bluray-extractor/configuration.nix
             sops-nix.nixosModules.sops
             {
