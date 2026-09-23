@@ -35,10 +35,6 @@ provider "proxmox" {
       address = "192.168.5.21"
     }
     node {
-      name    = "nuc-2"
-      address = "192.168.5.22"
-    }
-    node {
       name    = "server-1"
       address = "192.168.5.25"
     }

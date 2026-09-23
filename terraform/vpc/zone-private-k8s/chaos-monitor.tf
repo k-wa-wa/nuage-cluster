@@ -3,7 +3,7 @@ module "chaos-monitor" {
   lxc_config = {
     vm_id     = 250
     vm_name   = "chaos-monitor"
-    node_name = "nuc-2"
+    node_name = "server-2"
     cores     = 2
     memory    = 2048
     network_devices = [

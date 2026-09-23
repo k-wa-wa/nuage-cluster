@@ -58,7 +58,7 @@ module "lb-2" {
   lxc_config = {
     vm_id     = 212
     vm_name   = "lb-2"
-    node_name = "nuc-2"
+    node_name = "server-2"
     cores     = 1
     memory    = 2048
     network_devices = [

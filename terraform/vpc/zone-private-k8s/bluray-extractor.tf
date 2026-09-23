@@ -2,6 +2,7 @@ data "sops_file" "bluray_extractor_secrets" {
   source_file = "${path.module}/../../secrets.yaml"
 }
 
+/*
 resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
   content_type = "snippets"
   datastore_id = "local"
@@ -82,3 +83,4 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
     usb3 = true
   }
 }
+*/

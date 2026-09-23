@@ -23,7 +23,7 @@ module "k8s-cluster" {
       "controlplane-02" = {
         type       = "controlplane"
         vm_id      = 202
-        node_name  = "nuc-2"
+        node_name  = "server-2"
         cores      = 2
         memory     = 4096
         bridge     = "prvmain"
@@ -56,7 +56,7 @@ module "k8s-cluster" {
       "worker-02" = {
         type       = "worker"
         vm_id      = 207
-        node_name  = "nuc-2"
+        node_name  = "server-2"
         cores      = 4
         memory     = 12288
         bridge     = "prvmain"
