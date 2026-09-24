@@ -81,7 +81,7 @@ module "swfs-cluster-1" {
 }
 module "swfs-cluster-2" {
   source              = "./modules/secrets"
-  host                = "192.168.5.22"
+  host                = "192.168.5.26"
   target_host         = "swfs-cluster-2"
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
