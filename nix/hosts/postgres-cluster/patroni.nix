@@ -115,11 +115,15 @@ in
           ttl = 30;
           loop_wait = 10;
           retry_timeout = 10;
-          maximum_lag_on_failover = 1048576;
+          maximum_lag_on_failover = 0;
+          synchronous_mode = "quorum";
+          synchronous_node_count = 1;
+          synchronous_mode_strict = true;
           postgresql = {
             use_pg_rewind = true;
             use_slots = true;
             parameters = {
+              synchronous_commit = "on";
               max_connections = 100;
               shared_buffers = "1GB";
               archive_mode = "on";
