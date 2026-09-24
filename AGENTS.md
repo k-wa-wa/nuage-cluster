@@ -64,11 +64,13 @@
 - **Terraform, Terragrunt操作の禁止**:
   特別な指示がない限り、Terraform, Terragrunt の操作は実行しないこと。ユーザーに操作を促すこと。
 
+- **Terragrunt コマンドの提示方法**:
+  基本的にはリポジトリルートから操作することを前提に、以下のように --terragrunt-working-dir を指定して提示すること。
+  `terragrunt --terragrunt-working-dir terraform/pve/hosts plan`
+
 - **Nixファイルのフォーマット**:
   `nix/` 配下のファイル（`*.nix` 等）を変更した際は、必ず以下のコマンドを実行してフォーマットを適用すること。
-  ```bash
-  nix run nixpkgs#nixfmt-tree -- ./nix
-  ```
+  `nix run nixpkgs#nixfmt-tree -- ./nix`
 
 - **言い切り調の使用**:
   コメントアウトやドキュメントを記述する際は、です・ます調（敬体）を避け、である・する調（常体）の言い切りを使用すること。
