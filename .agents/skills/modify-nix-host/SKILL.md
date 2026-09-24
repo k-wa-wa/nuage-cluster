@@ -72,3 +72,8 @@ ssh <host> "journalctl -u nixos-upgrade.service -n 50 --no-pager"
 - `/run/<middleware>` 等のディレクトリ不在でソケット・PID ファイル作成に失敗しクラッシュすることがある。配置先を `/tmp` 等に退避させる
 - NixOS モジュールが生成する設定ファイル (YAML 等) の属性ネストがミドルウェアの期待と合わないことがある。生成物を直接開いて確認する
 - loadbalancer の keepalived は nopreempt 設定。VIP の動きを検証する際は state 遷移 (MASTER/BACKUP) のログを確認する
+- **新規ノードの初回構築で、新規ユニットが起動しないことがある** (swfs-cluster で発生)。`nixos-upgrade` と `bootstrap-second-switch` が成功しているのに、ミドルウェアの unit や `keepalived-boot-delay.timer` が `inactive (dead)` のままで、`journalctl -u <unit> -b` も空になる。unit は enabled で `multi-user.target` に wants されているため、再起動すれば自動で起動する。再起動せずに拾うには次を実行する。`multi-user.target` の wants のうち未起動のユニットだけが起動し、起動済みのユニットには影響しない。keepalived は timer 経由で 5 秒後に起動する。
+  ```bash
+  ssh <host> "sudo systemctl start multi-user.target"
+  ```
+  原因は未特定。`bootstrap.nix` のコメントにある nixpkgs の既知の不安定さと同じ系統と考えられる。2 回目の switch は現在の世代と同じ設定を再適用するため、初回で起動されなかったユニットは「新規」として検出されず、救済にならない (推測)
