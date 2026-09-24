@@ -1,5 +1,5 @@
 # MinIO の移行先 S3 互換ストレージ (SeaweedFS)。master の raft に 3 台が必要なため、
-# pg-cluster と同じ nuc-1 / nuc-2 / server-1 に 1 台ずつ配置する。
+# nuc-1 / server-2 / server-1 に 1 台ずつ配置する。
 # VIP は 10.20.1.60 (keepalived, nix/hosts/swfs-cluster/keepalived.nix)
 locals {
   swfs_nodes = {
@@ -10,7 +10,7 @@ locals {
     }
     "swfs-cluster-2" = {
       vm_id     = 262
-      node_name = "nuc-2"
+      node_name = "server-2"
       ip        = "10.20.1.62"
     }
     "swfs-cluster-3" = {

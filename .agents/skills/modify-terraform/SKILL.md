@@ -20,6 +20,7 @@ Terraform / Terragrunt 資材を変更する際に使う手段・場所・注意
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway・bluray-extractor 等 |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
+| `terraform/vpc/zone-private-persistent-fs` | S3 互換ストレージ (SeaweedFS) LXC (swfs-cluster-1/2/3) |
 | `terraform/vpc/modules` | 共通モジュール (`k8s-cluster`, `lxc`, `nix-lxc`) |
 | `terraform/truenas` | TrueNAS 設定 |
 
