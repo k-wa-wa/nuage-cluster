@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
 
   hostpci {
     device = "hostpci1"
-    id     = "0000:05:00"
+    id     = "0000:06:00"
     pcie   = true
     xvga   = false
     rombar = true
