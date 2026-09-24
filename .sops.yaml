@@ -42,6 +42,12 @@ creation_rules:
           - *admin_key
           - *lb_key
 
+  - path_regex: nix/hosts/swfs-cluster/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *lb_key
+
   - path_regex: nix/hosts/bluray-extractor/secrets.yaml
     key_groups:
       - age:

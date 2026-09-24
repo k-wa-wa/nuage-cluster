@@ -273,6 +273,61 @@
           ];
         };
 
+        # 自動更新は raft の quorum を保つため、10 分ずつずらす
+        swfs-cluster-1 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:20";
+            };
+          };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
+            ./hosts/swfs-cluster/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "swfs-cluster-1";
+            }
+          ];
+        };
+
+        swfs-cluster-2 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:30";
+            };
+          };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
+            ./hosts/swfs-cluster/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "swfs-cluster-2";
+            }
+          ];
+        };
+
+        swfs-cluster-3 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:40";
+            };
+          };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
+            ./hosts/swfs-cluster/configuration.nix
+            sops-nix.nixosModules.sops
+            {
+              networking.hostName = "swfs-cluster-3";
+            }
+          ];
+        };
+
         bluray-extractor = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = {
