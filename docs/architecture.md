@@ -8,7 +8,7 @@ Proxmox VE の物理 4 ノード (nuc-1 / nuc-2 / server-1 / server-2) で構成
 - **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1/nuc-2 は USB NIC を使用
 - **vmbr11 — 予備 (10.0.1.0/24)**: 未使用の予備セグメント
 - server-1 のみ `vmbr1` (192.168.1.0/24 接続) を追加で持ち、Proxy 用に使用する
-- server-2 は lm-server (Ollama) をホストする
+- server-2 は lm-server (llama.cpp) をホストする
 - 各機器の型番・部品構成は [hardware-inventory.md](./hardware-inventory.md) を参照
 
 <img src="./architecture-physical.drawio.svg" style="background-color: #121212; padding: 8px;">
@@ -71,7 +71,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | nuc-1 | 192.168.5.21 | 10.0.0.10 (fabric: 10.254.1.21) | 10.0.1.10 | |
 | nuc-2 | 192.168.5.22 | 10.0.0.11 (fabric: 10.254.1.22) | 10.0.1.11 | |
 | server-1 | 192.168.5.25 | 10.0.0.12 (fabric: 10.254.1.25) | 10.0.1.12 | vmbr1 / vmbr10 (PVE on PVE 用) あり |
-| server-2 | 192.168.5.26 | - | - | lm-server (Ollama) をホスト |
+| server-2 | 192.168.5.26 | - | - | lm-server (llama.cpp) をホスト |
 
 ### VM / LXC (zone: private = prvmain 10.20.1.0/24)
 
@@ -81,7 +81,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | worker-01/02/03 | 206-208 | nuc-1 / nuc-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
 | lb-1/2/3 | 211-213 | nuc-1 / nuc-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
 | pg-1/2/3 | 215-217 | nuc-1 / nuc-2 / server-1 | 10.20.1.25-27 | 192.168.5.205-207 | PostgreSQL (primary Endpoint: 10.20.1.28) |
-| egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (Ollama 中継 → 192.168.5.222:11434) |
+| egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 
 ### その他 VM
 
@@ -89,7 +89,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | :-- | :-- | :-- | :-- | :-- |
 | autopilot-server | 251 | server-1 | 192.168.5.241 | nuage-autopilot 実行ホスト (8c/16GB) |
 | oc1-omada | 1163 | server-1 | - | Omada Controller |
-| lm-server | 200 | server-2 | 192.168.5.222 | Ollama (ROCm) |
+| lm-server | 200 | server-2 | 192.168.5.222 | llama.cpp (ROCm) |
 | bluray-extractor | 240 | server-1 | 192.168.5.240 | MakeMKV リッピング VM |
 
 このほか、追加で払い出した EVPN ゾーン上にも VM を配置できる(上記一覧は zone: private と管理系のみを記載)。

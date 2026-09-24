@@ -6,7 +6,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-ollama.url = "github:nixos/nixpkgs/nixos-unstable";
+    # lm-server の llama.cpp 用。新しいモデルアーキテクチャへの追従のため unstable を別途ピン留めする。
+    # autopilot が follows する nixpkgs-unstable とは独立して更新できるよう分けている。
+    nixpkgs-llama-cpp.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -34,7 +36,7 @@
       self,
       nixpkgs,
       nixos-generators,
-      nixpkgs-ollama,
+      nixpkgs-llama-cpp,
       nixpkgs-unstable,
       sops-nix,
       autopilot,
@@ -222,26 +224,15 @@
 
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = {
+            llamaCppPkgs = nixpkgs-llama-cpp.legacyPackages.x86_64-linux;
+          };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./modules/common.nix
             ./hosts/lm-server/configuration.nix
             {
               networking.hostName = "lm-server";
-              services.ollama = {
-                enable = true;
-                # ここで nixpkgs-ollama (特定のコミット) のパッケージを指定
-                # acceleration オプションは 26.05 で廃止され package 明示指定のみが有効になった。
-                # 元々 package を明示指定していたため、旧 acceleration の指定は実効を持っていなかった。
-                package = nixpkgs-ollama.legacyPackages.x86_64-linux.ollama;
-                loadModels = [ "batiai/qwen3.6-27b:iq3" ];
-                host = "0.0.0.0";
-                environmentVariables = {
-                  OLLAMA_KEEP_ALIVE = "-1";
-                  HSA_OVERRIDE_GFX_VERSION = "11.0.0";
-                };
-                # curl -s http://localhost:11434/api/generate -d '{"model": "sorc/qwen3.5-claude-4.6-opus:9b", "keep_alive": -1}'
-              };
             }
           ];
         };

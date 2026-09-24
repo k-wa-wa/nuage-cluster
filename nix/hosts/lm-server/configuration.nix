@@ -2,6 +2,8 @@
 
 {
   imports = [
+    ./llama-cpp.nix
+    ./gpu-reboot-once.nix
   ];
 
   environment.systemPackages = with pkgs; [
@@ -21,6 +23,4 @@
       rocmPackages.clr.icd
     ];
   };
-
-  networking.firewall.allowedTCPPorts = [ 11434 ];
 }
