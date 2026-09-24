@@ -95,6 +95,12 @@ in
       touch "$marker"
       hostname=$(cat /proc/sys/kernel/hostname)
       ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch --flake "${config.system.autoUpgrade.flake}#$hostname"
+
+      # 2 回目の switch は現在の世代と同じ設定の再適用になるため、初回の switch で起動されなかった
+      # 新規ユニットは「新規」として検出されず、上の再 switch だけでは拾えないことがある (swfs-cluster で確認)。
+      # multi-user.target の wants のうち未起動のユニットだけを明示的に起動する。
+      # 起動済みのユニットには影響せず、通常の起動時に multi-user.target が行う処理と同じである。
+      ${config.systemd.package}/bin/systemctl start multi-user.target
     '';
   };
 
