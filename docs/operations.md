@@ -86,6 +86,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
+| `terraform/vpc/zone-private-persistent-fs` | S3 互換ストレージ (SeaweedFS) LXC (swfs-cluster-1/2/3) |
 | `terraform/vpc/zone-xxx` | その他 SND Zone |
 | `truenas/` | TrueNAS の設定 (Terragrunt 管理外・単体の tofu 構成) |
 
