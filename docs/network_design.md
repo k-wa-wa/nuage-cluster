@@ -81,10 +81,12 @@ Proxmox SDN EVPN Zone の `Exit Nodes` 機能を使用する。
 ## 7. 物理ノードIP割り当て (Physical Nodes)
 
 各Proxmoxノードに固定IPを割り当てる。
-SDN Overlay (NIC 2) は、管理IPの第4オクテットを流用した専用セグメント (`10.0.1.0/24`) を使用する。
+SDN Fabric (NIC 2) は `10.0.0.0/24`、インターネット出口 (NIC 3) は `10.0.1.0/24` を使用する。Proxmox ホストの default gateway は NIC 3 側の `10.0.1.1` であり、SDN の SNAT もここから抜ける。
 
-| ノード名 | (NIC 1) 管理/Cluster | (NIC 2) SDN Overlay/VXLAN | (NIC 3) Exit/Internet |
+| ノード名 | (NIC 1) 管理 `vmbr0` | (NIC 2) SDN Fabric `vmbr10` | (NIC 3) Exit/Internet `vmbr11` |
 | :--- | :--- | :--- | :--- |
-| **nuc-1** | `192.168.5.21` | `10.0.1.21` | DHCP / Fixed |
-| **nuc-2** | `192.168.5.22` | `10.0.1.22` | DHCP / Fixed |
-| **server-1** | `192.168.5.25` | `10.0.1.25` | DHCP / Fixed |
+| **nuc-1** | `192.168.5.21` | `10.0.0.10` (fabric: `10.254.1.21`) | `10.0.1.10` |
+| **server-1** | `192.168.5.25` | `10.0.0.12` (fabric: `10.254.1.25`) | `10.0.1.12` |
+| **server-2** | `192.168.5.26` | `10.0.0.13` (fabric: `10.254.1.26`) | `10.0.1.13` |
+
+※ nuc-2 (`192.168.5.22` / `10.0.0.11` / `10.0.1.11`) は故障で退役

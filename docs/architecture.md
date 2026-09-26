@@ -2,11 +2,11 @@
 
 ## 1. 物理構成
 
-Proxmox VE の物理 4 ノード (nuc-1 / nuc-2 / server-1 / server-2) で構成する。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
+Proxmox VE の物理 3 ノード (nuc-1 / server-1 / server-2) で構成する。nuc-2 は 2026-09 に故障で退役し、ワークロードは server-2 へ退避した ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md))。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
 
-- **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH) と SDN の出口 (SNAT)。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES220GMP」
-- **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1/nuc-2 は USB NIC を使用
-- **vmbr11 — 予備 (10.0.1.0/24)**: 未使用の予備セグメント
+- **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH)。lb の VIP (192.168.5.200) など一部 VM / LXC の LAN 側の足もここに置いている。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES220GMP」
+- **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1 / server-2 は USB NIC を使用
+- **vmbr11 — インターネット出口 (10.0.1.0/24)**: Proxmox ホストの default gateway (`10.0.1.1`) がある。SDN の VM / LXC は各ホストで SNAT され、このセグメントから `10.0.1.1` → ONU (192.168.1.1) を経てインターネットへ抜ける。nuc-1 / server-2 は USB NIC を使用
 - server-1 のみ `vmbr1` (192.168.1.0/24 接続) を追加で持ち、Proxy 用に使用する
 - server-2 は lm-server (llama.cpp) をホストする
 - 各機器の型番・部品構成は [hardware-inventory.md](./hardware-inventory.md) を参照
@@ -19,7 +19,7 @@ Proxmox VE の物理 4 ノード (nuc-1 / nuc-2 / server-1 / server-2) で構成
 
 - **SDN Fabric**: `vmbr10` 上の VLAN サブインターフェースでノード間をリング接続し、OSPF (fabric `main`, `10.254.1.0/24`, area 1) でアンダーレイの経路交換を行う
 - **EVPN Controller**: BGP EVPN コントローラーは GUI で手動作成する(Terraform 管理外)
-- **オーバーレイ**: EVPN ゾーンごとに VRF を分離し、VNet (VXLAN) を払い出す。全ノードが Exit Node であり、SNAT で `vmbr0` からインターネットへ抜ける
+- **オーバーレイ**: EVPN ゾーンごとに VRF を分離し、VNet (VXLAN) を払い出す。全ノードが Exit Node であり、SNAT で `vmbr11` からインターネットへ抜ける
 - **ゾーン**: 個人用 Kubernetes 等は zone: private に構築。テナントや用途が増えたら、同じ仕組みで EVPN ゾーンを追加して払い出せる
 
 <img src="./architecture-network.drawio.svg" style="background-color: #121212; padding: 8px;">
@@ -34,7 +34,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 - **API アクセス**: `kubectl` / `talosctl` は HAProxy の外部 VIP `192.168.5.200` (6443 / 50000) 経由でアクセスする。ソース `192.168.5.0/24` のみ許可
 - **DNS**: lb 上の CoreDNS が `*.cluster.wpc` / `*.nuage.cluster.wpc` を `192.168.5.200` に解決する。それ以外は `8.8.8.8` へフォワード
-- **PostgreSQL**: クラスター外の LXC (pg-1/2/3) で稼働し、k8s からは `pg-cluster` namespace の Service + EndpointSlice (`10.20.1.28`) 経由で参照する。
+- **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3) で稼働し、keepalived の VIP `10.20.1.40` が primary を指す。k8s からは `external-service` namespace の Service `postgres` + EndpointSlice (`10.20.1.40`) 経由で参照する。
 - **動的ボリューム**: local-path-provisioner (`/var/local-path-provisioner` への hostPath) により PVC の動的プロビジョニングを提供する
 
 ## 4. IaC・GitOps 運用ワークフロー
@@ -66,30 +66,33 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 
 ### 物理ノード
 
-| ノード | 管理 IP (vmbr0) | SDN Fabric (vmbr10) | 予備 (vmbr11) | 備考 |
+| ノード | 管理 IP (vmbr0) | SDN Fabric (vmbr10) | インターネット出口 (vmbr11) | 備考 |
 | :-- | :-- | :-- | :-- | :-- |
 | nuc-1 | 192.168.5.21 | 10.0.0.10 (fabric: 10.254.1.21) | 10.0.1.10 | |
-| nuc-2 | 192.168.5.22 | 10.0.0.11 (fabric: 10.254.1.22) | 10.0.1.11 | |
-| server-1 | 192.168.5.25 | 10.0.0.12 (fabric: 10.254.1.25) | 10.0.1.12 | vmbr1 / vmbr10 (PVE on PVE 用) あり |
-| server-2 | 192.168.5.26 | - | - | lm-server (llama.cpp) をホスト |
+| nuc-2 | (192.168.5.22) | (10.0.0.11) | (10.0.1.11) | 2026-09 故障により退役 |
+| server-1 | 192.168.5.25 | 10.0.0.12 (fabric: 10.254.1.25) | 10.0.1.12 | vmbr1 (Proxy 用) / vmbr999 (Omada 用) あり |
+| server-2 | 192.168.5.26 | 10.0.0.13 (fabric: 10.254.1.26) | 10.0.1.13 | lm-server (llama.cpp) をホスト。nuc-2 のワークロードを退避中 |
 
 ### VM / LXC (zone: private = prvmain 10.20.1.0/24)
 
 | 名前 | VMID | 配置 | prvmain IP | LAN IP (vmbr0) | 役割 |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| controlplane-01/02/03 | 201-203 | nuc-1 / nuc-2 / server-1 | 10.20.1.11-13 | - | Talos CP (VIP: 10.20.1.10) |
-| worker-01/02/03 | 206-208 | nuc-1 / nuc-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
-| lb-1/2/3 | 211-213 | nuc-1 / nuc-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
-| pg-1/2/3 | 215-217 | nuc-1 / nuc-2 / server-1 | 10.20.1.25-27 | 192.168.5.205-207 | PostgreSQL (primary Endpoint: 10.20.1.28) |
+| controlplane-01/02/03 | 201-203 | nuc-1 / server-2 / server-1 | 10.20.1.11-13 | - | Talos CP (VIP: 10.20.1.10) |
+| worker-01/02/03 | 206-208 | nuc-1 / server-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
+| lb-1/2/3 | 211-213 | nuc-1 / server-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
+| pg-cluster-1/2/3 | 241-243 | nuc-1 / server-2 / server-1 | 10.20.1.41-43 | - | PostgreSQL (Patroni, primary VIP: 10.20.1.40) |
+| minio-cluster-1/2 | 271-272 | nuc-1 / server-2 | 10.20.1.71-72 | - | MinIO (SeaweedFS へ移行中) |
+| swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP: 10.20.1.60) |
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
+| chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
+| autopilot-server | 251 | server-1 | 10.20.1.51 | - | nuage-autopilot 実行ホスト (8c/16GB, zone-dev で管理) |
+| bluray-extractor | 240 | server-2 (停止中) | 10.20.1.80 | 192.168.5.240 | MakeMKV リッピング VM |
 
 ### その他 VM
 
 | 名前 | VMID | 配置 | IP | 役割 |
 | :-- | :-- | :-- | :-- | :-- |
-| autopilot-server | 251 | server-1 | 192.168.5.241 | nuage-autopilot 実行ホスト (8c/16GB) |
-| oc1-omada | 1163 | server-1 | - | Omada Controller |
-| lm-server | 200 | server-2 | 192.168.5.222 | llama.cpp (ROCm) |
-| bluray-extractor | 240 | server-1 | 192.168.5.240 | MakeMKV リッピング VM |
+| oc1-omada | 1163 | server-1 | 192.168.5.163 / 192.168.0.2 | Omada Controller |
+| lm-server | 230 | server-2 | 192.168.5.222 | llama.cpp (ROCm) |
 
 このほか、追加で払い出した EVPN ゾーン上にも VM を配置できる(上記一覧は zone: private と管理系のみを記載)。

@@ -10,7 +10,7 @@
 | ルーター | TP-Link Omada ER605 (ギガビット マルチ WAN VPN ルーター) | VLAN ルーター (192.168.1.201 → 192.168.5.0/24) |
 | L2 スイッチ | TP-Link Omada ES220GMP (20 ポート, PoE+ 16 ポート, 250W, SFP 2) | 管理 LAN 収容 |
 | L2 スイッチ | TP-Link TL-SG108S (8 ポート, アンマネージド) | SDN Fabric (10.0.0.0/24) 専用スイッチの候補 ※要確認 |
-| Proxmox ノード | nuc-1 / nuc-2 (Intel NUC 11) | 各アプリ基盤 |
+| Proxmox ノード | nuc-1 (Intel NUC 11) | 各アプリ基盤 (nuc-2 は 2026-09 に故障で退役) |
 | Proxmox ノード | server-1 (自作 AM4, Ryzen 9 5900XT / 64GB) | 各アプリ基盤 |
 | Proxmox ノード | server-2 (自作 AM4, Ryzen 5 5500 / 64GB / RX 7600 系 × 2) | 各アプリ基盤、GPU サーバー |
 | ストレージ | TrueNAS | バックアップ、PBS |
@@ -77,7 +77,9 @@
 | ストレージ (データ) | Crucial T500 1TB NVMe (CT1000T500SSD8) → LVM-thin `local-thinpool` |
 | GPU | **Sapphire Radeon RX 7600 系 (Navi 33) × 2 枚** (同じサブシステム ID `1da2:e485`) |
 | NIC: オンボード | `enp13s0` = Killer E3000 2.5GbE (Realtek) → **vmbr0** (192.168.5.26) |
-| NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4 (`enp9s0`〜`enp12s0`) |
+| NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4 (`enp9s0`〜`enp12s0`)。未使用 |
+| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156)。nuc-2 から移植 |
+| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179)。nuc-2 から移植 |
 | 電源・ケース | SilverStone 4U ラックマウント SST-RM41-506 |
 
 ## 3. ストレージ
