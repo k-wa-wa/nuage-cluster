@@ -28,6 +28,8 @@ ports:
   port: 9001
   protocol: TCP
 endpoints:
+# 実体は S3 互換ストレージ (SeaweedFS, swfs-cluster) の VIP。
+# クライアント (pechka 等) が参照する Service 名 minio は互換性のため変更しない。
 - addresses:
-  - 10.20.1.70
+  - 10.20.1.60
   conditions: {}

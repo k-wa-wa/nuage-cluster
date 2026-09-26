@@ -28,9 +28,6 @@ in
 {
   sops = {
     age.keyFile = "/var/lib/nix-provisioning/sops-key";
-    secrets.pechka_minio_url = {
-      sopsFile = ./secrets.yaml;
-    };
     secrets.pechka_minio_bucket = {
       sopsFile = ./secrets.yaml;
     };
@@ -90,8 +87,9 @@ in
         export DEVICE="/dev/sr1"
         export LOCAL_MKV_DIR="/tmp/mkv"
 
+        export MINIO_URL="http://10.20.1.60:9000"
+
         # sops-nixで復号されたMinIOの接続情報を読み込む
-        export MINIO_URL=$(cat ${config.sops.secrets.pechka_minio_url.path})
         export MINIO_BUCKET=$(cat ${config.sops.secrets.pechka_minio_bucket.path})
         export MINIO_ACCESS_KEY=$(cat ${config.sops.secrets.pechka_minio_access_key.path})
         export MINIO_SECRET_KEY=$(cat ${config.sops.secrets.pechka_minio_secret_key.path})
