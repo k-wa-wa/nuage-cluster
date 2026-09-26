@@ -43,11 +43,11 @@
 | ストレージ (起動) | Patriot P220 128GB SATA SSD (LVM `pve`) |
 | ストレージ (データ) | Kingston OM8PGP41024N-A0 1TB NVMe (QLC, DRAM レス) → **server-2 の M2_2 へ移植** |
 | NIC (vmbr0) | `enp89s0` = オンボード Intel I225-V 2.5GbE (nuc-1 と同等) |
-| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156) → **server-2 へ移植** |
-| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179) → **server-2 へ移植** |
+| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156) |
+| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179) |
 | その他 | Wi-Fi 6E / Bluetooth 5.2、Thunderbolt |
 | 購入 | 2024-12 (Amazon, 販売: GEEK+ Store, ASIN: B0CF9CH9QP) |
-| 状態 | **2026-09-21 に電源障害（基板故障）で停止、退役**。データ用 SSD と USB NIC は server-2 へ移植し、ワークロードを退避稼働中 ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md) 参照) |
+| 状態 | **2026-09-21 に電源障害（基板故障）で停止、退役**。データ用 SSD は server-2 へ移植し、ワークロードを退避稼働中 ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md) 参照) |
 
 ### 2.3 server-1 (自作 PC)
 
@@ -77,9 +77,7 @@
 | ストレージ (データ) | Crucial T500 1TB NVMe (CT1000T500SSD8) → LVM-thin `local-thinpool` |
 | GPU | **Sapphire Radeon RX 7600 系 (Navi 33) × 2 枚** (同じサブシステム ID `1da2:e485`) |
 | NIC: オンボード | `enp13s0` = Killer E3000 2.5GbE (Realtek) → **vmbr0** (192.168.5.26) |
-| NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4 (`enp9s0`〜`enp12s0`)。未使用 |
-| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156)。nuc-2 から移植 |
-| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179)。nuc-2 から移植 |
+| NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4。`enp9s0` → **vmbr10 (SDN Fabric)** / `enp10s0` → **vmbr11 (インターネット出口)** / `enp11s0`, `enp12s0` は未接続 |
 | 電源・ケース | SilverStone 4U ラックマウント SST-RM41-506 |
 
 ## 3. ストレージ

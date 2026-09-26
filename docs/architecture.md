@@ -5,8 +5,8 @@
 Proxmox VE の物理 3 ノード (nuc-1 / server-1 / server-2) で構成する。nuc-2 は 2026-09 に故障で退役し、ワークロードは server-2 へ退避した ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md))。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
 
 - **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH)。lb の VIP (192.168.5.200) など一部 VM / LXC の LAN 側の足もここに置いている。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES220GMP」
-- **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1 / server-2 は USB NIC を使用
-- **vmbr11 — インターネット出口 (10.0.1.0/24)**: Proxmox ホストの default gateway (`10.0.1.1`) がある。SDN の VM / LXC は各ホストで SNAT され、このセグメントから `10.0.1.1` → ONU (192.168.1.1) を経てインターネットへ抜ける。nuc-1 / server-2 は USB NIC を使用
+- **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1 は USB NIC を使用
+- **vmbr11 — インターネット出口 (10.0.1.0/24)**: Proxmox ホストの default gateway (`10.0.1.1`) がある。SDN の VM / LXC は各ホストで SNAT され、このセグメントから `10.0.1.1` → ONU (192.168.1.1) を経てインターネットへ抜ける。nuc-1 は USB NIC を使用
 - server-1 のみ `vmbr1` (192.168.1.0/24 接続) を追加で持ち、Proxy 用に使用する
 - server-2 は lm-server (llama.cpp) をホストする
 - 各機器の型番・部品構成は [hardware-inventory.md](./hardware-inventory.md) を参照

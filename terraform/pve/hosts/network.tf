@@ -74,7 +74,7 @@ resource "proxmox_network_linux_bridge" "vmbr10_server2" {
   address = "10.0.0.13/24"
 
   ports = [
-    "enx6c1ff772646d"
+    "enp9s0"
   ]
 }
 
@@ -159,7 +159,7 @@ resource "proxmox_network_linux_bridge" "vmbr11_server2" {
   gateway = "10.0.1.1"
 
   ports = [
-    "enxc8a362104ed6"
+    "enp10s0"
   ]
 }
 
