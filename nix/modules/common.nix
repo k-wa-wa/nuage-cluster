@@ -9,6 +9,10 @@ let
 in
 
 {
+  imports = [
+    ./journald-upload.nix
+  ];
+
   services.openssh.settings = {
     PasswordAuthentication = false;
     KbdInteractiveAuthentication = false;
