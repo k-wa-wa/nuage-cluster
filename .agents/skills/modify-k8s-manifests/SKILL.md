@@ -37,7 +37,7 @@ export KUBECONFIG=terraform/vpc/zone-private-k8s/kubeconfig
 kubectl get applications -n argocd
 kubectl describe application <app> -n argocd
 # Argo CD UI
-open https://argocd.cluster.wpc
+open https://argocd.wpcapp.net
 ```
 
 ## 一時デプロイでの検証

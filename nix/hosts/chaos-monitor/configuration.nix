@@ -12,7 +12,7 @@
       "192.168.5.200" = [
         "pechka.wpcapp.net"
         "pechka-workflow.wpcapp.net"
-        "argocd.cluster.wpc"
+        "argocd.wpcapp.net"
         "bwproxy.cluster.wpc"
       ];
     };
@@ -253,7 +253,7 @@
             };
           }
           {
-            targets = [ "https://argocd.cluster.wpc/" ];
+            targets = [ "https://argocd.wpcapp.net/" ];
             labels = {
               service = "argocd";
             };

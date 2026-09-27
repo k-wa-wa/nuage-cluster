@@ -37,7 +37,7 @@ Argo CD が master ブランチを監視しているため、**master へ push �
 # 同期状態の確認
 kubectl get apps -n argocd
 # Argo CD UI (Ingress 経由)
-open https://argocd.cluster.wpc
+open https://argocd.wpcapp.net
 ```
 
 PostgreSQL primary の宛先 (`10.20.1.28`) は `manifests/apps/pg-cluster/base/service.yaml` 内の EndpointSlice で定義しており、Argo CD が同期する (Argo CD の `resource.exclusions` から EndpointSlice を除外対象外にすることで管理可能にしている)。
@@ -155,9 +155,9 @@ bash scripts/setup-autopilot-kubeconfig.sh
 
 ## 5. 障害対応チェックリスト
 
-### アプリにアクセスできない (`*.cluster.wpc` が開けない)
+### アプリにアクセスできない (`*.wpcapp.net` / `*.cluster.wpc` が開けない)
 
-1. DNS: `dig @192.168.5.200 argocd.cluster.wpc` → 応答がなければ lb の CoreDNS / VIP を確認
+1. DNS: `dig @192.168.5.200 argocd.wpcapp.net` → 応答がなければ lb の CoreDNS / VIP を確認
 2. VIP: keepalived がどの lb にいるか確認 (上記 4.1)。全滅していれば lb LXC を Proxmox から再起動
 3. HAProxy → NodePort: `curl -vk https://192.168.5.200` で 応答を確認。worker ノードの NodePort (30443) が生きているか
 4. k8s 内: `kubectl get pods -A | grep -v Running`、`kubectl get applications -n argocd` で Degraded を確認

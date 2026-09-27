@@ -3,15 +3,15 @@ kind: Ingress
 metadata:
   name: argocd-ingress
   annotations:
-    cert-manager.io/cluster-issuer: "ca-clusterissuer"
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-prod"
 spec:
   ingressClassName: cilium
   tls:
   - hosts:
-    - argocd.cluster.wpc
+    - argocd.wpcapp.net
     secretName: argocd-tls-secret
   rules:
-  - host: argocd.cluster.wpc
+  - host: argocd.wpcapp.net
     http:
       paths:
       - path: /
