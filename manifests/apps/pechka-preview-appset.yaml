@@ -45,6 +45,17 @@ spec:
             - 'ghcr.io/k-wa-wa/pechka-frontend:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/pechka-vrt-report:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/pechka-storybook-report:pr-{{number}}'
+            # ETL(k8s/base/etl/workflow.yaml, subtitle-workflow.yaml)。
+            # 従来はmasterへのpushでしかビルドされずpreviewでは常に本番相当の
+            # :latestを掴んでいた(ETL変更をpreviewで検証できない不具合)ため、
+            # pechkaリポジトリの.github/workflows/etl.ymlをpull_requestでも
+            # pr-<N>タグでビルド・pushするよう変更した上で追加した。
+            - 'ghcr.io/k-wa-wa/pechka/etl-extract:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/etl-transform:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/etl-load:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/etl-generate-thumbnail:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/etl-subtitle:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/etl-refresh-latest-playlist:pr-{{number}}'
           patches:
             - target:
                 kind: Namespace
