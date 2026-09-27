@@ -3,7 +3,7 @@
 # 上書き) で実装しており、argocd-vault-plugin等のCMP設定には一切手を加えていない。
 #
 # デプロイされるのは monitoring-pwa (frontend/backend) だけで、Helm チャート一式
-# (kube-prometheus-stack / loki / promtail / holmesgpt) と PrometheusRule 類は
+# (victoria-metrics-k8s-stack) と VMRule 類は
 # k8s/overlays/preview 側で意図的に外している (理由はそのkustomization.yamlを参照)。
 # VAPIDキーもpreview用ダミーを平文で持つため、AVP用の2つ目のApplicationSetは不要。
 #
