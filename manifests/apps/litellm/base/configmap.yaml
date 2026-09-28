@@ -29,6 +29,13 @@ data:
           api_key: "dummy"
           request_timeout: 600
 
+      # 4. gemini のみ利用 (Google AI Studio)
+      - model_name: gemini/auto
+        litellm_params:
+          model: gemini/gemini-3.8-flash
+          api_key: os.environ/GEMINI_API_KEY
+          request_timeout: 120
+
     router_settings:
       routing_strategy: simple-shuffle
       # 電源断による接続拒否時に無駄な再試行をせず即座に sakura へフォールバックするため 0 に設定する

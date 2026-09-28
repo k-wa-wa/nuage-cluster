@@ -39,6 +39,11 @@ spec:
             secretKeyRef:
               name: litellm-secret
               key: SAKURA_API_KEY
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: GEMINI_API_KEY
         volumeMounts:
         - name: config-volume
           mountPath: /app/config.yaml
