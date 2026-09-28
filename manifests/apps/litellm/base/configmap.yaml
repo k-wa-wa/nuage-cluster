@@ -40,3 +40,7 @@ data:
     litellm_settings:
       telemetry: false
       request_timeout: 600
+
+    # TODO: 運用は要検討
+    general_settings:
+      dangerously_permit_weak_or_unset_master_key: true

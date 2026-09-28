@@ -32,6 +32,8 @@ spec:
           value: "False"
         - name: LITELLM_LOG
           value: "INFO"
+        - name: LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY
+          value: "true"
         - name: SAKURA_API_KEY
           valueFrom:
             secretKeyRef:
