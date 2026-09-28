@@ -5,6 +5,10 @@ namespace: litellm
 
 resources:
 - namespace.yaml
-- configmap.yaml
 - service.yaml
 - deployment.yaml
+
+configMapGenerator:
+- name: litellm-config
+  files:
+  - config.yaml

@@ -1,0 +1,62 @@
+# 共通パラメータ定義（アンカー）
+.lm_server_params: &lm_server_params
+  model: openai/qwen3.8-27b
+  api_base: http://lm-server.external-service.svc.cluster.local:8080/v1
+  api_key: "dummy"
+  request_timeout: 600
+
+.sakura_params: &sakura_params
+  model: openai/preview/Kimi-K2.6
+  api_base: https://api.ai.sakura.ad.jp/v1
+  api_key: os.environ/SAKURA_API_KEY
+  request_timeout: 120
+
+model_list:
+  # 1. lm-server のみ利用
+  - model_name: lm-server/auto
+    litellm_params:
+      <<: *lm_server_params
+
+  # 2. sakura のみ利用 (さくらのAI Platform)
+  - model_name: sakura/auto
+    litellm_params:
+      <<: *sakura_params
+
+  # 3. auto (通常は lm-server、ダウン時は sakura へ即時フェイルオーバー)
+  - model_name: auto
+    litellm_params:
+      <<: *lm_server_params
+      order: 1
+  - model_name: auto
+    litellm_params:
+      <<: *sakura_params
+      order: 2
+
+  # 4. gemini のみ利用 (Google AI Studio)
+  - model_name: gemini/auto
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      request_timeout: 120
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  retry_after: 5
+  timeout: 600
+
+  # auto だけは再試行せず即座に order: 2 (sakura) へフェイルオーバー
+  model_group_retry_policy:
+    auto:
+      DefaultRetries: 0
+      ServiceUnavailableErrorRetries: 0
+      TimeoutErrorRetries: 0
+      RateLimitErrorRetries: 0
+
+litellm_settings:
+  telemetry: false
+  request_timeout: 600
+
+# TODO: 運用は要検討
+general_settings:
+  dangerously_permit_weak_or_unset_master_key: true
