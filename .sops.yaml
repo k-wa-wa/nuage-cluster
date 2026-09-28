@@ -59,3 +59,9 @@ creation_rules:
       - age:
           - *admin_key
           - *argocd_key
+
+  - path_regex: manifests/apps/litellm/overlays/prod/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *argocd_key

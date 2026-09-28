@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lm-server
+spec:
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: lm-server-slice
+  labels:
+    kubernetes.io/service-name: lm-server
+addressType: IPv4
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+endpoints:
+# 実体は egress-gateway の VIP/IP (10.20.1.30:8080 -> 192.168.5.222:8080)
+- addresses:
+  - 10.20.1.30
+  conditions: {}

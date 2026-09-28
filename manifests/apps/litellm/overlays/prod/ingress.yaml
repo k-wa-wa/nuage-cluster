@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: litellm-ingress
+  namespace: litellm
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-prod"
+spec:
+  ingressClassName: cilium
+  tls:
+  - hosts:
+    - litellm.wpcapp.net
+    secretName: litellm-tls-secret
+  rules:
+  - host: litellm.wpcapp.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm
+            port:
+              number: 4000
