@@ -39,6 +39,14 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
       request_timeout: 120
 
+  # 5. gemini-live (Google AI Studio Gemini Live / Realtime API)
+  - model_name: gemini-live
+    litellm_params:
+      model: gemini/gemini-2.5-flash-native-audio-latest
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: realtime
+
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 3
@@ -56,6 +64,8 @@ router_settings:
 litellm_settings:
   telemetry: false
   request_timeout: 600
+  # Gemini Live でのツール呼び出しのために session.update 受信まで初期化を遅延
+  gemini_live_defer_setup: true
 
 # TODO: 運用は要検討
 general_settings:
