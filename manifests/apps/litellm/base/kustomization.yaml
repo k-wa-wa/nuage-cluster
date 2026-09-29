@@ -7,6 +7,9 @@ resources:
 - namespace.yaml
 - service.yaml
 - deployment.yaml
+- gemini-live-proxy-config.yaml
+- gemini-live-proxy-deployment.yaml
+- gemini-live-proxy-service.yaml
 
 configMapGenerator:
 - name: litellm-config
