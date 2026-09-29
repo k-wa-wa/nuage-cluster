@@ -7,4 +7,3 @@ resources:
 - ../../base
 - secret.yaml
 - ingress.yaml
-- gemini-live-proxy-ingress.yaml
