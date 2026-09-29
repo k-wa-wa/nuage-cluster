@@ -12,7 +12,7 @@ TODO・改善アイディア・過去の設計判断の経緯は [TODO.md](./TOD
 - **ネットワーク**: Proxmox SDN
 - **Kubernetes**: Talos, Cilium, ArgoCD
 - **ロードバランサー**: HAProxy + keepalived + CoreDNS
-- **データストア**: PostgreSQL, NFS, Minio
+- **データストア**: PostgreSQL, NFS, SeaweedFS
 - **VPN**: Tailscale, Cloudflare Tunnel + Zero Trust
 - **シークレット管理**: SOPS + Age
 

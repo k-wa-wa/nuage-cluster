@@ -81,7 +81,6 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | worker-01/02/03 | 206-208 | nuc-1 / server-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
 | lb-1/2/3 | 211-213 | nuc-1 / server-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
 | pg-cluster-1/2/3 | 241-243 | nuc-1 / server-2 / server-1 | 10.20.1.41-43 | - | PostgreSQL (Patroni, primary VIP: 10.20.1.40) |
-| minio-cluster-1/2 | 271-272 | nuc-1 / server-2 | 10.20.1.71-72 | - | MinIO (SeaweedFS へ移行中) |
 | swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP: 10.20.1.60) |
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |

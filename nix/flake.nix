@@ -237,42 +237,6 @@
           ];
         };
 
-        minio-cluster-1 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          specialArgs = {
-            autoUpgradeSchedule = {
-              dates = "04:00";
-            };
-          };
-          modules = [
-            ./hosts/base-lxc/configuration.nix
-            ./modules/common.nix
-            ./hosts/minio-cluster/configuration.nix
-            sops-nix.nixosModules.sops
-            {
-              networking.hostName = "minio-cluster-1";
-            }
-          ];
-        };
-
-        minio-cluster-2 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          specialArgs = {
-            autoUpgradeSchedule = {
-              dates = "04:10";
-            };
-          };
-          modules = [
-            ./hosts/base-lxc/configuration.nix
-            ./modules/common.nix
-            ./hosts/minio-cluster/configuration.nix
-            sops-nix.nixosModules.sops
-            {
-              networking.hostName = "minio-cluster-2";
-            }
-          ];
-        };
-
         # 自動更新は raft の quorum を保つため、10 分ずつずらす
         swfs-cluster-1 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";

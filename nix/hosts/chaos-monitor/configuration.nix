@@ -69,18 +69,6 @@
               node = "pg-cluster-3";
             };
           }
-          {
-            targets = [ "10.20.1.71:9100" ];
-            labels = {
-              node = "minio-cluster-1";
-            };
-          }
-          {
-            targets = [ "10.20.1.72:9100" ];
-            labels = {
-              node = "minio-cluster-2";
-            };
-          }
         ];
       }
       {
@@ -204,18 +192,6 @@
               node = "pg-cluster-vip";
             };
           }
-          {
-            targets = [ "10.20.1.71" ];
-            labels = {
-              node = "minio-cluster-1";
-            };
-          }
-          {
-            targets = [ "10.20.1.72" ];
-            labels = {
-              node = "minio-cluster-2";
-            };
-          }
         ];
         relabel_configs = [
           {
@@ -262,12 +238,6 @@
             targets = [ "https://bwproxy.wpcapp.net/" ];
             labels = {
               service = "bare-web-proxy";
-            };
-          }
-          {
-            targets = [ "http://10.20.1.70:9000/minio/health/live" ];
-            labels = {
-              service = "minio";
             };
           }
         ];
