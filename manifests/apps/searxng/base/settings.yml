@@ -1,0 +1,35 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "nuage-searxng"
+
+server:
+  secret_key: "nuage-home-searxng-internal-secret-token"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "ja"
+  formats:
+    - html
+    - json
+
+engines:
+  - name: google
+    engine: google
+    enable: false
+  - name: duckduckgo
+    engine: duckduckgo
+    enable: true
+  - name: brave
+    engine: brave
+    enable: true
+  - name: wikipedia
+    engine: wikipedia
+    enable: true
+  - name: qwant
+    engine: qwant
+    enable: true
