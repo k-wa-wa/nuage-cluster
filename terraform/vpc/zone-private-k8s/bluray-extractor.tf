@@ -2,11 +2,11 @@ data "sops_file" "bluray_extractor_secrets" {
   source_file = "${path.module}/../../secrets.yaml"
 }
 
-/*
+
 resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
   content_type = "snippets"
   datastore_id = "local"
-  node_name    = "nuc-2"
+  node_name    = "nuc-1"
 
   source_raw {
     file_name = "bluray-extractor-cloud-config.yaml"
@@ -25,7 +25,7 @@ EOF
 
 resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   name      = "bluray-extractor"
-  node_name = "nuc-2"
+  node_name = "nuc-1"
   vm_id     = 240
 
   on_boot = true
@@ -33,6 +33,7 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   machine = "q35"
   bios    = "ovmf"
   efi_disk {
+    datastore_id = "local-zfs"
   }
   boot_order = ["virtio0", "net0"]
 
@@ -47,6 +48,7 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   }
 
   initialization {
+    datastore_id = "local-zfs"
     ip_config {
       ipv4 {
         address = "10.20.1.80/24"
@@ -83,4 +85,3 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
     usb3 = true
   }
 }
-*/

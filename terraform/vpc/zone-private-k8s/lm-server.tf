@@ -2,7 +2,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   name      = "lm-server"
   node_name = "server-2"
   vm_id     = 230
-  # started   = false
+  started   = false
 
   on_boot = false
 
