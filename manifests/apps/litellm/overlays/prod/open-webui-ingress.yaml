@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: open-webui-ingress
+  namespace: litellm
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-prod"
+spec:
+  ingressClassName: cilium
+  tls:
+    - hosts:
+        - litellm-ui.wpcapp.net
+      secretName: open-webui-tls-secret
+  rules:
+    - host: litellm-ui.wpcapp.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: open-webui
+                port:
+                  number: 8080

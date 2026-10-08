@@ -7,3 +7,4 @@ resources:
 - ../../base
 - secret.yaml
 - ingress.yaml
+- open-webui-ingress.yaml

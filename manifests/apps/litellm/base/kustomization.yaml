@@ -10,6 +10,8 @@ resources:
 - gemini-live-proxy-config.yaml
 - gemini-live-proxy-deployment.yaml
 - gemini-live-proxy-service.yaml
+- open-webui-deployment.yaml
+- open-webui-service.yaml
 
 configMapGenerator:
 - name: litellm-config
