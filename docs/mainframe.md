@@ -32,6 +32,30 @@ COBOL のバッチジョブを流し、結果を帳票として受け取るた�
  └───────────────────────────────────────────────────────────────────┘
 ```
 
+### どこからがメインフレームか
+
+`ssh mainframe` で入れるのは、Hercules を載せている **Linux (NixOS の LXC)** であり、メインフレームそのものではない。
+メインフレームは **Hercules のプロセスの内側**から始まる。
+
+```
+ server-1 (Proxmox)
+  └─ LXC mainframe (NixOS)           ← ssh で入る場所。マシン室と管理用 PC にあたる
+      └─ Hercules のプロセス           ← ここから内側がメインフレーム (CPU・16MB の主記憶・装置)
+          └─ MVS 3.8j                 ← メインフレームの OS。SSH は存在しない
+              └─ JES2 / TSO / ジョブ
+```
+
+| ポート | 着く先 | 層 |
+| :-- | :-- | :-- |
+| 22 (SSH) | NixOS | Linux |
+| 3270 (TN3270) | MVS の TSO・VTAM | メインフレーム |
+| 3505 (カードリーダ) | MVS の JES2 | メインフレーム |
+
+MVS 3.8j の時代には SSH も TCP/IP も無く、人は 3270 端末で、ジョブはカードで入った。
+現代の z/OS には UNIX 互換の環境 (z/OS UNIX) があり SSH で入れるが、それは後から追加された部分である。
+なお本物のメインフレームにも、筐体を電源投入・IPL・監視するための管理用 PC (HMC) が付いている。
+この環境では、LXC と systemd・`mvs-console` がその役割を担う。
+
 ## 3. 用語集
 
 ### 基盤
@@ -99,6 +123,10 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/hercules.cnf` | Hercules の構成 (= メインフレームのハードウェア構成。装置とつなぎ先の一覧) |
 | `nix/hosts/mainframe/mvsce.nix` | MVS/CE v3.0.0 のリリース (DASD の初期イメージ、起動・停止スクリプト) |
 | `nix/hosts/mainframe/samples/` | 動作確認用のジョブ (`/etc/mainframe/samples/` に配置される) |
+| `nix/hosts/mainframe/mvs-config.nix` | MVS の中の設定を Git の内容に揃える `mvs-config.service` |
+| `nix/hosts/mainframe/mvs-config/` | MVS の中の設定のあるべき姿 (`<データセット名>/<メンバー名>`) |
+| `nix/hosts/mainframe/tools/mvsctl.py` | ジョブの投入・終了待ち・結果判定と、設定反映を行う CLI |
+| `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
 
 ### LXC 上
@@ -107,7 +135,8 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | :-- | :-- |
 | `/var/lib/mainframe/DASD/` | ディスクイメージ。MVS が書き換え続ける**状態**であり、PBS で日次バックアップされる |
 | `/var/lib/mainframe/printers/prt00e.txt` | 1403 プリンタの出力 (ジョブ結果が追記されていく) |
-| `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 |
+| `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 (IPL のたびに作り直される) |
+| `/var/lib/mainframe/mvs-config.applied.json` | mvs-config が前回反映した内容のハッシュ (再 IPL の要否判定に使う) |
 | `/run/mainframe/console` | Hercules へのコマンド入力口 (FIFO) |
 | TCP 3270 | TN3270 (外部公開は lb 経由・LAN 内のみ) |
 | TCP 3505 / 3506 | カードリーダ (localhost のみ) |
@@ -131,6 +160,20 @@ grep -a "HELLO" /var/lib/mainframe/printers/prt00e.txt
 
 プリンタ出力の各ジョブは、ジョブ名を大きく描いたバナーページから始まる。
 `IEF142I ... COND CODE 0000` が各ステップの成否である。
+
+終了まで待って、そのジョブの出力だけを受け取るには `mvsctl submit` を使う。
+終了コードは、COND CODE が `--max-cc` 以下で ABEND も JCL エラーも無ければ 0 になる。
+
+```bash
+mvsctl submit /etc/mainframe/samples/hello-cobol.jcl > hello.txt
+# HELLOCOB: MAXCC=0000
+```
+
+JCL を書くときの注意:
+
+- 1 行は 71 桁まで (72 桁目は継続記号、73〜80 桁目は連番欄)
+- 中身は ASCII のみ (カードは EBCDIC に変換されるため、日本語は書けない)
+- `MSGCLASS=A` にする (mvsctl はプリンタ 1 の出力でジョブの終了を判定する)
 
 ### コンソールを見る・操作する
 
@@ -158,6 +201,20 @@ c3270 192.168.5.200:3270
 | MVSCE01 | CUL8TR |
 | MVSCE02 | PASS4U |
 
+### MVS の中の設定を変える (GitOps)
+
+`nix/hosts/mainframe/mvs-config/<データセット名>/<メンバー名>` を編集して master に push する。
+autoUpgrade で `mvs-config.service` が動き、IEBUPDTE ジョブでメンバーを書き換える。
+`SYS1.PARMLIB` のように再 IPL が必要なものは、前回から変わっていれば自動で再 IPL する。
+
+| 管理しているもの | 内容 |
+| :-- | :-- |
+| `SYS1.PARMLIB(PARMTZ)` | タイムゾーン。`E,09` (日本時間)。MVS/CE の初期値は `W,05` (米国中部時間) |
+
+```bash
+journalctl -u mvs-config     # 反映結果 (MVSCONF: MAXCC=0000 など)
+```
+
 ### 起動・停止
 
 ```bash
@@ -178,10 +235,13 @@ sudo systemctl start hercules    # IPL する (約 10 秒で TSO にログオン
 | TN3270 の公開 | lb の VIP で中継、LAN 内のみ | LXC に管理セグメントの足を出さない。TN3270 は平文のため Cloudflare では公開しない |
 | HAProxy のヘルスチェック | 付けない | チェックの接続ごとに Hercules が端末を割り当て、コンソールにログが出続けるため |
 | ホストのシェル実行 | 禁止 (`SHCMDOPT DISABLE`) | MVS 側から LXC のシェルを叩ける経路を塞ぐ |
+| MVS の中の設定の管理 | Git のファイルを IPL ごとにジョブで書き込む | DASD の中身は Nix から直接書き換えられない。毎回書き込むことで冪等かつ自己修復になり、手作業での変更も次の IPL で Git の内容に戻る |
+| ジョブの完了判定 | プリンタ出力の `END JOB` バナー行 | コンソールログ (mvslog.txt) は IPL のたびに作り直されるが、プリンタ出力は追記され続けるため、投入前の末尾位置からの差分だけを見れば確実に自分のジョブを切り出せる |
+| 管理者権限 | ジョブに `USER=IBMUSER` を付け、パスワードは SOPS で管理する | RAKF により、ユーザー指定なしのジョブはシステムのデータセットを書き換えられない (S913) |
 
 ## 7. 既知の課題・今後
 
 - **初期パスワードのまま**: IBMUSER 等は公開されている既定値である。LAN 内限定とはいえ、TSO から変更する
-- **MVS の時計が日本時間ではない**: MVS/CE 既定のタイムゾーン設定により、日本時間より 14 時間遅れて表示される。帳票の日付に影響するため、使用量レポートの前に直す
+- **初期パスワードの変更も mvs-config で行いたい**: RAKF のユーザー定義を mvs-config の管理対象にすれば、パスワード変更も GitOps にできる見込みである (未検証)
 - **プリンタ出力が増え続ける**: `prt00e.txt` は追記され続ける。稼働中に空にしても正しく先頭から書き直されることは確認済みであり、ジョブ単位に切り出す仕組みと合わせて整理する
-- **使用量レポート (本題)**: Prometheus から使用量を取得 → 固定長テキストにしてカードリーダへ投入 → COBOL で集計して帳票を出力 → 帳票を受け取って通知・保存、の流れを作る
+- **使用量レポート (本題)**: 設計は [mainframe-usage-report.md](./mainframe-usage-report.md) を参照

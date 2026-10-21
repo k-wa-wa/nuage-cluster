@@ -6,6 +6,7 @@
 {
   imports = [
     ./hercules.nix
+    ./mvs-config.nix
     ../../modules/node-exporter-systemd.nix
   ];
 

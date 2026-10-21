@@ -13,3 +13,6 @@ terraform.tfvars
 talosconfig
 kubeconfig
 ssh_key.pem
+
+__pycache__/
+*.pyc
