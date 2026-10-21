@@ -86,6 +86,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
 | autopilot-server | 251 | server-1 | 10.20.1.51 | - | nuage-autopilot 実行ホスト (8c/16GB, zone-dev で管理) |
 | bluray-extractor | 240 | server-2 (停止中) | 10.20.1.80 | 192.168.5.240 | MakeMKV リッピング VM |
+| mainframe | 290 | server-1 | 10.20.1.90 | - | MVS 3.8j (Hercules) のメインフレーム。TN3270 は lb の VIP `:3270` で中継 ([mainframe.md](./mainframe.md)) |
 
 ### その他 VM
 

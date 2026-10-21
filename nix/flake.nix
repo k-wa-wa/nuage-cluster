@@ -222,6 +222,26 @@
           ];
         };
 
+        # MVS 3.8j (MVS/CE) を Hercules 上で常駐させるメインフレーム。
+        # autoUpgrade で hercules.service が変わると MVS が再起動 (停止 → IPL) されるため、
+        # バッチジョブはこの時刻を避けて組む。
+        mainframe = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            autoUpgradeSchedule = {
+              dates = "04:50";
+            };
+          };
+          modules = [
+            ./hosts/base-lxc/configuration.nix
+            ./modules/common.nix
+            ./hosts/mainframe/configuration.nix
+            {
+              networking.hostName = "mainframe";
+            }
+          ];
+        };
+
         lm-server = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = {

@@ -1,0 +1,66 @@
+#
+# Hercules の構成ファイル (メインフレームの「ハードウェア構成」)
+#
+# MVS/CE v3.0.0 同梱の conf/local.cnf をもとに、以下を変更している。
+#   - REXX MSGP ON を削除する (nixpkgs の Hercules は REXX 無しでビルドされており、エラーになるため)
+#   - SHCMDOPT を DISABLE にする (MVS や Hercules コンソールから LXC のシェルを叩けないようにする)
+#   - INCLUDE conf/local/custom.cnf を削除する (NJE38 の仮設定しか入っておらず、使わないため)
+#
+# パスは WorkingDirectory (/var/lib/mainframe) からの相対パスである。
+#
+
+ARCHMODE  S/370
+CPUSERIAL 134001
+CPUMODEL  0148
+MAINSIZE  16
+XPNDSIZE  0
+CNSLPORT  3270
+NUMCPU    2
+LOADPARM  ........
+SYSEPOCH  1900
+OSTAILOR  QUIET
+CODEPAGE  819/1047
+SHCMDOPT  DISABLE NODIAG8
+DIAG8CMD  ENABLE ECHO
+PANOPT    MSGCOLOR=DARK RATE=250
+
+# .-----------------------------装置番号 (アドレス)
+# |     .-----------------------装置タイプ
+# |     |       .---------------つなぎ先 (ファイル・ソケット)
+# V     V       V
+#---    ----    --------------------------------- カードリーダ (ジョブの入口)
+# localhost のみで受け付ける。誰でもジョブを投入できてしまうため、外には開けない
+000C    3505    localhost:3505 sockdev autopad trunc ascii eof
+001A    3505    localhost:3506 sockdev autopad trunc ebcdic eof
+001C    3505    *
+# ----------------------------------------------- カードパンチ・プリンタ (ジョブの出口)
+000D    3525    punchcards/pch00d.txt ebcdic          # JES2
+000E    1403    printers/prt00e.txt                   # JES2 (出力クラス A)
+000F    3211    printers/prt00f.txt                   # JES2
+001D    3525    punchcards/pch01d.txt ascii
+# ----------------------------------------------- 磁気テープ
+0100.4  3420    *
+0310.4  3420    *
+# ----------------------------------------------- DASD (ディスク)
+0150    3350    DASD/mvsres.3350
+0151    3350    DASD/mvs000.3350
+0152    3350    DASD/page00.3350
+0153    3350    DASD/spool1.3350
+0180    3380    DASD/pub000.3380
+0190    3390    DASD/pub001.3390 cu=3880
+0220    2314    DASD/sortw1.2314
+0221    2314    DASD/sortw2.2314
+0222    2314    DASD/sortw3.2314
+0223    2314    DASD/sortw4.2314
+0224    2314    DASD/sortw5.2314
+0225    2314    DASD/sortw6.2314
+0250    3350    DASD/smp000.3350
+0251    3350    DASD/work00.3350
+0252    3350    DASD/work01.3350
+0253    3350    DASD/syscpk.3350
+# ----------------------------------------------- コンソール
+0010    3270    console      # マスターコンソール
+0009    3215-C  /            # 代替コンソール (自動応答 hao が使う)
+0015    1403    mvslog.txt   # マスターコンソールのハードコピー
+# ----------------------------------------------- TSO 用の 3270 端末 (TN3270:3270 で接続)
+0400.32  3270
