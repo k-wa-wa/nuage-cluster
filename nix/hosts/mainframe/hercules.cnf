@@ -5,6 +5,7 @@
 #   - REXX MSGP ON を削除する (nixpkgs の Hercules は REXX 無しでビルドされており、エラーになるため)
 #   - SHCMDOPT を DISABLE にする (MVS や Hercules コンソールから LXC のシェルを叩けないようにする)
 #   - INCLUDE conf/local/custom.cnf を削除する (NJE38 の仮設定しか入っておらず、使わないため)
+#   - HTTP サーバーを有効にする (コマンドの投入口。8038 はファイアウォールで閉じ、LXC の中からのみ使う)
 #
 # パスは WorkingDirectory (/var/lib/mainframe) からの相対パスである。
 #
@@ -23,6 +24,8 @@ CODEPAGE  819/1047
 SHCMDOPT  DISABLE NODIAG8
 DIAG8CMD  ENABLE ECHO
 PANOPT    MSGCOLOR=DARK RATE=250
+HTTP      PORT 8038 NOAUTH
+HTTP      START
 
 # .-----------------------------装置番号 (アドレス)
 # |     .-----------------------装置タイプ
