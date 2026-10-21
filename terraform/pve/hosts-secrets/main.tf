@@ -58,6 +58,13 @@ module "pg-cluster-3" {
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
+module "mainframe" {
+  source              = "./modules/secrets"
+  host                = "192.168.5.25"
+  target_host         = "mainframe"
+  sops_key            = data.sops_file.secrets.data["lb_sops_key"]
+  github_access_token = data.sops_file.secrets.data["github_access_token"]
+}
 module "swfs-cluster-1" {
   source              = "./modules/secrets"
   host                = "192.168.5.21"

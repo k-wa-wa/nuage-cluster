@@ -82,3 +82,4 @@ Argo CD は `manifests/apps/*/overlays/prod` を自動検出して同名 namespa
 | [docs/setup.md](./docs/setup.md) | セットアップ手順(物理ノード構築〜クラスター作成) |
 | [docs/cloud.md](./docs/cloud.md) | マルチテナント環境の要件定義 |
 | [docs/network_design.md](./docs/network_design.md) | ネットワーク詳細設計 (ASN / VNI / IPAM) |
+| [docs/mainframe.md](./docs/mainframe.md) | メインフレーム (MVS 3.8j on Hercules) の用語・構成・使い方 |
