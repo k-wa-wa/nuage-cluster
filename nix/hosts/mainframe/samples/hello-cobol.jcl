@@ -1,7 +1,6 @@
 //HELLOCOB JOB (NUAGE),'HELLO COBOL',CLASS=A,MSGCLASS=A,MSGLEVEL=(1,1)
 //*
-//* COBOL をコンパイルして、そのまま実行する (COBUCG = Compile and Go)
-//* 実行結果は 1403 プリンタ (/var/lib/mainframe/printers/prt00e.txt) に出る
+//* COMPILE AND GO (COBUCG). OUTPUT GOES TO THE 1403 PRINTER.
 //*
 //HELLO    EXEC COBUCG
 //COB.SYSIN DD *

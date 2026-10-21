@@ -236,6 +236,7 @@
             ./hosts/base-lxc/configuration.nix
             ./modules/common.nix
             ./hosts/mainframe/configuration.nix
+            sops-nix.nixosModules.sops
             {
               networking.hostName = "mainframe";
             }
