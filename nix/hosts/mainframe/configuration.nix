@@ -7,6 +7,7 @@
   imports = [
     ./hercules.nix
     ./mvs-config.nix
+    ./printer.nix
     ../../modules/node-exporter-systemd.nix
   ];
 

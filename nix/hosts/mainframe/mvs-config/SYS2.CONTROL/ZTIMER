@@ -1,0 +1,26 @@
+*----------------------------------------------------------------------*
+*             ZTIMER - AUTOMATIC REMINDER/COMMAND FACILITY             *
+* COL 1 TO 8:  EITHER DATE IN FORMAT 'DD/MM/YY'                        *
+*                 OR DATE IN FORMAT 'YY/DDD'                           *
+*                 OR 3-CHAR WEEKDAY 'MON TUE WED THU FRI SAT SUN'      *
+*                 OR WORD 'WKDAY' FOR ANY WEEKDAY (MON TO FRI)         *
+*                 OR WORD 'WKEND' FOR WEEKEND (SAT AND SUN)            *
+*                 OR WORD 'ALL' FOR EVERY DAY EXECUTION                *
+*                 OR '*' IN COL 1 FOR A COMMENT CARD.                  *
+* COL 10 TO 14:  EITHER TIME IN FORMAT 'HH.MM'                         *
+*                 OR BLANKS FOR EXECUTION EVERY TIME.                  *
+* COL 16 TO 18:  EITHER 'COM' TO ISSUE COMMAND                         *
+*                 OR 'DSH' TO ISSUE A BRIGHT (NON-ROLLABLE) MESSAGE    *
+*                 OR 'DSN' TO ISSUE A NORMAL (ROLLABLE) MESSAGE        *
+* COL 19 TO 22:  EITHER THE SYSTEM-ID WHERE THE ACTION IS TO BE DONE   *
+*                 OR BLANKS FOR ACTION ON ALL SYSTEMS                  *
+* COL 24 TO 72:  EITHER THE MESSAGE TO BE DISPLAYED                    *
+*                 OR THE COMMAND AS ENTERED AT THE MASTER CONSOLE.     *
+*----------------------------------------------------------------------*
+*...+....1....+....2....+....3....+....4....+....5....+....6....+....7..
+*--------PURGE SYSOUT 'Z' & 'Y' OLDER THAN N DAYS, ALL SYSTEMS
+ALL      00.05 DSN     $OQ,Q=Z,CANCEL,D=5
+ALL      00.05 COM     $OQ,Q=Z,CANCEL,D=5
+ALL      00.05 DSN     $OQ,Q=Y,CANCEL,D=5
+ALL      00.05 COM     $OQ,Q=Y,CANCEL,D=5
+*

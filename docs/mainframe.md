@@ -127,6 +127,7 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/mvs-config/` | MVS の中の設定のあるべき姿 (`<データセット名>/<メンバー名>`) |
 | `nix/hosts/mainframe/tools/mvsctl.py` | ジョブの投入・終了待ち・結果判定と、設定反映を行う CLI |
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
+| `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
 
 ### LXC 上
@@ -134,7 +135,9 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | パス・ポート | 内容 |
 | :-- | :-- |
 | `/var/lib/mainframe/DASD/` | ディスクイメージ。MVS が書き換え続ける**状態**であり、PBS で日次バックアップされる |
-| `/var/lib/mainframe/printers/prt00e.txt` | 1403 プリンタの出力 (ジョブ結果が追記されていく) |
+| `/var/lib/mainframe/printers/prt00e.txt` | プリンタ 1 (出力クラス A) の出力。ジョブログが追記されていく |
+| `/var/lib/mainframe/printers/prt00f.txt` | プリンタ 2 (出力クラス M) の出力。帳票用 |
+| `/run/mainframe-printer/` | 帳票の PDF (tmpfs。再起動で消える) |
 | `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 (IPL のたびに作り直される) |
 | `/var/lib/mainframe/mvs-config.applied.json` | mvs-config が前回反映した内容のハッシュ (再 IPL の要否判定に使う) |
 | TCP 3270 | TN3270 (外部公開は lb 経由・LAN 内のみ) |
@@ -210,6 +213,34 @@ autoUpgrade で `mvs-config.service` が動き、IEBUPDTE ジョブでメンバ�
 | 管理しているもの | 内容 |
 | :-- | :-- |
 | `SYS1.PARMLIB(PARMTZ)` | タイムゾーン。`E,09` (日本時間)。MVS/CE の初期値は `W,05` (米国中部時間) |
+| `SYS2.CONTROL(ZTIMER)` | ZTIMER (時刻起動) の予定表。システムの分 (00:05 の SYSOUT 掃除) に各アプリの `schedule` を足したもの。変わると mvs-config が `S ZTIMER` で読み直させる |
+| `SYS2.PROCLIB(RUNJOB)` | JCL ライブラリのメンバーを内部リーダへ投入する開始タスク (`S RUNJOB,M=メンバー,L='ライブラリ'`) |
+
+### 業務アプリを載せる
+
+業務アプリ (JCL・REXX・COBOL) は別リポジトリで持ち、flake input として取り込む
+(`nix/flake.nix` の `mainframeApps`)。アプリのリポジトリの `packages.default` が次の形の資材を出力し、
+mvs-config がシステムの設定と合成して書き込む。
+
+```
+members/<データセット名>/<メンバー名>   書き込むメンバー
+schedule                               ZTIMER の予定表の末尾に足す行
+datasets.json                          無ければ作るデータセット ([{dsn, unit, volser, space, dcb}])
+```
+
+| アプリ | 内容 |
+| :-- | :-- |
+| [nuage-usage-report](https://github.com/k-wa-wa/nuage-usage-report) | クラスタ使用量の日次帳票。毎朝 06:00 に `NUAGE.USAGE.JCLLIB(USAGERPT)` が動き、帳票プリンタに印字する |
+
+アプリを更新したら、取り込む側で lock を更新して master に入れる。
+
+```bash
+nix flake update nuage-usage-report --flake ./nix
+```
+
+データセットの作成は、`LISTCAT` で存在を確かめ、無いものだけ `DISP=NEW` で作る。
+`DISP=MOD` で「無ければ作る」とすると、PDS のディレクトリが初期化されず開けなくなるためである。
+mvs-config はメンバーやデータセットを消さない。アプリから外したものは手で消す。
 
 ```bash
 journalctl -u mvs-config     # 反映結果 (MVSCONF: MAXCC=0000 など)
@@ -245,4 +276,4 @@ sudo systemctl start hercules    # IPL する。IPL が完了してから戻る 
 - **初期パスワードのまま**: IBMUSER 等は公開されている既定値である。LAN 内限定とはいえ、TSO から変更する
 - **初期パスワードの変更も mvs-config で行いたい**: RAKF のユーザー定義を mvs-config の管理対象にすれば、パスワード変更も GitOps にできる見込みである (未検証)
 - **プリンタ出力が増え続ける**: `prt00e.txt` は追記され続ける。稼働中に空にしても正しく先頭から書き直されることは確認済みであり、ジョブ単位に切り出す仕組みと合わせて整理する
-- **使用量レポート (本題)**: 設計は [mainframe-usage-report.md](./mainframe-usage-report.md) を参照
+- **業務アプリの拡張**: 各アプリのリポジトリの README を参照する

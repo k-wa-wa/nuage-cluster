@@ -29,6 +29,14 @@
       url = "github:k-wa-wa/nuage-autopilot4";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+
+    # メインフレーム (mainframe) で動かす業務アプリ。各リポジトリが MVS に書き込む資材
+    # (members/ schedule datasets.json) を出力し、mvs-config が書き込む。
+    # アプリを更新したら `nix flake update nuage-usage-report --flake ./nix` で取り込む。
+    nuage-usage-report = {
+      url = "github:k-wa-wa/nuage-usage-report";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -40,6 +48,7 @@
       nixpkgs-unstable,
       sops-nix,
       autopilot,
+      nuage-usage-report,
       ...
     }:
     let
@@ -231,6 +240,10 @@
             autoUpgradeSchedule = {
               dates = "04:50";
             };
+            # MVS に載せる業務アプリ (mvs-config.nix が書き込む)
+            mainframeApps = [
+              nuage-usage-report.packages.x86_64-linux.default
+            ];
           };
           modules = [
             ./hosts/base-lxc/configuration.nix

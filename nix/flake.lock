@@ -123,6 +123,26 @@
         "type": "github"
       }
     },
+    "nuage-usage-report": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792597606,
+        "narHash": "sha256-cyzyj64q/isRAOYPNhPTwsc0j84eCR2z5FAUqFqdMMM=",
+        "owner": "k-wa-wa",
+        "repo": "nuage-usage-report",
+        "rev": "9b02f852026447cf86c3fea8bbb2f6eac220e9db",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k-wa-wa",
+        "repo": "nuage-usage-report",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "autopilot": "autopilot",
@@ -130,6 +150,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-llama-cpp": "nixpkgs-llama-cpp",
         "nixpkgs-unstable": "nixpkgs-unstable",
+        "nuage-usage-report": "nuage-usage-report",
         "sops-nix": "sops-nix"
       }
     },
