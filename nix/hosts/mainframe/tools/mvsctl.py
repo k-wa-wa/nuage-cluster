@@ -21,6 +21,8 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 STATE_DIR = Path(os.environ.get("MVS_STATE_DIR", "/var/lib/mainframe"))
@@ -34,6 +36,10 @@ DATA_MAX_COLUMNS = 72
 
 # 再 IPL しないと反映されないデータセット
 REQUIRES_IPL = {"SYS1.PARMLIB"}
+# 書き換えたあとにオペレータコマンドが要るデータセット。
+# ZTIMER は起動時に予定表を読み、次の予定時刻に自分を起こす ($TA) ため、起動し直して読み直させる
+REQUIRES_COMMAND = {"SYS2.CONTROL": "/S ZTIMER"}
+HERCULES_CMD_URL = "http://127.0.0.1:8038/cgi-bin/tasks/cmd"
 
 
 class JobResult:
@@ -166,9 +172,9 @@ def load_members(config_dir):
             raise SystemExit(f"メンバー名として不正: {path}")
         lines = path.read_text(encoding="ascii").splitlines()
         check_columns(lines, DATA_MAX_COLUMNS, str(path))
-        # DD * の入力は // または /* で始まる行で打ち切られる
-        if any(line.startswith(("//", "/*")) for line in lines):
-            raise SystemExit(f"// または /* で始まる行は書けない: {path}")
+        # IEBUPDTE は ./ で始まる行を制御文とみなし、入力は $$ の行で終わる (DD DATA,DLM=$$)
+        if any(line.startswith(("./", "$$")) for line in lines):
+            raise SystemExit(f"./ または $$ で始まる行は書けない: {path}")
         members[(dsn, member)] = "\n".join(lines) + "\n"
     return members
 
@@ -177,28 +183,62 @@ def digest(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def build_update_job(members, user, password):
-    """データセットごとに IEBUPDTE のステップを作る。ADD は既存メンバーを置き換える (冪等)"""
+def build_update_job(members, datasets, user, password):
+    """データセットごとに IEBUPDTE のステップを作る。ADD は既存メンバーを置き換える (冪等)。
+    メンバーに JCL (// で始まる行) を含められるよう、入力は DD DATA で渡す。
+
+    datasets (まだ無いデータセット) は、先に IEFBR14 で作る。
+    DISP=MOD で「無ければ作る」とすると PDS のディレクトリが初期化されず開けなくなるため、
+    存在の確認 (existing_datasets) と作成を分け、作成は DISP=NEW で行う"""
     jcl = job_card("MVSCONF", "NUAGE MVS-CONFIG", user, password)
+    if datasets:
+        jcl += "//ALLOC    EXEC PGM=IEFBR14\n"
+        for i, ds in enumerate(datasets, 1):
+            jcl += (
+                f"//DS{i:<6} DD DSN={ds['dsn']},DISP=(NEW,CATLG),\n"
+                f"//             UNIT={ds['unit']},VOL=SER={ds['volser']},\n"
+                f"//             SPACE={ds['space']},\n"
+                f"//             DCB={ds['dcb']}\n"
+            )
     datasets = sorted({dsn for dsn, _ in members})
     for i, dsn in enumerate(datasets, 1):
         jcl += (
             f"//STEP{i:<4} EXEC PGM=IEBUPDTE,PARM=NEW\n"
             "//SYSPRINT DD SYSOUT=*\n"
             f"//SYSUT2   DD DSN={dsn},DISP=SHR\n"
-            "//SYSIN    DD *\n"
+            "//SYSIN    DD DATA,DLM=$$\n"
         )
         for (d, member), content in members.items():
             if d == dsn:
                 jcl += f"./ ADD NAME={member},LIST=ALL\n{content}"
-        jcl += "./ ENDUP\n/*\n"
+        jcl += "./ ENDUP\n$$\n"
     return jcl + "//\n"
+
+
+def existing_datasets(dsns, user, password, timeout):
+    """IDCAMS LISTCAT で、カタログ済みのデータセット名の集合を返す"""
+    if not dsns:
+        return set()
+    jcl = job_card("MVSLCAT", "NUAGE MVS-CONFIG", user, password)
+    jcl += "//LISTC    EXEC PGM=IDCAMS\n//SYSPRINT DD SYSOUT=*\n//SYSIN    DD *\n"
+    jcl += "".join(f"  LISTCAT ENTRIES({dsn}) NAME\n" for dsn in dsns)
+    jcl += "/*\n//\n"
+    # 無いデータセットがあると COND CODE は 4 になるため、判定は出力の中身で行う
+    result = submit(jcl, timeout)
+    if result.abends or result.jcl_error:
+        raise SystemExit(f"データセットの確認に失敗した: {result.summary()}")
+    return {dsn for dsn in dsns if re.search(rf"NONVSAM -+ {re.escape(dsn)}\s", result.output)}
 
 
 def apply_config(args):
     members = load_members(args.config_dir)
+    datasets = json.loads(Path(args.datasets).read_text()) if args.datasets else []
     password = Path(args.password_file).read_text().strip()
-    result = submit(build_update_job(members, args.user, password), args.timeout)
+    existing = existing_datasets([ds["dsn"] for ds in datasets], args.user, password, args.timeout)
+    missing = [ds for ds in datasets if ds["dsn"] not in existing]
+    for ds in missing:
+        print(f"データセットを作る: {ds['dsn']}", flush=True)
+    result = submit(build_update_job(members, missing, args.user, password), args.timeout)
     print(result.summary())
     if not result.ok(max_cc=0):
         sys.stdout.write(result.output)
@@ -211,6 +251,11 @@ def apply_config(args):
     changed = sorted(k for k, v in desired.items() if applied.get(k) != v)
     stamp.write_text(json.dumps(desired, indent=2, sort_keys=True) + "\n")
 
+    for dsn, command in REQUIRES_COMMAND.items():
+        if any(k.split("(")[0] == dsn for k in changed):
+            print(f"{dsn} を反映するためにコマンドを出す: {command}", flush=True)
+            hercules_command(command)
+
     needs_ipl = [k for k in changed if k.split("(")[0] in REQUIRES_IPL]
     if needs_ipl:
         print(f"再 IPL して反映する: {', '.join(needs_ipl)}", flush=True)
@@ -221,6 +266,13 @@ def apply_config(args):
     else:
         print("再 IPL は不要")
     return 0
+
+
+def hercules_command(command):
+    """Hercules の HTTP サーバー経由でコンソールにコマンドを送る"""
+    data = urllib.parse.urlencode({"cmd": command}).encode()
+    with urllib.request.urlopen(HERCULES_CMD_URL, data=data, timeout=10):
+        pass
 
 
 # ---------------------------------------------------------------- CLI
@@ -252,6 +304,7 @@ def main():
     p.add_argument("config_dir")
     p.add_argument("--user", required=True)
     p.add_argument("--password-file", required=True)
+    p.add_argument("--datasets", help="無ければ作るデータセットの定義 (JSON)")
     p.add_argument("--stamp", default=str(STATE_DIR / "mvs-config.applied.json"))
     p.add_argument("--timeout", type=int, default=600)
     p.set_defaults(func=apply_config)
