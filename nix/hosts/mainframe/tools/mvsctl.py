@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -24,6 +25,7 @@ from pathlib import Path
 
 STATE_DIR = Path(os.environ.get("MVS_STATE_DIR", "/var/lib/mainframe"))
 PRINTER = STATE_DIR / "printers" / "prt00e.txt"
+CONSOLE_LOG = STATE_DIR / "mvslog.txt"
 READER = ("127.0.0.1", 3505)
 
 # JCL の 1 行は 80 桁で、72 桁目は継続記号、73 桁目以降は連番欄である
@@ -70,8 +72,24 @@ def check_columns(lines, limit, what):
             raise SystemExit(f"{what} の {i} 行目が {limit} 桁を超えている: {line!r}")
 
 
+def wait_until_ready(timeout):
+    """MVS の起動完了 (TSO がログオンを受け付け始めた = JES2 も動いている) を待つ。
+
+    IPL 中にカードリーダへ接続すると、IPL 中のコンソールへの自動応答が取りこぼされ、
+    IPL が止まることがあった。そのため起動が終わるまでリーダには触らない。
+    mvslog.txt (コンソールの記録) は hercules.service の起動前に消されるため、前回の IPL の記録は見ない。
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        if CONSOLE_LOG.exists() and b"IKT007I TCAS ACCEPTING LOGONS" in CONSOLE_LOG.read_bytes():
+            return
+        if time.monotonic() > deadline:
+            raise SystemExit(f"{timeout} 秒以内に MVS の起動が完了しなかった")
+        time.sleep(2)
+
+
 def send_to_reader(jcl, timeout):
-    """カードリーダへ JCL を送る。IPL 直後は Hercules がまだ待ち受けていないことがあるため再試行する"""
+    """カードリーダへ JCL を送る。Hercules がまだ待ち受けていないことがあるため再試行する"""
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -116,12 +134,7 @@ def submit(jcl, timeout):
         JCL_MAX_COLUMNS,
         "JCL",
     )
-    # プリンタ出力は Hercules の起動時に作られる。IPL 直後に呼ばれた場合に備えて待つ
-    deadline = time.monotonic() + timeout
-    while not PRINTER.exists():
-        if time.monotonic() > deadline:
-            raise SystemExit(f"{PRINTER} が無い。Hercules は動いているか")
-        time.sleep(2)
+    wait_until_ready(timeout)
     # 同時に投入すると出力の切り出しが混ざるため、mvsctl 同士は 1 本ずつ流す
     with PRINTER.open("rb") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -146,6 +159,9 @@ def load_members(config_dir):
     members = {}
     for path in sorted(Path(config_dir).glob("*/*")):
         dsn, member = path.parent.name, path.name
+        # エディタや OS が作る隠しファイルは対象外とする (メンバー名は . で始まれない)
+        if member.startswith("."):
+            continue
         if not re.fullmatch(r"[A-Z@#$][A-Z0-9@#$]{0,7}", member):
             raise SystemExit(f"メンバー名として不正: {path}")
         lines = path.read_text(encoding="ascii").splitlines()
@@ -197,8 +213,10 @@ def apply_config(args):
 
     needs_ipl = [k for k in changed if k.split("(")[0] in REQUIRES_IPL]
     if needs_ipl:
-        print(f"再 IPL して反映する: {', '.join(needs_ipl)}")
-        # この unit は hercules.service に PartOf しているため、--no-block で投げて自分は終わる
+        print(f"再 IPL して反映する: {', '.join(needs_ipl)}", flush=True)
+        # この unit は hercules.service に PartOf しているため、再起動の巻き添えで SIGTERM を受ける。
+        # 反映は済んでいるので、そのときは正常終了として扱う
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
         subprocess.run(["systemctl", "--no-block", "restart", "hercules.service"], check=True)
     else:
         print("再 IPL は不要")

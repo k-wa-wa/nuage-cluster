@@ -27,7 +27,7 @@ COBOL のバッチジョブを流し、結果を帳票として受け取るた�
  │                                                                   │
  │  入口: mvs-submit ─▶ カードリーダ 127.0.0.1:3505                   │
  │  出口: 1403 プリンタ ─▶ /var/lib/mainframe/printers/prt00e.txt     │
- │  操作: mvs-console ─▶ /run/mainframe/console                       │
+ │  操作: mvs-console ─▶ Hercules の HTTP サーバー 127.0.0.1:8038      │
  │  表示: journalctl -u hercules  (MVS のコンソールメッセージ)        │
  └───────────────────────────────────────────────────────────────────┘
 ```
@@ -137,9 +137,9 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `/var/lib/mainframe/printers/prt00e.txt` | 1403 プリンタの出力 (ジョブ結果が追記されていく) |
 | `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 (IPL のたびに作り直される) |
 | `/var/lib/mainframe/mvs-config.applied.json` | mvs-config が前回反映した内容のハッシュ (再 IPL の要否判定に使う) |
-| `/run/mainframe/console` | Hercules へのコマンド入力口 (FIFO) |
 | TCP 3270 | TN3270 (外部公開は lb 経由・LAN 内のみ) |
 | TCP 3505 / 3506 | カードリーダ (localhost のみ) |
+| TCP 8038 | Hercules の HTTP サーバー。コマンドの投入口 (ファイアウォールで閉じ、LXC の中からのみ使う) |
 | TCP 9100 | node-exporter |
 
 ## 5. 使い方
@@ -218,8 +218,8 @@ journalctl -u mvs-config     # 反映結果 (MVSCONF: MAXCC=0000 など)
 ### 起動・停止
 
 ```bash
-sudo systemctl stop hercules     # 正規の停止手順を流す (約 45 秒)
-sudo systemctl start hercules    # IPL する (約 10 秒で TSO にログオンできる)
+sudo systemctl stop hercules     # 正規の停止手順を流す (約 30 秒)
+sudo systemctl start hercules    # IPL する。IPL が完了してから戻る (約 10 秒)
 ```
 
 ## 6. 設計判断
@@ -229,7 +229,8 @@ sudo systemctl start hercules    # IPL する (約 10 秒で TSO にログオン
 | どの OS を使うか | MVS 3.8j (MVS/CE) | z/OS は Hercules での稼働がライセンス上許されない。MVS 3.8j はパブリックドメインで、COBOL コンパイラも同梱される。MVS/CE は sysgen をスクリプトで再現して作られており、リリースを固定して使える |
 | k8s か LXC か | LXC で常駐 | DASD は書き換わる状態であり、「クラスタ内はステートレス」の原則に合わない。IPL も重く、常駐させて都度ジョブを投げる使い方が自然である |
 | DASD の扱い | store のリリースから初回だけコピー | DASD は MVS が書き換える状態なので、store の読み取り専用イメージは「初期値」とする。リリースを上げても既存 DASD は置き換わらない |
-| コマンドの入力経路 | FIFO を標準入力に読み書き両用で開く | Hercules の `--NoUI` は標準入力をコマンドとして読む。読み書き両用で開くと EOF にならず、systemd 管理下でもコマンドを受け続けられる |
+| コマンドの入力経路 | Hercules の HTTP サーバー (`/cgi-bin/tasks/cmd`)。標準入力は `/dev/null` | 当初は FIFO を標準入力につないだが、IPL が止まったり終了時にプロセスが残ったりした。MVS/CE の Docker イメージと同じ構成にした |
+| IPL の見届け | `hercules.service` の ExecStartPost で `IKT007I` (TSO 受付開始) まで待つ | IPL 中の問い合わせ (IEA101A) への自動応答がまれに取りこぼされ、IPL が止まる。出力が 20 秒止まったら応答を送り直す。また IPL 完了まで unit が activating のままになるため、後続は MVS が使える状態で動く |
 | 停止方法 | `SHUTDOWN.RC` を流して完了を待つ | いきなり kill すると JES2 のスプールや DASD を壊す可能性がある |
 | カードリーダの公開範囲 | localhost のみ | 接続できれば誰でもジョブを実行できるため |
 | TN3270 の公開 | lb の VIP で中継、LAN 内のみ | LXC に管理セグメントの足を出さない。TN3270 は平文のため Cloudflare では公開しない |
