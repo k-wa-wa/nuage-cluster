@@ -1,0 +1,32 @@
+# cicerone3270 (3270 端末の案内) に足す、nuage-cluster の基盤の辞書。
+# terminal.nix が mainframe ホストの cicerone3270 に読ませる。業務アプリの辞書は各アプリのリポジトリが持つ。
+# 書式は cicerone3270 の README の「辞書」を参照。
+
+[[screen]]
+id = "nuage-vtam-logon"
+extends = "vtam-logon"
+
+[[screen.region]]
+rows = [1, 1]
+cols = [60, 80]
+title = "nuage-cluster の MVS/CE の版"
+note = "nix/hosts/mainframe/mvsce.nix で固定している。"
+
+[[screen]]
+id = "nuage-logon-password"
+extends = "logon-password"
+description = "nuage-cluster の mainframe では、IBMUSER のパスワードを nix/hosts/mainframe/secrets.yaml (SOPS) で管理している。"
+
+[[screen]]
+id = "nuage-tso-welcome"
+extends = "tso-welcome"
+
+[[screen.region]]
+rows = [9, 10]
+title = "nuage-cluster では MVP を使わない"
+note = "MVS の中の設定と業務アプリは、Git の内容を mvs-config が書き込む (docs/mainframe.md)。"
+
+[[term]]
+pattern = '\bUCPUB000\b'
+title = "ユーザーカタログ UCPUB000"
+note = "PUB000 上の利用者用カタログ。nuage-cluster では別名 NUAGE がここを指し、業務アプリのデータセット (NUAGE.*) はここに登録される。マスターカタログは内部リーダ経由のバッチ利用者から更新できないため。"

@@ -9,6 +9,7 @@
     ./mvs-config.nix
     ./printer.nix
     ./job-metrics.nix
+    ./terminal.nix
     ../../modules/node-exporter-systemd.nix
   ];
 

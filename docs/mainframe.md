@@ -131,6 +131,7 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
 | `nix/hosts/mainframe/job-metrics.nix`, `tools/job_metrics.py` | ジョブの成否を `mvslog.txt` から読み、node-exporter の textfile collector へ書き出す |
+| `nix/hosts/mainframe/terminal.nix`, `guide/` | 3270 端末の案内 cicerone3270 に、基盤 (`guide/`) と業務アプリの辞書を足して入れる |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
 
 ### LXC 上
@@ -194,14 +195,28 @@ mvs-console /D A,L     # 実行中のジョブ一覧
 mvs-console '/$DA'     # JES2 で実行中のジョブ
 ```
 
-### TSO にログオンする (Mac から)
+### TSO にログオンする
+
+案内付きの 3270 端末 [cicerone3270](https://github.com/k-wa-wa/cicerone3270) を mainframe ホストに入れてある。
+右に「いまの画面の説明」と「できること (クリックで実行)」が出て、画面の文字にマウスを乗せると説明のツールチップが出る。
+cicerone3270 自体は汎用のツールで、mainframe ホストでは基盤の辞書 (`nix/hosts/mainframe/guide/`) と
+業務アプリの辞書 (nuage-usage-ledger の `guide/`。勘定マスタのレコード定義など) を足して起動する (`terminal.nix`)。
+マウスを使うため、iTerm2 などマウスの移動を伝えられる端末で使う (tmux では `set -g mouse on`)。
+
+```bash
+ssh -t mainframe ci3270
+```
+
+素の 3270 端末を使う場合は c3270 を使う。
 
 ```bash
 brew install x3270     # c3270 (ターミナル版の 3270 端末エミュレータ) が入る
 c3270 192.168.5.200:3270
 ```
 
-ロゴ画面で Enter を押し、`logon IBMUSER/SYS1` と入力する。
+ロゴ画面で `logon IBMUSER` と入力し、次の画面でパスワードを打つ。
+LOGOFF せずに切断すると TSO のセッションが残り、次のログオンが `IKJ56425I ... IN USE` で拒否される。
+その場合は `logon IBMUSER reconnect` で前回のセッションに戻り、PA2 で画面を描き直す。
 
 | ユーザー | パスワード |
 | :-- | :-- |
@@ -239,6 +254,7 @@ members/<データセット名>/<メンバー名>   書き込むメンバー
 schedule                               ZTIMER の予定表の末尾に足す行
 rakf                                   RAKF の権限表に足す行 (任意)
 datasets.json                          無ければ作るデータセット ([{dsn, type, unit, volser, space, dcb, ...}])
+cicerone3270/                          3270 端末の案内 cicerone3270 に足す辞書 (任意。terminal.nix が読ませる)
 ```
 
 | データセットの type | 作り方 |
@@ -274,6 +290,16 @@ BREXX の TCP 関数が使うソケット番号は TCPCLOSE しても再利用�
 ```bash
 sudo systemctl stop hercules     # 正規の停止手順を流す (約 30 秒)
 sudo systemctl start hercules    # IPL する。IPL が完了してから戻る (約 10 秒)
+```
+
+### 手元で試す
+
+本番に触れずに TSO や JCL を試すときは、cicerone3270 が持つ試し用の MVS (MVS/CE の標準の構成) を手元で動かす。
+コマンドを実行している間だけ動き、Ctrl+C で正規の手順で止まる。nuage-cluster の設定 (mvs-config・業務アプリ) は入らない。
+
+```bash
+nix run github:k-wa-wa/cicerone3270#mvsce-local          # 起動 (IBMUSER / SYS1)
+nix run github:k-wa-wa/cicerone3270 -- 127.0.0.1:3270    # 別の端末から接続する
 ```
 
 ## 6. 設計判断
