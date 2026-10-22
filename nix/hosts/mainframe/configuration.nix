@@ -8,6 +8,7 @@
     ./hercules.nix
     ./mvs-config.nix
     ./printer.nix
+    ./job-metrics.nix
     ../../modules/node-exporter-systemd.nix
   ];
 
@@ -21,6 +22,9 @@
   services.prometheus.exporters.node = {
     enable = true;
     port = 9100;
+    extraFlags = [
+      "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
+    ];
   };
 
   networking.firewall.allowedTCPPorts = [ 9100 ];

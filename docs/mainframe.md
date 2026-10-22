@@ -130,6 +130,7 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/mvs-datasets.json` | システムが宣言するデータセット (別名 NUAGE → ユーザーカタログ UCPUB000) |
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
+| `nix/hosts/mainframe/job-metrics.nix`, `tools/job_metrics.py` | ジョブの成否を `mvslog.txt` から読み、node-exporter の textfile collector へ書き出す |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
 
 ### LXC 上
@@ -142,6 +143,8 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `/run/mainframe-printer/` | 帳票の PDF (tmpfs。再起動で消える) |
 | `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 (IPL のたびに作り直される) |
 | `/var/lib/mainframe/mvs-config.applied.json` | mvs-config が前回反映した内容のハッシュ (再 IPL の要否判定に使う) |
+| `/var/lib/mainframe/mvs-job-metrics.json` | 各ジョブの直近 RC・最終終了時刻・最終成功時刻の永続化ファイル |
+| `/var/lib/prometheus/node-exporter/mvs_jobs.prom` | node-exporter が公開するジョブ結果メトリクス (`mvs_job_last_rc` 等) |
 | TCP 3270 | TN3270 (外部公開は lb 経由・LAN 内のみ) |
 | TCP 3505 / 3506 | カードリーダ (localhost のみ) |
 | TCP 8038 | Hercules の HTTP サーバー。コマンドの投入口 (ファイアウォールで閉じ、LXC の中からのみ使う) |
