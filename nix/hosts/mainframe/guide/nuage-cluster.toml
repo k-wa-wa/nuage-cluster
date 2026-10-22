@@ -30,3 +30,20 @@ note = "MVS の中の設定と業務アプリは、Git の内容を mvs-config �
 pattern = '\bUCPUB000\b'
 title = "ユーザーカタログ UCPUB000"
 note = "PUB000 上の利用者用カタログ。nuage-cluster では別名 NUAGE がここを指し、業務アプリのデータセット (NUAGE.*) はここに登録される。マスターカタログは内部リーダ経由のバッチ利用者から更新できないため。"
+
+# ---------------------------------------------------------------- KICKS (kicks.nix、mvsctl install-kicks)
+
+[[term]]
+pattern = '\bKICKS\.KICKSSYS\.V1R5M0\.[A-Z0-9.]+'
+title = "KICKS のシステム用ライブラリ"
+note = "KICKS for TSO 1.5.0 の本体 (SKIKLOAD)・CLIST・PROC・マクロなど。nuage-cluster の mvs-config が配布物から導入した (高位修飾子 KICKS はユーザーカタログ UCPUB000 を指す)。起動は CLIST(KICKS)。"
+
+[[term]]
+pattern = '\bKICKS\.KICKS\.V1R5M0\.[A-Z0-9.]+'
+title = "KICKS の利用者用ライブラリ (見本)"
+note = "KICKS に付属する見本のプログラム・マップ・表。業務アプリは自分の高位修飾子の下に同じ形のライブラリを持つ (例: NUAGE.USAGE.KICKS.V1R5M0.*)。"
+
+[[term]]
+pattern = '\bKICKS\.V1R5M0\.INSTALL\b'
+title = "KICKS の導入済みの印"
+note = "mvs-config (mvsctl install-kicks) の導入ジョブ KICKSINS が最後に作る。これが無いと導入をやり直す。"

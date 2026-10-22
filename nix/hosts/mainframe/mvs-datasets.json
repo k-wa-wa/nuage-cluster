@@ -3,5 +3,10 @@
     "dsn": "NUAGE",
     "type": "ALIAS",
     "catalog": "UCPUB000"
+  },
+  {
+    "dsn": "KICKS",
+    "type": "ALIAS",
+    "catalog": "UCPUB000"
   }
 ]

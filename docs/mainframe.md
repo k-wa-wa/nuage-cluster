@@ -127,7 +127,8 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/mvs-config/` | MVS の中の設定のあるべき姿 (`<データセット名>/<メンバー名>`) |
 | `nix/hosts/mainframe/tools/mvsctl.py` | ジョブの投入・終了待ち・結果判定と、設定反映を行う CLI |
 | `nix/hosts/mainframe/tools/compose_mvs_config.py` | システムの MVS 設定に業務アプリの資材を合成する (mvs-config.nix から呼ぶ) |
-| `nix/hosts/mainframe/mvs-datasets.json` | システムが宣言するデータセット (別名 NUAGE → ユーザーカタログ UCPUB000) |
+| `nix/hosts/mainframe/mvs-datasets.json` | システムが宣言するデータセット (別名 NUAGE・KICKS → ユーザーカタログ UCPUB000) |
+| `nix/hosts/mainframe/kicks.nix` | KICKS for TSO 1.5.0 (CICS 互換のトランザクション処理) の配布物。導入は mvs-config が行う (5 章「KICKS (オンライン)」) |
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
 | `nix/hosts/mainframe/job-metrics.nix`, `tools/job_metrics.py` | ジョブの成否を `mvslog.txt` から読み、node-exporter の textfile collector へ書き出す |
@@ -144,10 +145,11 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `/run/mainframe-printer/` | 帳票の PDF (tmpfs。再起動で消える) |
 | `/var/lib/mainframe/mvslog.txt` | マスターコンソールの記録 (IPL のたびに作り直される) |
 | `/var/lib/mainframe/mvs-config.applied.json` | mvs-config が前回反映した内容のハッシュ (再 IPL の要否判定に使う) |
+| `/var/lib/mainframe/mvs-build.applied.json` | 業務アプリのビルドジョブのうち、前回成功したものの内容のハッシュ (変わったものだけ流す) |
 | `/var/lib/mainframe/mvs-job-metrics.json` | 各ジョブの直近 RC・最終終了時刻・最終成功時刻の永続化ファイル |
 | `/var/lib/prometheus/node-exporter/mvs_jobs.prom` | node-exporter が公開するジョブ結果メトリクス (`mvs_job_last_rc` 等) |
 | TCP 3270 | TN3270 (外部公開は lb 経由・LAN 内のみ) |
-| TCP 3505 / 3506 | カードリーダ (localhost のみ) |
+| TCP 3505 / 3506 | カードリーダ (localhost のみ)。3505 は ASCII を EBCDIC に変換して読み、3506 は変換せずに読む (バイナリの XMI を流す) |
 | TCP 8038 | Hercules の HTTP サーバー。コマンドの投入口 (ファイアウォールで閉じ、LXC の中からのみ使う) |
 | TCP 9100 | node-exporter |
 
@@ -172,6 +174,8 @@ grep -a "HELLO" /var/lib/mainframe/printers/prt00e.txt
 
 終了まで待って、そのジョブの出力だけを受け取るには `mvsctl submit` を使う。
 終了コードは、COND CODE が `--max-cc` 以下で ABEND も JCL エラーも無ければ 0 になる。
+動的に割り当てた SYSOUT (TSO の RECEIVE が呼ぶ IEBCOPY の出力など) はジョブの途中でも別の区切りとして印字されるため、
+ジョブログ (`$HASP395 ... ENDED`) を含む区切りまで待ってから返す。
 
 ```bash
 mvsctl submit /etc/mainframe/samples/hello-cobol.jcl > hello.txt
@@ -254,8 +258,15 @@ members/<データセット名>/<メンバー名>   書き込むメンバー
 schedule                               ZTIMER の予定表の末尾に足す行
 rakf                                   RAKF の権限表に足す行 (任意)
 datasets.json                          無ければ作るデータセット ([{dsn, type, unit, volser, space, dcb, ...}])
+build/<ジョブ名>                        内容が変わったら流すビルドジョブ (任意。KICKS の導入の後に流す)
 cicerone3270/                          3270 端末の案内 cicerone3270 に足す辞書 (任意。terminal.nix が読ませる)
 ```
+
+ビルドジョブは、バッチのように実行のたびにコンパイルできないもの (KICKS のオンラインのプログラム・マップ・表) を
+ロードライブラリに作るためのジョブである。mvs-config はメンバーを書き込んだ後、前回成功したときから内容が変わったものだけを
+流す (`/var/lib/mainframe/mvs-build.applied.json`)。COND CODE 4 までを成功とし、失敗したものは次回また流す。
+データセットを作った (DASD を初期化したなど) ときと KICKS を導入し直したときは、記録にかかわらず全部流す。
+ビルドジョブは JOB 文にユーザーを書かない (業務アプリの権限で動く)。
 
 | データセットの type | 作り方 |
 | :-- | :-- |
@@ -266,7 +277,7 @@ cicerone3270/                          3270 端末の案内 cicerone3270 に足�
 
 | アプリ | 内容 |
 | :-- | :-- |
-| [nuage-usage-ledger](https://github.com/k-wa-wa/nuage-usage-ledger) | クラスタ使用量の勘定。毎朝 06:00 に日次使用量明細 (`USAGERPT`)、06:10 に日次締め (`LEDGER`) が動き、帳票プリンタに印字する |
+| [nuage-usage-ledger](https://github.com/k-wa-wa/nuage-usage-ledger) | クラスタ使用量の勘定。毎朝 06:00 に日次使用量明細 (`USAGERPT`)、06:10 に日次締め (`LEDGER`) が動き、帳票プリンタに印字する。締めの後に照会用ファイルを作り (`LEDGINQ`)、KICKS の 3270 画面で勘定を照会できる (`EXEC 'NUAGE.USAGE.CLIST(LEDGER)'`) |
 
 アプリを更新したら、取り込む側で lock を更新して master に入れる。
 
@@ -281,6 +292,44 @@ mvs-config はメンバーやデータセットを消さない。アプリから
 ```bash
 journalctl -u mvs-config     # 反映結果 (MVSCONF: MAXCC=0000 など)
 ```
+
+### KICKS (オンライン)
+
+KICKS for TSO 1.5.0 は、IBM の CICS (オンラインのトランザクション処理) を真似た無償のソフトウェアである (作者は Mike Noel)。
+CICS のように常駐する領域は無く、**TSO の中で動く**。TSO から CLIST で起動し、そのセッションの中で
+4 文字のトランザクション ID を打つと、対応するプログラムが 3270 の画面 (BMS マップ) を出す。終えるときは `KSSF` を打つ。
+
+```
+READY
+EXEC 'KICKS.KICKSSYS.V1R5M0.CLIST(KICKS)'      ← KICKS だけを起動する (見本の画面)
+EXEC 'NUAGE.USAGE.CLIST(LEDGER)'               ← 業務アプリ (使用量勘定の照会) として起動する
+```
+
+MVS/CE には入っていないため、mvs-config が導入する。導入済みの印 `KICKS.V1R5M0.INSTALL` が無ければ、
+導入ジョブ `KICKSINS` を流す (`mvsctl install-kicks`。手で流すときも同じコマンドを使う)。
+
+| 段階 | 内容 |
+| :-- | :-- |
+| 配布物 | `kicks.nix` が元の配布物 (zip) を取得し、XMI (TSO の XMIT 形式) を取り出す。ライセンスにより KICKS の資材は公開のリポジトリに置けないため、Git には持たない |
+| 受け取り | XMI をバイナリのまま EBCDIC のカードリーダ (3506) で流し、インラインのデータとしてデータセットにする。TSO の RECEIVE (NJE38) で受け取り、その中の 26 個の XMIT もさらに受け取る |
+| 置き場所 | 別名 KICKS → ユーザーカタログ UCPUB000 (PUB000)。NUAGE と同じ形にし、新しいディスクやカタログを足さない (KICKS は約 2,000 トラックを使い、PUB000 には十分空きがある) |
+| 名前の置き換え | 配布物の JCL・CLIST・PROC は作者の環境の名前で書かれている。配布物の CLIST(KFIX) が TSO で対話的に行う置き換えを、同じ指定の PDSUPDTE でバッチで行う |
+| KICKS 自身のファイル | 一時記憶域・一時データのキュー (KIKTEMP・KIKINTRA) とデバッガ用 (SDB) の VSAM を作る |
+
+導入の手順 (Jay Moseley の MVS 3.8j 向けの手順) からの違いは次のとおり。
+
+| 項目 | 手順 | nuage-cluster |
+| :-- | :-- | :-- |
+| XMI の受け取り | バッチの RECV370 | MVS/CE に RECV370 が無いため、TSO の RECEIVE (NJE38 の実装) をバッチの TSO で使う |
+| CLIST(KICKS) の既知の誤り | 存在しない利用者用の SKIKLOAD を連結している行を消す | CLIST は直さず、空の `KICKS.KICKS.V1R5M0.SKIKLOAD` を置く |
+| TSO のログオン手続き | `IKJACCNT` の DYNAMNBR を 64 にする | MVS/CE は初めから `DYNAMNBR=64` なので変えない |
+| COBOL のコンパイル用 PROC | `SYS1.COBLIB` を使う | MVS/CE の COBOL のライブラリは `SYSC.COBLIB` なので、名前の置き換えで直す。コンパイラ (`SYSC.LINKLIB`) はリンクリストに無いため、業務アプリのビルドジョブが STEPLIB を足す |
+| 見本のデータ | LOADMUR・LOADTAC で作る | 作らない (見本のトランザクションのファイルは「割り当てなし」で無効になる) |
+
+業務アプリは、KICKS の「利用者のライブラリ」の形 (`<高位修飾子>.KICKS.V1R5M0.SKIKLOAD` / `KIKRPL` / `COBCOPY` / `GCCCOPY`) で
+自分のライブラリを持ち、CLIST(KICKS) の `TSOID(<高位修飾子>)` でそれを連結させる。表 (SIT・PCT・PPT・FCT) は接尾辞を決めて
+自分の SKIKLOAD に置き、`SIT(接尾辞)` で選ぶ。コンパイル用の PROC は `//JOBPROC DD DSN=KICKS.KICKSSYS.V1R5M0.PROCLIB` で使える
+(MVS/CE の JES2 は JOBPROC を受け付ける)。
 
 ### 起動・停止
 
@@ -322,6 +371,9 @@ nix run github:k-wa-wa/cicerone3270 -- 127.0.0.1:3270    # 別の端末から接
 | アプリのデータセットの置き場所 | 別名 NUAGE → ユーザーカタログ UCPUB000 | マスターカタログは既定のバッチ利用者が更新できない。MVS/CE も利用者のデータを UCPUB000 (誰でも登録できる) に置く流儀である |
 | 共有メンバーの持ち主 | ZTIMER の予定表と RAKF の権限表は、システムの分とアプリの分を合成する | 1 つのメンバーを複数の持ち主が書き換えると、互いに消し合うため |
 | ジョブの失敗の判定 | `IEF452I` / `IEF453I` (JCL エラー)、`IEF450I` (ABEND)、各ステップの COND CODE | カタログ登録の失敗 (`NOT CATLGD`) はステップの COND CODE に出ないので、業務アプリ側で確定の成否を確かめる必要がある |
+| KICKS の置き場所 | 別名 KICKS → ユーザーカタログ UCPUB000 (PUB000) | 新しいディスク (手順の KICKS0) とカタログを足すと、hercules.cnf と DASD の初期化が要る。NUAGE と同じ形なら、データセットの宣言 (ALIAS) の仕組みをそのまま使える |
+| KICKS の導入 | mvs-config が、導入済みの印が無いときだけ導入ジョブを流す | 設定のメンバーと同じく冪等にする。途中で失敗しても、次は前回の跡を消してからやり直す |
+| オンラインのプログラムのビルド | 業務アプリの出力に `build/` (JCL) を置き、内容が変わったときだけ流す | オンラインのプログラムは、バッチのように実行のたびにコンパイルできず、ロードライブラリに置く必要がある |
 
 ## 7. 既知の課題・今後
 

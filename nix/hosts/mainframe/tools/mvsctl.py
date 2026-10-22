@@ -1,13 +1,17 @@
 """MVS をバッチ処理基盤として Linux 側から扱うための CLI。
 
 サブコマンド:
-  submit        JCL を投入し、終了を待って、出力と判定結果を返す
-  apply-config  Git で管理している MVS 内の設定 (PDS メンバー) を反映する
+  submit         JCL を投入し、終了を待って、出力と判定結果を返す
+  apply-config   Git で管理している MVS 内の設定 (PDS メンバー) を反映する。
+                 KICKS の導入と、業務アプリのビルドジョブも流す
+  install-kicks  KICKS を導入する (導入済みなら何もしない)
+  build          業務アプリのビルドジョブのうち、前回から変わったものを流す
 
 ジョブの入口はカードリーダ (127.0.0.1:3505)、出口は 1403 プリンタ (prt00e.txt) である。
-JES2 はジョブごとに「START JOB n 名前」「END JOB n 名前」のバナー行を印字するため、
-投入前のプリンタ出力の末尾位置を覚えておき、そこから先に自分の END 行が現れたら完了とみなす。
+JES2 はジョブの出力を「START JOB n 名前」「END JOB n 名前」のバナー行で挟んで印字するため、
+投入前のプリンタ出力の末尾位置を覚えておき、そこから先に自分のジョブの出力が揃ったら完了とみなす。
 したがって MSGCLASS=A (プリンタ 1) のジョブだけを扱う。
+バイナリのデータ (KICKS の XMI) を含むジョブは、EBCDIC のカードリーダ (127.0.0.1:3506) に流す。
 """
 
 import argparse
@@ -29,6 +33,8 @@ STATE_DIR = Path(os.environ.get("MVS_STATE_DIR", "/var/lib/mainframe"))
 PRINTER = STATE_DIR / "printers" / "prt00e.txt"
 CONSOLE_LOG = STATE_DIR / "mvslog.txt"
 READER = ("127.0.0.1", 3505)
+# 変換しない (EBCDIC の) カードリーダ。80 バイトのカードをそのまま読む (hercules.cnf の 001A)
+EBCDIC_READER = ("127.0.0.1", 3506)
 
 # JCL の 1 行は 80 桁で、72 桁目は継続記号、73 桁目以降は連番欄である
 JCL_MAX_COLUMNS = 71
@@ -96,13 +102,13 @@ def wait_until_ready(timeout):
         time.sleep(2)
 
 
-def send_to_reader(jcl, timeout):
-    """カードリーダへ JCL を送る。Hercules がまだ待ち受けていないことがあるため再試行する"""
+def send_to_reader(deck, reader, timeout):
+    """カードリーダへデッキ (バイト列) を送る。Hercules がまだ待ち受けていないことがあるため再試行する"""
     deadline = time.monotonic() + timeout
     while True:
         try:
-            with socket.create_connection(READER, timeout=10) as s:
-                s.sendall(jcl.encode("ascii"))
+            with socket.create_connection(reader, timeout=10) as s:
+                s.sendall(deck)
             return
         except OSError:
             if time.monotonic() > deadline:
@@ -111,7 +117,13 @@ def send_to_reader(jcl, timeout):
 
 
 def wait_for_job(jobname, offset, timeout):
-    """プリンタ出力の offset 以降に、jobname の START から END までが揃うのを待つ"""
+    """プリンタ出力の offset 以降から、jobname のジョブの出力を全部受け取るまで待つ。
+
+    動的に割り当てた SYSOUT (TSO の RECEIVE が呼ぶ IEBCOPY の出力など) は、ジョブの途中でも
+    START と END のバナーに挟まれた別の区切りとして先に印字される。そのため最初の END では
+    終わったと言えない。ジョブログ ($HASP395 ... ENDED、JCL エラーで動かなかったなら IEF452I) を
+    含む区切りの END が出たところで完了とみなし、そこまでの区切りをまとめて返す
+    """
     start_re = re.compile(rf"\*\*\*\*A\s+START\s+JOB\s+(\d+)\s+{re.escape(jobname)}\s")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -122,13 +134,14 @@ def wait_for_job(jobname, offset, timeout):
         with PRINTER.open("rb") as f:
             f.seek(offset)
             text = f.read().decode("ascii", errors="replace").replace("\f", "\n")
-        starts = list(start_re.finditer(text))
-        if starts:
-            jobno = starts[-1].group(1)
-            end_re = re.compile(rf"\*\*\*\*A\s+END\s+JOB\s+{jobno}\s+{re.escape(jobname)}\s.*")
-            end = end_re.search(text, starts[-1].end())
+        first = start_re.search(text)
+        if first:
+            jobno = first.group(1)
+            name = re.escape(jobname)
+            done = re.search(rf"JOB\s+{jobno}\s+(\$HASP395 {name}\s+ENDED|IEF452I {name}\s)", text)
+            end = done and re.compile(rf"\*\*\*\*A\s+END\s+JOB\s+{jobno}\s+{name}\s.*").search(text, done.end())
             if end:
-                # 先頭のバナー (ジョブ名の大きな文字) から END 行までを返す
+                # 先頭のバナー (ジョブ名の大きな文字) から、ジョブログを含む区切りの END 行までを返す
                 return text[: end.end()] + "\n"
         time.sleep(2)
     raise SystemExit(f"{jobname}: {timeout} 秒以内に終了しなかった")
@@ -136,18 +149,22 @@ def wait_for_job(jobname, offset, timeout):
 
 def submit(jcl, timeout):
     jcl = jcl if jcl.endswith("\n") else jcl + "\n"
-    jobname = jobname_of(jcl)
     check_columns(
         [line for line in jcl.splitlines() if line.startswith("//")],
         JCL_MAX_COLUMNS,
         "JCL",
     )
+    return submit_deck(jcl.encode("ascii"), jobname_of(jcl), READER, timeout)
+
+
+def submit_deck(deck, jobname, reader, timeout):
+    """デッキをカードリーダに流し、ジョブの出力を待って結果を返す"""
     wait_until_ready(timeout)
     # 同時に投入すると出力の切り出しが混ざるため、mvsctl 同士は 1 本ずつ流す
     with PRINTER.open("rb") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         offset = PRINTER.stat().st_size
-        send_to_reader(jcl, timeout)
+        send_to_reader(deck, reader, timeout)
         output = wait_for_job(jobname, offset, timeout)
     return JobResult(jobname, output)
 
@@ -351,6 +368,21 @@ def apply_config(args):
             print(f"{dsn} を反映するためにコマンドを出す: {command}", flush=True)
             hercules_command(command)
 
+    # KICKS の導入と業務アプリのビルドは、権限表 (RAKF) を読み直させた後に行う。
+    # 失敗しても、再 IPL が必要な設定の反映は続ける
+    failed = False
+    installed = False
+    if args.kicks_xmi:
+        try:
+            installed = install_kicks(args.kicks_xmi, args.user, password, args.timeout)
+        except SystemExit as e:
+            print(e, flush=True)
+            failed = True
+    if args.builds and not failed:
+        # データセットを作った (DASD を初期化したなど) か KICKS を導入し直したときは、記録にかかわらず全部流す
+        force = installed or bool(missing)
+        failed = run_builds(args.builds, args.build_stamp, args.timeout, force=force) > 0
+
     needs_ipl = [k for k in changed if k.split("(")[0] in REQUIRES_IPL]
     if needs_ipl:
         print(f"再 IPL して反映する: {', '.join(needs_ipl)}", flush=True)
@@ -360,7 +392,7 @@ def apply_config(args):
         subprocess.run(["systemctl", "--no-block", "restart", "hercules.service"], check=True)
     else:
         print("再 IPL は不要")
-    return 0
+    return 1 if failed else 0
 
 
 def hercules_command(command):
@@ -368,6 +400,266 @@ def hercules_command(command):
     data = urllib.parse.urlencode({"cmd": command}).encode()
     with urllib.request.urlopen(HERCULES_CMD_URL, data=data, timeout=10):
         pass
+
+
+# ---------------------------------------------------------------- KICKS
+
+
+# 導入済みの印。導入ジョブの最後のステップが作る
+KICKS_RECEIPT = "KICKS.V1R5M0.INSTALL"
+KICKS_VOLUME = ("3380", "PUB000")
+
+# 配布物の XMI の中身 (区分データセット BIGPDS) のメンバーと、それを受け取るデータセット。
+# 高位修飾子 KICKS の下に、KICKS の流儀どおり利用者用 (KICKS.KICKS.V1R5M0.*) と
+# システム用 (KICKS.KICKSSYS.V1R5M0.*) の 2 系統で置く
+KICKS_MEMBERS = {
+    "HCB2": "KICKS.KICKS.V1R5M0.CB2",
+    "HCOB": "KICKS.KICKS.V1R5M0.COB",
+    "HCOBCOPY": "KICKS.KICKS.V1R5M0.COBCOPY",
+    "HGCC": "KICKS.KICKS.V1R5M0.GCC",
+    "HGCCCOPY": "KICKS.KICKS.V1R5M0.GCCCOPY",
+    "HINSTLIB": "KICKS.KICKS.V1R5M0.INSTLIB",
+    "HKIKRPL": "KICKS.KICKS.V1R5M0.KIKRPL",
+    "HMAPSRC": "KICKS.KICKS.V1R5M0.MAPSRC",
+    "HOPIDS": "KICKS.KICKS.V1R5M0.OPIDS",
+    "HSPUFI": "KICKS.KICKS.V1R5M0.SPUFI.IN",
+    "SCMDPROC": "KICKS.KICKSSYS.V1R5M0.CLIST",
+    "SCOB": "KICKS.KICKSSYS.V1R5M0.COB",
+    "SCOBCOPY": "KICKS.KICKSSYS.V1R5M0.COBCOPY",
+    "SDOC": "KICKS.KICKSSYS.V1R5M0.DOC",
+    "SGCC": "KICKS.KICKSSYS.V1R5M0.GCC",
+    "SGCCCOPY": "KICKS.KICKSSYS.V1R5M0.GCCCOPY",
+    "SINSTLIB": "KICKS.KICKSSYS.V1R5M0.INSTLIB",
+    "SKIKRPL": "KICKS.KICKSSYS.V1R5M0.KIKRPL",
+    "SMACLIB": "KICKS.KICKSSYS.V1R5M0.MACLIB",
+    "SMAPSRC": "KICKS.KICKSSYS.V1R5M0.MAPSRC",
+    "SPROCLIB": "KICKS.KICKSSYS.V1R5M0.PROCLIB",
+    "SPROCLIZ": "KICKS.KICKSSYS.V1R5M0.PROCLIBZ",
+    "SSKIKLOD": "KICKS.KICKSSYS.V1R5M0.SKIKLOAD",
+    "STESTCOB": "KICKS.KICKSSYS.V1R5M0.TESTCOB",
+    "STESTGCC": "KICKS.KICKSSYS.V1R5M0.TESTGCC",
+    "STESTFIL": "KICKS.KICKSSYS.V1R5M0.TESTFILE",
+}
+
+# 配布物の JCL・CLIST・PROC は、作者の環境の名前 (K.S. / K.U. / HERC01) で書かれている。
+# 配布物の CLIST(KFIX) は、それを導入先の名前に置き換える (KICKS 付属の PDSUPDTE を呼ぶ)。
+# KFIX は TSO で対話的に動くため、同じ置き換えをバッチで行う。置き換えの指定は KFIX と同じで、
+# 高位修飾子 KICKS、Turnkey MVS (MVS 3.8j) 向け (端末制御を 2$ にする) を選んだものにあたる。
+# 最後の行は MVS/CE 向けの追加である (COBOL のライブラリが SYS1.COBLIB ではなく SYSC.COBLIB)
+KICKS_FIX_CARDS = [
+    "HERC01<KICKS<",
+    "K.S.<KICKS.S.<",
+    "K.U.<KICKS.U.<",
+    "'K.<'KICKS.<",
+    "=K.<=KICKS.<",
+    "(K.<(KICKS.<",
+    ".S.<.KICKSSYS.<",
+    ".U.<.KICKS.<",
+    "TCP(1$)<TCP(2$)<",
+    "SYS1.COBLIB<SYSC.COBLIB<",
+]
+# 置き換えるデータセット (PDSUPDTE は @ で始まる DD を順に処理する)。
+# 置き換えの無いデータセットを渡すと RC 4 になるため、置き換えのあるものだけを渡す
+KICKS_FIX_DDS = {
+    "@UCB2": "KICKS.KICKS.V1R5M0.CB2",
+    "@UCOB": "KICKS.KICKS.V1R5M0.COB",
+    "@UCOBCPY": "KICKS.KICKS.V1R5M0.COBCOPY",
+    "@UGCC": "KICKS.KICKS.V1R5M0.GCC",
+    "@UINST": "KICKS.KICKS.V1R5M0.INSTLIB",
+    "@UMAPS": "KICKS.KICKS.V1R5M0.MAPSRC",
+    "@SCMD": "KICKS.KICKSSYS.V1R5M0.CLIST",
+    "@SCOB": "KICKS.KICKSSYS.V1R5M0.COB",
+    "@SGCC": "KICKS.KICKSSYS.V1R5M0.GCC",
+    "@SINST": "KICKS.KICKSSYS.V1R5M0.INSTLIB",
+    "@SMAPS": "KICKS.KICKSSYS.V1R5M0.MAPSRC",
+    "@SPROC": "KICKS.KICKSSYS.V1R5M0.PROCLIB",
+    "@SPROCZ": "KICKS.KICKSSYS.V1R5M0.PROCLIBZ",
+    "@STESTC": "KICKS.KICKSSYS.V1R5M0.TESTCOB",
+    "@STESTG": "KICKS.KICKSSYS.V1R5M0.TESTGCC",
+    "@STESTF": "KICKS.KICKSSYS.V1R5M0.TESTFILE",
+}
+
+# KICKS 自身の VSAM (一時記憶域・一時データのキューと、デバッガのソース表示用)。
+# 名前, キー長, レコード長 (最小 最大), 容量, SPANNED か。導入手順の LODTEMP・LODINTRA・LOADSDB にあたる
+KICKS_VSAM = [
+    ("KICKS.KICKSSYS.V1R5M0.KIKINTRA", 6, "19 32767", "TRACKS(15 15)", True),
+    ("KICKS.KICKSSYS.V1R5M0.KIKTEMP", 18, "19 32767", "TRACKS(15 15)", True),
+    ("KICKS.KICKS.V1R5M0.SDB", 14, "92 92", "CYLINDERS(10 10)", False),
+]
+
+# KICKS の CLIST は利用者用の SKIKLOAD (KICKS.KICKS.V1R5M0.SKIKLOAD) も連結するが、配布物には無く、
+# 割り当てに失敗して KICKS が起動しない (既知の誤り)。CLIST は直さず、空のデータセットを置く
+KICKS_EMPTY_LOADLIB = "KICKS.KICKS.V1R5M0.SKIKLOAD"
+
+
+def kicks_install_jcl(user, password):
+    """KICKS の導入ジョブの JCL を返す。"@@XMI@@" の行に配布物の XMI (バイナリ) を差し込み、
+    "@DLM@" を XMI の中に現れない区切りに置き換えて使う (kicks_install_deck)
+
+    1. 前回の途中までの導入の跡を消す
+    2. XMI をカードとして読み、データセットにする (EBCDIC のカードリーダで、変換せずに読む)
+    3. TSO の RECEIVE (NJE38) で XMI を受け取り、さらにその中の 26 個の XMIT を受け取る
+       (配布物の手順の RECV370 は MVS/CE に無い)
+    4. 受け取ったデータセットが揃っているかを確かめる
+    5. 名前の置き換え (KFIX にあたる)、空の利用者用 SKIKLOAD、KICKS 自身の VSAM を作る
+    6. 中間のデータセットを消し、導入済みの印 (KICKS.V1R5M0.INSTALL) を作る
+    """
+    unit, vol = KICKS_VOLUME
+    temps = ["KICKS.V1R5M0.XMI", "KICKS.V1R5M0.BIGPDS"]
+    lines = [
+        "//KICKSINS JOB (NUAGE),'NUAGE KICKS INSTALL',CLASS=A,MSGCLASS=A,",
+        f"//             MSGLEVEL=(1,1),USER={user},PASSWORD={password}",
+        "//*",
+        "//* INSTALL KICKS FOR TSO V1R5M0 (BY NUAGE-CLUSTER MVSCTL)",
+        "//*",
+        "//CLEAN    EXEC PGM=IDCAMS",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD *",
+    ]
+    lines += [f"  DELETE {dsn} NONVSAM" for dsn in [*temps, *KICKS_MEMBERS.values(), KICKS_EMPTY_LOADLIB, KICKS_RECEIPT]]
+    lines += [f"  DELETE {name} CLUSTER" for name, *_ in KICKS_VSAM]
+    lines += [
+        "  SET MAXCC = 0",
+        "/*",
+        "//LOAD     EXEC PGM=IEBGENER,COND=(0,NE)",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD DUMMY",
+        f"//SYSUT2   DD DSN={temps[0]},DISP=(NEW,CATLG),",
+        f"//             UNIT={unit},VOL=SER={vol},SPACE=(TRK,(240,15),RLSE),",
+        "//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=3200)",
+        "//SYSUT1   DD DATA,DLM=@DLM@",
+        "@@XMI@@",
+        "@DLM@",
+        "//RECEIVE  EXEC PGM=IKJEFT01,REGION=4096K,COND=(0,NE)",
+        "//SYSTSPRT DD SYSOUT=*",
+        "//SYSTSIN  DD *",
+        f"RECEIVE INDS('{temps[0]}') DSN('{temps[1]}') -",
+        f"  VOLUME({vol})",
+    ]
+    for member, dsn in KICKS_MEMBERS.items():
+        lines += [f"RECEIVE INDS('{temps[1]}({member})') -", f"  DSN('{dsn}') VOLUME({vol})"]
+    lines += [
+        "/*",
+        "//* A FAILED RECEIVE MAY NOT SHOW IN THE RC OF THE TSO STEP",
+        "//VERIFY   EXEC PGM=IDCAMS,COND=(0,NE)",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD *",
+    ]
+    lines += [f"  LISTCAT ENTRIES({dsn}) NAME" for dsn in KICKS_MEMBERS.values()]
+    lines += [
+        "/*",
+        "//KFIX     EXEC PGM=PDSUPDTE,PARM='UPDATE',COND=(0,NE)",
+        "//STEPLIB  DD DSN=KICKS.KICKSSYS.V1R5M0.SKIKLOAD,DISP=SHR",
+        "//SYSTERM  DD SYSOUT=*",
+        "//SYSPRINT DD SYSOUT=*",
+    ]
+    lines += [f"//{dd:<8} DD DSN={dsn},DISP=OLD" for dd, dsn in KICKS_FIX_DDS.items()]
+    lines += ["//SYSIN    DD *", *KICKS_FIX_CARDS, "/*"]
+    lines += [
+        "//USKIKLOD EXEC PGM=IEFBR14,COND=(0,NE)",
+        f"//DS       DD DSN={KICKS_EMPTY_LOADLIB},DISP=(NEW,CATLG),",
+        f"//             UNIT={unit},VOL=SER={vol},SPACE=(TRK,(1,1,1)),",
+        "//             DCB=(DSORG=PO,RECFM=U,BLKSIZE=6144)",
+        "//VSAM     EXEC PGM=IDCAMS,COND=(0,NE)",
+        "//SYSPRINT DD SYSOUT=*",
+        "//DUMMYREC DD *",
+        "99999999999999999999999999999999999",
+        "/*",
+        "//SYSIN    DD *",
+    ]
+    for name, keylen, recsize, space, spanned in KICKS_VSAM:
+        lines += [
+            f"  DEFINE CLUSTER (NAME({name}) INDEXED -",
+            f"         VOLUMES({vol}) {space} SHAREOPTIONS(1 3) UNIQUE -",
+            f"         RECORDSIZE({recsize}){' SPANNED' if spanned else ''} KEYS({keylen} 0)) -",
+            f"    DATA (NAME({name}.DATA)) -",
+            f"    INDEX (NAME({name}.INDEX))",
+        ]
+    # 空の KSDS は開けないため、導入手順どおりダミーのレコードを 1 件入れる
+    lines += [f"  REPRO INFILE(DUMMYREC) OUTDATASET({name})" for name, *_ in KICKS_VSAM]
+    lines += [
+        "/*",
+        "//TIDY     EXEC PGM=IDCAMS,COND=(0,NE)",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD *",
+        *[f"  DELETE {dsn} NONVSAM" for dsn in temps],
+        "/*",
+        "//RECEIPT  EXEC PGM=IEBGENER,COND=(0,NE)",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD DUMMY",
+        "//SYSUT1   DD *",
+        "KICKS FOR TSO V1R5M0 INSTALLED BY NUAGE-CLUSTER (MVSCTL INSTALL-KICKS)",
+        "/*",
+        f"//SYSUT2   DD DSN={KICKS_RECEIPT},DISP=(NEW,CATLG),",
+        f"//             UNIT={unit},VOL=SER={vol},SPACE=(TRK,(1)),",
+        "//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=800)",
+        "//",
+    ]
+    return lines
+
+
+def kicks_install_deck(xmi, user, password):
+    """導入ジョブのデッキ (EBCDIC のカードの並び) を作る"""
+    if len(xmi) % 80:
+        raise SystemExit("XMI が 80 バイトのカードの並びになっていない")
+    starts = {bytes(xmi[i:i + 2]) for i in range(0, len(xmi), 80)}
+    # インラインのデータは区切り (DLM) で終わる。XMI のカードの先頭 2 桁に現れない文字を選ぶ
+    dlm = next(c for c in ("$$", "##", "@@", "><", ")(", "%%") if c.encode("cp037") not in starts)
+    lines = kicks_install_jcl(user, password)
+    check_columns([line for line in lines if line.startswith("//")], JCL_MAX_COLUMNS, "KICKS の導入ジョブ")
+    deck = bytearray()
+    for line in lines:
+        if line == "@@XMI@@":
+            deck += xmi
+        else:
+            deck += line.replace("@DLM@", dlm).ljust(80).encode("cp037")
+    return bytes(deck)
+
+
+def install_kicks(xmi_path, user, password, timeout):
+    """KICKS を導入する。導入済み (印のデータセットがある) なら何もしない。導入したら True を返す"""
+    if existing_datasets([KICKS_RECEIPT], user, password, timeout):
+        print("KICKS は導入済み", flush=True)
+        return False
+    print("KICKS を導入する", flush=True)
+    deck = kicks_install_deck(Path(xmi_path).read_bytes(), user, password)
+    result = submit_deck(deck, "KICKSINS", EBCDIC_READER, timeout)
+    print(result.summary(), flush=True)
+    if not result.ok(max_cc=0):
+        sys.stdout.write(result.output)
+        raise SystemExit("KICKS の導入に失敗した")
+    return True
+
+
+# ---------------------------------------------------------------- build
+
+# ビルドジョブの成功とみなす最大の COND CODE (コンパイラの警告 4 までは成功)
+BUILD_MAX_CC = 4
+# 前回成功したビルドジョブの内容のハッシュ
+BUILD_STAMP = STATE_DIR / "mvs-build.applied.json"
+
+
+def run_builds(builds_dir, stamp, timeout, force=False):
+    """業務アプリのビルドジョブ (<ディレクトリ>/<名前> の JCL) のうち、前回成功したときから
+    内容が変わったものを流す。成功したものだけを記録する (失敗したものは次回また流す)。
+    force なら記録にかかわらず全部流す (MVS 側の資材が作り直されたとき)。失敗の数を返す"""
+    stamp = Path(stamp)
+    applied = {} if force or not stamp.exists() else json.loads(stamp.read_text())
+    failures = 0
+    for path in sorted(Path(builds_dir).iterdir()):
+        jcl = path.read_text(encoding="ascii")
+        if applied.get(path.name) == digest(jcl):
+            continue
+        print(f"ビルドジョブを流す: {path.name}", flush=True)
+        result = submit(jcl, timeout)
+        print(result.summary(), flush=True)
+        if result.ok(max_cc=BUILD_MAX_CC):
+            applied[path.name] = digest(jcl)
+            stamp.write_text(json.dumps(applied, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(result.output)
+            failures += 1
+    return failures
 
 
 # ---------------------------------------------------------------- CLI
@@ -382,6 +674,15 @@ def cmd_submit(args):
         sys.stdout.write(result.output)
     print(result.summary(), file=sys.stderr)
     return 0 if result.ok(args.max_cc) else 1
+
+
+def cmd_install_kicks(args):
+    install_kicks(args.xmi, args.user, Path(args.password_file).read_text().strip(), args.timeout)
+    return 0
+
+
+def cmd_build(args):
+    return 1 if run_builds(args.builds, args.stamp, args.timeout, force=args.force) else 0
 
 
 def main():
@@ -401,8 +702,25 @@ def main():
     p.add_argument("--password-file", required=True)
     p.add_argument("--datasets", help="無ければ作るデータセットの定義 (JSON)")
     p.add_argument("--stamp", default=str(STATE_DIR / "mvs-config.applied.json"))
+    p.add_argument("--kicks-xmi", help="KICKS の配布物の XMI。未導入なら導入する")
+    p.add_argument("--builds", help="業務アプリのビルドジョブ (JCL) のディレクトリ。変わったものを流す")
+    p.add_argument("--build-stamp", default=str(BUILD_STAMP))
     p.add_argument("--timeout", type=int, default=600)
     p.set_defaults(func=apply_config)
+
+    p = sub.add_parser("install-kicks", help="KICKS を導入する (導入済みなら何もしない)")
+    p.add_argument("xmi", help="KICKS の配布物の XMI")
+    p.add_argument("--user", required=True)
+    p.add_argument("--password-file", required=True)
+    p.add_argument("--timeout", type=int, default=1800)
+    p.set_defaults(func=cmd_install_kicks)
+
+    p = sub.add_parser("build", help="業務アプリのビルドジョブのうち、前回から変わったものを流す")
+    p.add_argument("builds", help="ビルドジョブ (JCL) のディレクトリ")
+    p.add_argument("--stamp", default=str(BUILD_STAMP))
+    p.add_argument("--force", action="store_true", help="前回の記録にかかわらず全部流す")
+    p.add_argument("--timeout", type=int, default=600)
+    p.set_defaults(func=cmd_build)
 
     args = parser.parse_args()
     sys.exit(args.func(args))
