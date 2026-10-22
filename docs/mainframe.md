@@ -126,6 +126,8 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/mvs-config.nix` | MVS の中の設定を Git の内容に揃える `mvs-config.service` |
 | `nix/hosts/mainframe/mvs-config/` | MVS の中の設定のあるべき姿 (`<データセット名>/<メンバー名>`) |
 | `nix/hosts/mainframe/tools/mvsctl.py` | ジョブの投入・終了待ち・結果判定と、設定反映を行う CLI |
+| `nix/hosts/mainframe/tools/compose_mvs_config.py` | システムの MVS 設定に業務アプリの資材を合成する (mvs-config.nix から呼ぶ) |
+| `nix/hosts/mainframe/mvs-datasets.json` | システムが宣言するデータセット (別名 NUAGE → ユーザーカタログ UCPUB000) |
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
@@ -214,7 +216,14 @@ autoUpgrade で `mvs-config.service` が動き、IEBUPDTE ジョブでメンバ�
 | :-- | :-- |
 | `SYS1.PARMLIB(PARMTZ)` | タイムゾーン。`E,09` (日本時間)。MVS/CE の初期値は `W,05` (米国中部時間) |
 | `SYS2.CONTROL(ZTIMER)` | ZTIMER (時刻起動) の予定表。システムの分 (00:05 の SYSOUT 掃除) に各アプリの `schedule` を足したもの。変わると mvs-config が `S ZTIMER` で読み直させる |
-| `SYS2.PROCLIB(RUNJOB)` | JCL ライブラリのメンバーを内部リーダへ投入する開始タスク (`S RUNJOB,M=メンバー,L='ライブラリ'`) |
+| `SYS2.PROCLIB(RUNJOB)` | JCL ライブラリのメンバーを内部リーダへ投入する開始タスク (`S RUNJOB,M=メンバー,L='ライブラリ'`。ピリオドを含む値は引用符で囲む) |
+| `SYS1.SECURE.CNTL(PROFILES)` | RAKF の権限表。MVS/CE の既定の内容に各アプリの `rakf` を足し、EBCDIC の照合順に並べたもの (既定のファイルもこの順)。変わると mvs-config が `S RAKFPROF` で読み直させる |
+
+データセットの宣言 (`nix/hosts/mainframe/mvs-datasets.json` とアプリの `datasets.json`) は、無ければ作られる。
+
+| 宣言しているもの | 内容 |
+| :-- | :-- |
+| 別名 `NUAGE` → ユーザーカタログ `UCPUB000` | アプリのデータセット (`NUAGE.*`) をユーザーカタログに入れる。マスターカタログは既定のバッチ利用者 (内部リーダ経由のジョブ) が更新できず、GDG の世代のカタログ登録に失敗するため |
 
 ### 業務アプリを載せる
 
@@ -225,17 +234,25 @@ mvs-config がシステムの設定と合成して書き込む。
 ```
 members/<データセット名>/<メンバー名>   書き込むメンバー
 schedule                               ZTIMER の予定表の末尾に足す行
-datasets.json                          無ければ作るデータセット ([{dsn, unit, volser, space, dcb}])
+rakf                                   RAKF の権限表に足す行 (任意)
+datasets.json                          無ければ作るデータセット ([{dsn, type, unit, volser, space, dcb, ...}])
 ```
+
+| データセットの type | 作り方 |
+| :-- | :-- |
+| `PO` | IEFBR14 で割り当てる (PDS) |
+| `PS` | IEBGENER で空のデータを書く (割り当てただけの順編成は EOF が無く、読むとごみが返る) |
+| `GDG` | IDCAMS で GDG ベースを定義し (`limit`)、空の初代を作る。MVS 3.8j では世代の作成に型紙 (モデル DSCB) が要るため、`model` のデータセットを `DCB=(model,...)` で参照する |
+| `ALIAS` | 高位修飾子 (`dsn`) の別名をユーザーカタログ (`catalog`) に向ける。その高位修飾子の PO / PS がマスターカタログにあれば、登録を移し替えてから作る (データは動かない) |
 
 | アプリ | 内容 |
 | :-- | :-- |
-| [nuage-usage-report](https://github.com/k-wa-wa/nuage-usage-report) | クラスタ使用量の日次帳票。毎朝 06:00 に `NUAGE.USAGE.JCLLIB(USAGERPT)` が動き、帳票プリンタに印字する |
+| [nuage-usage-ledger](https://github.com/k-wa-wa/nuage-usage-ledger) | クラスタ使用量の勘定。毎朝 06:00 に日次使用量明細 (`USAGERPT`)、06:10 に日次締め (`LEDGER`) が動き、帳票プリンタに印字する |
 
 アプリを更新したら、取り込む側で lock を更新して master に入れる。
 
 ```bash
-nix flake update nuage-usage-report --flake ./nix
+nix flake update nuage-usage-ledger --flake ./nix
 ```
 
 データセットの作成は、`LISTCAT` で存在を確かめ、無いものだけ `DISP=NEW` で作る。
@@ -247,6 +264,9 @@ journalctl -u mvs-config     # 反映結果 (MVSCONF: MAXCC=0000 など)
 ```
 
 ### 起動・停止
+
+毎週日曜 03:30 に計画 IPL (Hercules ごとの再起動) をする (`hercules-weekly-ipl.timer`)。
+BREXX の TCP 関数が使うソケット番号は TCPCLOSE しても再利用されず、64 に達すると MVS から HTTP で取得できなくなるためである。
 
 ```bash
 sudo systemctl stop hercules     # 正規の停止手順を流す (約 30 秒)
@@ -270,6 +290,9 @@ sudo systemctl start hercules    # IPL する。IPL が完了してから戻る 
 | MVS の中の設定の管理 | Git のファイルを IPL ごとにジョブで書き込む | DASD の中身は Nix から直接書き換えられない。毎回書き込むことで冪等かつ自己修復になり、手作業での変更も次の IPL で Git の内容に戻る |
 | ジョブの完了判定 | プリンタ出力の `END JOB` バナー行 | コンソールログ (mvslog.txt) は IPL のたびに作り直されるが、プリンタ出力は追記され続けるため、投入前の末尾位置からの差分だけを見れば確実に自分のジョブを切り出せる |
 | 管理者権限 | ジョブに `USER=IBMUSER` を付け、パスワードは SOPS で管理する | RAKF により、ユーザー指定なしのジョブはシステムのデータセットを書き換えられない (S913) |
+| アプリのデータセットの置き場所 | 別名 NUAGE → ユーザーカタログ UCPUB000 | マスターカタログは既定のバッチ利用者が更新できない。MVS/CE も利用者のデータを UCPUB000 (誰でも登録できる) に置く流儀である |
+| 共有メンバーの持ち主 | ZTIMER の予定表と RAKF の権限表は、システムの分とアプリの分を合成する | 1 つのメンバーを複数の持ち主が書き換えると、互いに消し合うため |
+| ジョブの失敗の判定 | `IEF452I` / `IEF453I` (JCL エラー)、`IEF450I` (ABEND)、各ステップの COND CODE | カタログ登録の失敗 (`NOT CATLGD`) はステップの COND CODE に出ないので、業務アプリ側で確定の成否を確かめる必要がある |
 
 ## 7. 既知の課題・今後
 
@@ -277,3 +300,4 @@ sudo systemctl start hercules    # IPL する。IPL が完了してから戻る 
 - **初期パスワードの変更も mvs-config で行いたい**: RAKF のユーザー定義を mvs-config の管理対象にすれば、パスワード変更も GitOps にできる見込みである (未検証)
 - **プリンタ出力が増え続ける**: `prt00e.txt` は追記され続ける。稼働中に空にしても正しく先頭から書き直されることは確認済みであり、ジョブ単位に切り出す仕組みと合わせて整理する
 - **業務アプリの拡張**: 各アプリのリポジトリの README を参照する
+- **ソケット番号の枯渇**: BREXX の TCP 関数は 1 回の Hercules の起動につき約 64 接続までしか使えない。週次の計画 IPL で回避しているが、接続数の多いジョブを足すときは注意する

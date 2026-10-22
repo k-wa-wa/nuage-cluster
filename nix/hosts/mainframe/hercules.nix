@@ -168,6 +168,23 @@ in
     };
   };
 
+  # 週 1 回の計画 IPL (Hercules ごと再起動する)。
+  # BREXX の TCP 関数が使うソケット番号は TCPCLOSE しても再利用されず、Hercules を再起動するまで増え続ける。
+  # 64 に達すると BREXX の select が失敗し、MVS から HTTP で取得できなくなる (業務アプリは 1 回 1 接続にしている)。
+  # IPL は機械の操作なので、本物のメインフレームの HMC にあたる Linux 側で持つ。
+  # 00:05 の SYSOUT 掃除 (ZTIMER) と 04:50 の autoUpgrade の間に置く
+  systemd.services.hercules-weekly-ipl = {
+    description = "Planned weekly re-IPL of MVS";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart hercules.service";
+    };
+  };
+  systemd.timers.hercules-weekly-ipl = {
+    wantedBy = [ "timers.target" ];
+    timerConfig.OnCalendar = "Sun *-*-* 03:30:00";
+  };
+
   environment.systemPackages = [
     mvs-submit
     mvs-console

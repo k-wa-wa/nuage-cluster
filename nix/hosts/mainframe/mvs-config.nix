@@ -9,9 +9,10 @@
 # MVS の中の設定 (PDS のメンバー) を Git で宣言的に管理する。
 #
 # mvs-config/<データセット名>/<メンバー名> のファイルが「あるべき姿」である (システムの設定)。
-# これに業務アプリ (flake.nix の mainframeApps。nuage-usage-report など) の資材を合成する。
+# これに業務アプリ (flake.nix の mainframeApps。nuage-usage-ledger など) の資材を合成する。
 #   members/<データセット名>/<メンバー名>  そのまま加える
 #   schedule                              ZTIMER の予定表 (SYS2.CONTROL(ZTIMER)) の末尾に足す
+#   rakf                                  RAKF の権限表 (SYS1.SECURE.CNTL(PROFILES)) に足す行 (任意)
 #   datasets.json                         無ければ作るデータセット
 # IPL のたびと、この内容が変わったときに mvs-config.service が IEBUPDTE ジョブで書き込む。
 #   - 毎回書き込むため、TSO から手で変えても次の IPL で Git の内容に戻る (自己修復)
@@ -22,23 +23,16 @@ let
   mvsctl = pkgs.callPackage ./tools/mvsctl.nix { };
   adminUser = "IBMUSER";
 
-  mvsConfig = pkgs.runCommand "mvs-config" { } ''
-    cp -r ${./mvs-config} $out
-    chmod -R u+w $out
-    ${lib.concatMapStrings (app: ''
-      cp -r ${app}/members/. $out/
-      chmod -R u+w $out
-      cat ${app}/schedule >> $out/SYS2.CONTROL/ZTIMER
-    '') mainframeApps}
-    # 予定表の末尾をコメント行で閉じる (MVS/CE の既定の形に合わせる)
-    echo '*' >> $out/SYS2.CONTROL/ZTIMER
+  mvsConfig = pkgs.runCommand "mvs-config" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+    python3 ${./tools/compose_mvs_config.py} $out ${./mvs-config} ${lib.concatStringsSep " " mainframeApps}
   '';
 
-  # 各アプリが必要とするデータセットの定義をまとめる
+  # システム (mvs-datasets.json) と各アプリが必要とするデータセットの定義をまとめる。
+  # システムの定義が先に来る (別名 NUAGE を、アプリのデータセットより先に作る)
   datasets = pkgs.runCommand "mvs-datasets.json" { nativeBuildInputs = [ pkgs.jq ]; } ''
-    jq -s 'add // []' ${
+    jq -s 'add // []' ${./mvs-datasets.json} ${
       lib.concatMapStringsSep " " (app: "${app}/datasets.json") mainframeApps
-    } /dev/null > $out
+    } > $out
   '';
 in
 {
