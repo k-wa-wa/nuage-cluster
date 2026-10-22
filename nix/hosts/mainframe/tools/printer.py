@@ -96,8 +96,8 @@ def main():
 
     consumed = 0
     for jobno, jobname, body, end in outputs(text):
-        # 帳票に対象日があればそれを、無ければ処理時刻をファイル名に使う
-        m = re.search(r"USAGE DATE: (\d{4}-\d{2}-\d{2})", body)
+        # 帳票に対象日 (USAGE DATE / BUSINESS DATE) があればそれを、無ければ処理時刻をファイル名に使う
+        m = re.search(r"(?:USAGE|BUSINESS) DATE: (\d{4}-\d{2}-\d{2})", body)
         stamp = m.group(1) if m else dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         path = out_dir / f"{jobname}-{stamp}.pdf"
         render_pdf(body, path)

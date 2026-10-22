@@ -38,7 +38,8 @@ DATA_MAX_COLUMNS = 72
 REQUIRES_IPL = {"SYS1.PARMLIB"}
 # 書き換えたあとにオペレータコマンドが要るデータセット。
 # ZTIMER は起動時に予定表を読み、次の予定時刻に自分を起こす ($TA) ため、起動し直して読み直させる
-REQUIRES_COMMAND = {"SYS2.CONTROL": "/S ZTIMER"}
+# RAKF は権限表を起動時に読み込むため、RAKFPROF で読み直させる
+REQUIRES_COMMAND = {"SYS2.CONTROL": "/S ZTIMER", "SYS1.SECURE.CNTL": "/S RAKFPROF"}
 HERCULES_CMD_URL = "http://127.0.0.1:8038/cgi-bin/tasks/cmd"
 
 
@@ -48,7 +49,8 @@ class JobResult:
         self.output = output
         self.cond_codes = [int(c) for c in re.findall(r"IEF142I .* COND CODE (\d{4})", output)]
         self.abends = re.findall(r"IEF450I .* ABEND (\S+)", output)
-        self.jcl_error = bool(re.search(r"IEF452I .* JCL ERROR", output))
+        # IEF452I: ジョブ全体が JCL エラーで動かなかった / IEF453I: 途中のステップの JCL エラーでジョブが失敗した
+        self.jcl_error = bool(re.search(r"IEF45[23]I .* JCL ERROR", output))
 
     @property
     def max_cc(self):
@@ -183,23 +185,16 @@ def digest(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def build_update_job(members, datasets, user, password):
+def build_update_job(members, datasets, user, password, migrations=""):
     """データセットごとに IEBUPDTE のステップを作る。ADD は既存メンバーを置き換える (冪等)。
     メンバーに JCL (// で始まる行) を含められるよう、入力は DD DATA で渡す。
 
-    datasets (まだ無いデータセット) は、先に IEFBR14 で作る。
+    datasets (まだ無いデータセット) は、先に作る (create_steps)。
     DISP=MOD で「無ければ作る」とすると PDS のディレクトリが初期化されず開けなくなるため、
     存在の確認 (existing_datasets) と作成を分け、作成は DISP=NEW で行う"""
-    jcl = job_card("MVSCONF", "NUAGE MVS-CONFIG", user, password)
-    if datasets:
-        jcl += "//ALLOC    EXEC PGM=IEFBR14\n"
-        for i, ds in enumerate(datasets, 1):
-            jcl += (
-                f"//DS{i:<6} DD DSN={ds['dsn']},DISP=(NEW,CATLG),\n"
-                f"//             UNIT={ds['unit']},VOL=SER={ds['volser']},\n"
-                f"//             SPACE={ds['space']},\n"
-                f"//             DCB={ds['dcb']}\n"
-            )
+    jcl = job_card("MVSCONF", "NUAGE MVS-CONFIG", user, password) + migrations
+    for i, ds in enumerate(datasets, 1):
+        jcl += create_steps(f"C{i:02d}", ds)
     datasets = sorted({dsn for dsn, _ in members})
     for i, dsn in enumerate(datasets, 1):
         jcl += (
@@ -215,6 +210,95 @@ def build_update_job(members, datasets, user, password):
     return jcl + "//\n"
 
 
+def create_steps(step, ds):
+    """データセットを作る JCL ステップ。type ごとに作り方を変える
+
+    PO : IEFBR14 で割り当てる (PDS のディレクトリは割り当て時に作られる)
+    ALIAS: 高位修飾子 (dsn) の別名をユーザーカタログ (catalog) に向ける。マスターカタログは
+           既定のバッチ利用者が更新できないため、アプリのデータセットはユーザーカタログに入れる
+    PS : IEBGENER で空のデータを書く。IEFBR14 で割り当てただけの順編成は EOF が無く、読むとごみが返るため
+    GDG: IDCAMS で GDG ベースを定義し、空の初代 (+1) を作る。MVS 3.8j では世代の作成に
+         型紙 (モデル DSCB) が要るため、model に挙げたカタログ済みデータセットを DCB=(model,...) で参照する
+    """
+    kind = ds.get("type", "PO")
+    if kind == "ALIAS":
+        return "\n".join([
+            f"//{step:<8} EXEC PGM=IDCAMS",
+            "//SYSPRINT DD SYSOUT=*",
+            "//SYSIN    DD *",
+            f"  DEFINE ALIAS (NAME({ds['dsn']}) RELATE({ds['catalog']}))",
+            "/*",
+        ]) + "\n"
+    alloc = [
+        f"//             UNIT={ds['unit']},VOL=SER={ds['volser']},",
+        f"//             SPACE={ds['space']},",
+    ]
+
+    def empty_copy(name):
+        return [
+            f"//{name:<8} EXEC PGM=IEBGENER",
+            "//SYSPRINT DD SYSOUT=*",
+            "//SYSIN    DD DUMMY",
+            f"//SYSUT1   DD DUMMY,DCB={ds['dcb']}",
+        ]
+
+    if kind == "PO":
+        lines = [
+            f"//{step:<8} EXEC PGM=IEFBR14",
+            f"//DS       DD DSN={ds['dsn']},DISP=(NEW,CATLG),",
+            *alloc,
+            f"//             DCB={ds['dcb']}",
+        ]
+    elif kind == "PS":
+        lines = [
+            *empty_copy(step),
+            f"//SYSUT2   DD DSN={ds['dsn']},DISP=(NEW,CATLG),",
+            *alloc,
+            f"//             DCB={ds['dcb']}",
+        ]
+    elif kind == "GDG":
+        lines = [
+            f"//{step + 'D':<8} EXEC PGM=IDCAMS",
+            "//SYSPRINT DD SYSOUT=*",
+            "//SYSIN    DD *",
+            f"  DEFINE GDG (NAME({ds['dsn']}) LIMIT({ds['limit']}) -",
+            "              SCRATCH NOEMPTY)",
+            "/*",
+            *empty_copy(step + "G"),
+            f"//SYSUT2   DD DSN={ds['dsn']}(+1),DISP=(NEW,CATLG),",
+            *alloc,
+            f"//             DCB=({ds['model']},",
+            f"//             {ds['dcb'].strip('()')})",
+        ]
+    else:
+        raise SystemExit(f"不明なデータセットの種類: {kind} ({ds['dsn']})")
+    return "\n".join(lines) + "\n"
+
+
+def migrate_steps(alias, datasets):
+    """別名を作る前に、その高位修飾子のデータセットがマスターカタログにあれば、ユーザーカタログへ移す。
+
+    別名を作ると、その高位修飾子の名前はユーザーカタログで引かれるようになり、マスターカタログの
+    登録は見えなくなる。そこで、登録だけを消し (DELETE NOSCRATCH。データは消えない)、別名を作り、
+    宣言どおりの装置とボリュームでユーザーカタログに登録し直す (DEFINE NONVSAM)
+    """
+    lines = [
+        "//MIGRATE  EXEC PGM=IDCAMS",
+        "//SYSPRINT DD SYSOUT=*",
+        "//SYSIN    DD *",
+    ]
+    lines += [f"  DELETE {ds['dsn']} NOSCRATCH" for ds in datasets]
+    lines.append(f"  DEFINE ALIAS (NAME({alias['dsn']}) RELATE({alias['catalog']}))")
+    for ds in datasets:
+        lines += [
+            f"  DEFINE NONVSAM (NAME({ds['dsn']}) -",
+            f"         DEVICETYPES({ds['unit']}) VOLUMES({ds['volser']})) -",
+            f"         CATALOG({alias['catalog']})",
+        ]
+    lines.append("/*")
+    return "\n".join(lines) + "\n"
+
+
 def existing_datasets(dsns, user, password, timeout):
     """IDCAMS LISTCAT で、カタログ済みのデータセット名の集合を返す"""
     if not dsns:
@@ -227,7 +311,7 @@ def existing_datasets(dsns, user, password, timeout):
     result = submit(jcl, timeout)
     if result.abends or result.jcl_error:
         raise SystemExit(f"データセットの確認に失敗した: {result.summary()}")
-    return {dsn for dsn in dsns if re.search(rf"NONVSAM -+ {re.escape(dsn)}\s", result.output)}
+    return {dsn for dsn in dsns if re.search(rf"(NONVSAM|GDG BASE|ALIAS) -+ {re.escape(dsn)}\s", result.output)}
 
 
 def apply_config(args):
@@ -236,9 +320,20 @@ def apply_config(args):
     password = Path(args.password_file).read_text().strip()
     existing = existing_datasets([ds["dsn"] for ds in datasets], args.user, password, args.timeout)
     missing = [ds for ds in datasets if ds["dsn"] not in existing]
+    # まだ無い別名の高位修飾子で、すでにあるデータセットはマスターカタログに登録されている
+    migrations = ""
+    for alias in [ds for ds in missing if ds.get("type") == "ALIAS"]:
+        under = [ds for ds in datasets if ds["dsn"].startswith(alias["dsn"] + ".") and ds["dsn"] in existing]
+        if any(ds.get("type") == "GDG" for ds in under):
+            raise SystemExit(f"マスターカタログにある GDG は移せない。手で移してから再実行する: {alias['dsn']}")
+        if under:
+            for ds in under:
+                print(f"ユーザーカタログ {alias['catalog']} へ移す: {ds['dsn']}", flush=True)
+            migrations += migrate_steps(alias, [ds for ds in under if ds.get("type", "PO") in ("PO", "PS")])
+            missing.remove(alias)
     for ds in missing:
         print(f"データセットを作る: {ds['dsn']}", flush=True)
-    result = submit(build_update_job(members, missing, args.user, password), args.timeout)
+    result = submit(build_update_job(members, missing, args.user, password, migrations), args.timeout)
     print(result.summary())
     if not result.ok(max_cc=0):
         sys.stdout.write(result.output)
