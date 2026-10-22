@@ -130,11 +130,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792597606,
-        "narHash": "sha256-cyzyj64q/isRAOYPNhPTwsc0j84eCR2z5FAUqFqdMMM=",
+        "lastModified": 1792628116,
+        "narHash": "sha256-myBOG1OswwvEa5lLU3U3W8S6Itzstemyo6sK+Wgbrlg=",
         "owner": "k-wa-wa",
         "repo": "nuage-usage-ledger",
-        "rev": "9b02f852026447cf86c3fea8bbb2f6eac220e9db",
+        "rev": "bacd77b85bf3184ceb637f8e4ff914bf0a1fac99",
         "type": "github"
       },
       "original": {
