@@ -21,6 +21,26 @@
         "type": "github"
       }
     },
+    "cicerone3270": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792662486,
+        "narHash": "sha256-Mg9boJ/bcUzunogORIfmit3WgDhv195wElw8vEK5fF4=",
+        "owner": "k-wa-wa",
+        "repo": "cicerone3270",
+        "rev": "56c7c6f602bab112ae2f17cd470b31c409d53fb7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k-wa-wa",
+        "repo": "cicerone3270",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -146,6 +166,7 @@
     "root": {
       "inputs": {
         "autopilot": "autopilot",
+        "cicerone3270": "cicerone3270",
         "nixos-generators": "nixos-generators",
         "nixpkgs": "nixpkgs",
         "nixpkgs-llama-cpp": "nixpkgs-llama-cpp",

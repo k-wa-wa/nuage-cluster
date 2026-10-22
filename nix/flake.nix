@@ -37,6 +37,14 @@
       url = "github:k-wa-wa/nuage-usage-ledger";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # 3270 端末の画面を案内付きで操作する TUI (汎用のツール)。mainframe ホストでは、基盤と業務アプリの辞書を
+    # 足して `ci3270` として入れる (hosts/mainframe/terminal.nix)。
+    # 更新したら `nix flake update cicerone3270 --flake ./nix` で取り込む。
+    cicerone3270 = {
+      url = "github:k-wa-wa/cicerone3270";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -49,6 +57,7 @@
       sops-nix,
       autopilot,
       nuage-usage-ledger,
+      cicerone3270,
       ...
     }:
     let
@@ -244,6 +253,7 @@
             mainframeApps = [
               nuage-usage-ledger.packages.x86_64-linux.default
             ];
+            cicerone3270 = cicerone3270.packages.x86_64-linux.default;
           };
           modules = [
             ./hosts/base-lxc/configuration.nix
