@@ -28,11 +28,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792667705,
-        "narHash": "sha256-L36105IiE3LPiv1Vc4DLRZYh4jYy+KkCS1mQueQpvVc=",
+        "lastModified": 1792670613,
+        "narHash": "sha256-Wo/auVYCEAU2D23q4SJX0/KMccMz2sn3KGlJJ83oRTg=",
         "owner": "k-wa-wa",
         "repo": "cicerone3270",
-        "rev": "9fa3a8133ad3f11cd7926dda4f46e2d1b5217591",
+        "rev": "1d37f059628de7bdee115927ae516643ec477549",
         "type": "github"
       },
       "original": {
