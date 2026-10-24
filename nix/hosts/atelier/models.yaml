@@ -1,0 +1,27 @@
+# autopilot5 が作業ごとに使うモデルの並び。モデルを更新するときはこのファイルだけを書き換える。
+#
+# エージェント → 賢さの段階 → 前から順に試すモデル。
+#   high:     実装・修正 (既定) とレビュー
+#   standard: 窓口が --level standard を付けた実装・修正 (小さく機械的な仕事)
+#   light:    要約
+# 書き方は "MODEL" か "MODEL@EFFORT"。agy はモデル名に effort が入っているので MODEL だけでよい。
+#
+# 失敗して作業ツリーが何も変わっていなければ、次のモデルへ切り替える (利用上限・認証切れ・モデルの廃止)。
+# 下の段階へは自動で落とさない。許すならその段階の並びに書く。
+#
+# 反映: push 後の自動更新 (毎日)。急ぐときは atelier で `sudo systemctl start nixos-upgrade` を実行する。
+# 確認: atelier で `autopilot-run models` を実行する。書き間違いはビルドで落ちる。
+# 使えるモデル: `agy models`、`claude --help` の --model、`copilot --help` の --model。
+
+claude:
+  high: [claude-opus-5-5@high]
+  standard: [claude-sonnet-5-5@medium]
+  light: [claude-haiku-5-5@low]
+
+# レビューは実装担当 (claude) と別系統のモデルに見せるため、Claude 系のモデルは入れない。
+agy:
+  high: [gemini-4-argon-high, gemini-3.8-flash-high, gpt-oss-120b-medium]
+  standard: [gemini-3.8-flash-medium, gpt-oss-120b-medium]
+  light: [gemini-3.8-flash-low]
+
+# copilot は bot の token で認証できないため、まだ使っていない。

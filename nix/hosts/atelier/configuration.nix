@@ -35,6 +35,8 @@
   programs.autopilot5 = {
     enable = true;
     user = "nixos";
+    # 作業ごとのモデルの並び。モデルの更新はこのファイルだけで行う。
+    models = ./models.yaml;
   };
 
   # GitHub への書き込みはすべて bot (bot-wa-wa) として行う。git は gh 経由で GH_TOKEN を使う。

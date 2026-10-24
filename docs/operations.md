@@ -200,6 +200,12 @@ orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769 --mobile-pa
 systemctl --user start orca-serve
 ```
 
+#### モデルの更新
+
+autopilot5 が作業ごとに使うモデルは `nix/hosts/atelier/models.yaml` だけに書く (エージェント → 賢さの段階 → 前から順に試すモデル)。
+書き換えて push すると翌日の自動更新で反映される。急ぐときは atelier で `sudo systemctl start nixos-upgrade` を実行する。
+今の並びは atelier で `autopilot-run models` で確認する。書き間違いは nix のビルドで落ちる。
+
 #### 更新
 
 ```bash
