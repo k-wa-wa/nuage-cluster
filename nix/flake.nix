@@ -30,6 +30,14 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # autopilot5 (Orca の窓口エージェントから任された仕事を裏で完走させる autopilot-run と、
+    # 全エージェント共通のルール・スキル) を提供する。atelier で使用する。
+    # bun build --compile に新しめの bun が要るため、nixpkgs は unstable に follows させる。
+    autopilot5 = {
+      url = "github:k-wa-wa/nuage-autopilot5";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     # メインフレーム (mainframe) で動かす業務アプリ。各リポジトリが MVS に書き込む資材
     # (members/ schedule datasets.json) を出力し、mvs-config が書き込む。
     # アプリを更新したら `nix flake update nuage-usage-ledger --flake ./nix` で取り込む。
@@ -56,6 +64,7 @@
       nixpkgs-unstable,
       sops-nix,
       autopilot,
+      autopilot5,
       nuage-usage-ledger,
       cicerone3270,
       ...
@@ -104,6 +113,21 @@
             ./hosts/autopilot-server/configuration.nix
             {
               networking.hostName = "autopilot-server";
+            }
+          ];
+        };
+
+        # エージェントと一緒に開発する作業場 (Orca サーバー + autopilot5)。
+        # base-vm イメージから起動し、cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
+        atelier = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            autopilot5.nixosModules.autopilot5
+            ./hosts/base-vm/configuration.nix
+            ./modules/common.nix
+            ./hosts/atelier/configuration.nix
+            {
+              networking.hostName = "atelier";
             }
           ];
         };

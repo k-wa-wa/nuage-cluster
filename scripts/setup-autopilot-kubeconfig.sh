@@ -3,12 +3,12 @@ set -euo pipefail
 
 # manifests/apps/autopilot/ がArgo CD経由でデプロイ済みであることを前提に、
 # autopilot ServiceAccountのトークンからread-only専用のkubeconfigを組み立て、
-# autopilot-server のデフォルトkubeconfigパス（~/.kube/config）に配置する。
-# デフォルトパスに置くため、autopilot-server側でKUBECONFIG環境変数の設定は不要。
-# secrets.env と同じくSOPSには載せず、生成物をこのスクリプトでautopilot-serverへ
+# エージェントが動くホストのデフォルトkubeconfigパス（~/.kube/config）に配置する。
+# デフォルトパスに置くため、ホスト側でKUBECONFIG環境変数の設定は不要。
+# secrets.env と同じくSOPSには載せず、生成物をこのスクリプトでホストへ
 # 手動配置する運用とする（nuage-workspace issue #8）。
 #
-# 使い方: cd nuage-cluster && bash scripts/setup-autopilot-kubeconfig.sh
+# 使い方: cd nuage-cluster && bash scripts/setup-autopilot-kubeconfig.sh [ホスト名 (既定: atelier)]
 
 export KUBECONFIG=terraform/vpc/zone-private-k8s/kubeconfig
 
@@ -16,6 +16,7 @@ NAMESPACE=autopilot
 SECRET_NAME=autopilot-token
 SA_NAME=autopilot
 REMOTE_PATH='~/.kube/config'
+HOST="${1:-atelier}"
 
 CLUSTER_NAME=$(kubectl config view --minify -o jsonpath='{.clusters[0].name}')
 SERVER="https://10.20.1.10:6443"
@@ -52,7 +53,7 @@ KUBECONFIG="${OUT_KUBECONFIG}" kubectl config set-context "${SA_NAME}" \
   --namespace="${NAMESPACE}" > /dev/null
 KUBECONFIG="${OUT_KUBECONFIG}" kubectl config use-context "${SA_NAME}" > /dev/null
 
-ssh -F .ssh/ssh_config autopilot-server "mkdir -p ~/.kube && install -m 600 /dev/null ${REMOTE_PATH}"
-scp -F .ssh/ssh_config "${OUT_KUBECONFIG}" "autopilot-server:${REMOTE_PATH}"
+ssh -F .ssh/ssh_config "${HOST}" "mkdir -p ~/.kube && install -m 600 /dev/null ${REMOTE_PATH}"
+scp -F .ssh/ssh_config "${OUT_KUBECONFIG}" "${HOST}:${REMOTE_PATH}"
 
-echo "kubeconfig を autopilot-server:${REMOTE_PATH} に配置した"
+echo "kubeconfig を ${HOST}:${REMOTE_PATH} に配置した"

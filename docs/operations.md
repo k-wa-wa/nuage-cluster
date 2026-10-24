@@ -57,7 +57,7 @@ sudo systemctl start nixos-upgrade.service
 journalctl -u nixos-upgrade.service -f
 ```
 
-VM ホスト (autopilot-server, lm-server, bluray-extractor) は手動 Push 型:
+VM ホスト (autopilot-server, atelier, lm-server, bluray-extractor) は手動 Push 型:
 
 ```bash
 # TODO: VM ホストの運用自動化
@@ -82,7 +82,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
 | `terraform/pve/server-2` | server-2 上の lm-server (import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
-| `terraform/vpc/zone-dev` | autopilot-server VM |
+| `terraform/vpc/zone-dev` | autopilot-server VM・atelier VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
@@ -145,13 +145,68 @@ autopilot-serverへ配置する手順はスクリプト化されており、SOPS
 ```bash
 # manifests/apps/autopilot/ がArgo CDで同期済みであることを確認してから実行する
 cd nuage-cluster
+bash scripts/setup-autopilot-kubeconfig.sh            # atelier へ配置する
+bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
+```
+
+配置先は対象ホストのデフォルトkubeconfigパス `~/.kube/config`（= `nixos` ユーザーの
+`/home/nixos/.kube/config`）。デフォルトパスに置くため、ホスト側で `KUBECONFIG`
+環境変数を設定する必要はない。ServiceAccountのトークンを再発行した場合や、kubeconfigが
+壊れた場合は同スクリプトを再実行すればよい。
+
+### 4.2 atelier: 初期セットアップと更新
+
+atelier は Orca サーバー (`orca serve`) を常駐させ、スマホや PC の Orca から同じワークスペースに入る作業場である。
+nix (`nix/hosts/atelier/`) はツール・nix-ld・Tailscale・autopilot5・`orca-serve` の user ユニットを定義する。
+更新の速い Orca 本体とエージェント CLI (claude / agy / copilot) は `~/setup.sh` が `~/.local` に入れる。
+
+VM を作った後 (nixos-bootstrap の完了後) に、次を順に行う。
+
+```bash
+ssh -F .ssh/ssh_config atelier
+
+# 1. bot (bot-wa-wa) の token を置く。人間の token は置かない (setup.sh が拒否する)
+install -m 600 /dev/null /var/lib/atelier/secrets.env
+vi /var/lib/atelier/secrets.env          # GH_TOKEN=github_pat_...
+
+# 2. Orca 本体・エージェント CLI を入れ、git の名前を bot にし、orca-serve を起動する
+~/setup.sh
+
+# 3. Tailscale に参加する (MagicDNS 名 atelier で引けるようにする)
+sudo tailscale up
+
+# 4. エージェントにログインする (それぞれ対話で認証する)
+claude   # /login
+agy
+copilot  # /login
+
+# 5. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
 bash scripts/setup-autopilot-kubeconfig.sh
 ```
 
-配置先は autopilot-server のデフォルトkubeconfigパス `~/.kube/config`（= `nixos` ユーザーの
-`/home/nixos/.kube/config`）。デフォルトパスに置くため、autopilot-server側で `KUBECONFIG`
-環境変数を設定する必要はない。ServiceAccountのトークンを再発行した場合や、kubeconfigが
-壊れた場合は同スクリプトを再実行すればよい。
+#### クライアント (Mac・iPhone) のペアリング
+
+ペアリングコードは `--no-pairing` を外して `orca serve` を起動したときにだけ出る。
+常駐ユニットは journald (VictoriaLogs へ転送される) にコードを残さないよう `--no-pairing` で動かしているので、
+ペアリングするときだけ一時的に手で起動する。ペアリング済みのクライアントはその後も使える。
+
+```bash
+systemctl --user stop orca-serve
+orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769              # 家の Mac 用 (LAN)
+orca-ide serve --port 6769 --pairing-address ws://atelier:6769 --mobile-pairing   # iPhone 用 (QR、Tailscale 経由)
+# 接続できたら Ctrl+C で止めて常駐に戻す
+systemctl --user start orca-serve
+```
+
+#### 更新
+
+```bash
+~/setup.sh                        # すべて最新にする (orca-serve は再起動するが、セッションは残る)
+ORCA_VERSION=1.4.238 ~/setup.sh   # Orca の版を指定する。スマホ・Mac の Orca と版を揃えるときに使う
+```
+
+Orca を再起動すると、動いているエージェントのセッションは残るが、そのセッションの状態表示 (作業中・待機中) と
+完了通知は効かなくなる。効かせるにはエージェントを起動し直す。
 
 ## 5. 障害対応チェックリスト
 
