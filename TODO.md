@@ -86,6 +86,11 @@
   - lb-1/2/3, pg-cluster-1/2/3, minio-cluster-1/2 等が同一定義のコピーになっている。`map` / `genAttrs` で共通ファクトリ関数に畳む
 - [ ] **nixpkgs 24.11 のアップグレード**
   - 24.11 は EOL のため 25.x へ上げ、sops-nix のコミット固定も release ブランチ追従に変える
+- [ ] **atelier のシェル環境を nix-config に寄せる**
+  - Orca のターミナルを Mac と同じ操作感にする (zsh・starship・fzf・zoxide・atuin・git エイリアス・ghq-cd・tmux・neovim・k8s / iac のエイリアス)
+  - nix-config に server 用の home-manager モジュールを出し、nuage-cluster の flake から home-manager の NixOS モジュールとして atelier に読み込む
+  - 持ち込まない: git の名前・メール (atelier は bot として書く)、ai-agent の `~/.claude/CLAUDE.md` (autopilot5 の共通ルールと衝突する)、Mac 専用のもの (iterm2・vscode・launchd・pbcopy・nerdfonts)
+  - 前提として nix-config を 24.11 から 26.05 に上げる (`nerdfonts.override`・`initExtra`・`programs.git.userName` / `extraConfig` が新しい版で動かない)。エージェント用のツールは引き続き nuage-cluster 側で持つ
 - [ ] **Longhorn の残骸整理 or 導入判断**
   - talos.tf に `/var/lib/longhorn` の extraMount・iscsi-tools 拡張・データ用空ディスク (scsi1) が仕込み済みだが、実際は local-path-provisioner を使用中。**Longhorn を導入する**か、**残骸を消して local-path に一本化する**かを決める
 - [ ] **ドキュメントと実装の乖離修正**
