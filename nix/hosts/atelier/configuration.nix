@@ -11,6 +11,7 @@
 {
   imports = [
     ./devtools.nix
+    ./home.nix
     ./orca.nix
   ];
 

@@ -52,8 +52,10 @@ if [ "$login" = "k-wa-wa" ]; then
   echo "GH_TOKEN が人間 (k-wa-wa) のもの。bot-wa-wa の token に差し替えること" >&2
   exit 1
 fi
-git config --global user.name "$login"
-git config --global user.email "${id}+${login}@users.noreply.github.com"
+# ~/.config/git/config は home-manager (nix-config) が読み取り専用で置く。
+# ~/.gitconfig が無いと --global はそちらへ書こうとして失敗するので、書き先を明示する。
+git config --file "$HOME/.gitconfig" user.name "$login"
+git config --file "$HOME/.gitconfig" user.email "${id}+${login}@users.noreply.github.com"
 echo "$login"
 
 echo "== Orca"

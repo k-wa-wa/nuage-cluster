@@ -38,6 +38,19 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # atelier の nixos ユーザーの環境 (シェル・エディタ・git の設定など) は、Mac と共通の nix-config から読み込む。
+    # nix-config を更新したら `nix flake update nix-config --flake ./nix` で取り込む。
+    home-manager = {
+      url = "github:nix-community/home-manager/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-config = {
+      url = "github:k-wa-wa/nix-config";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-unstable.follows = "nixpkgs-unstable";
+      inputs.home-manager.follows = "home-manager";
+    };
+
     # メインフレーム (mainframe) で動かす業務アプリ。各リポジトリが MVS に書き込む資材
     # (members/ schedule datasets.json) を出力し、mvs-config が書き込む。
     # アプリを更新したら `nix flake update nuage-usage-ledger --flake ./nix` で取り込む。
@@ -65,6 +78,8 @@
       sops-nix,
       autopilot,
       autopilot5,
+      home-manager,
+      nix-config,
       nuage-usage-ledger,
       cicerone3270,
       ...
@@ -121,8 +136,13 @@
         # base-vm イメージから起動し、cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
         atelier = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = {
+            homeModule = nix-config.homeModules.atelier;
+            unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
+          };
           modules = [
             autopilot5.nixosModules.autopilot5
+            home-manager.nixosModules.home-manager
             ./hosts/base-vm/configuration.nix
             ./modules/common.nix
             ./hosts/atelier/configuration.nix

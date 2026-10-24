@@ -98,6 +98,53 @@
         "type": "github"
       }
     },
+    "home-manager": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792818383,
+        "narHash": "sha256-199i7ubVSXTMl+0AAlL7cVCXSjcI+jWByMcimYjeMX0=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "24f2190587513b9c2f73db112a17844ae912d965",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "ref": "release-26.05",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "nix-config": {
+      "inputs": {
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "nixpkgs-unstable": [
+          "nixpkgs-unstable"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792837943,
+        "narHash": "sha256-Drz+esS13WkScRI/LvUnUPRE8o6/Dr0SY/9+hbcxYaQ=",
+        "owner": "k-wa-wa",
+        "repo": "nix-config",
+        "rev": "b6e69c7a835a465ddb027110c1cc1a70e8707a9e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k-wa-wa",
+        "repo": "nix-config",
+        "type": "github"
+      }
+    },
     "nixlib": {
       "locked": {
         "lastModified": 1736643958,
@@ -207,6 +254,8 @@
         "autopilot": "autopilot",
         "autopilot5": "autopilot5",
         "cicerone3270": "cicerone3270",
+        "home-manager": "home-manager",
+        "nix-config": "nix-config",
         "nixos-generators": "nixos-generators",
         "nixpkgs": "nixpkgs",
         "nixpkgs-llama-cpp": "nixpkgs-llama-cpp",

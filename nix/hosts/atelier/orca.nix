@@ -74,6 +74,8 @@ in
     # Orca のターミナルから起動するエージェントもこの PATH を引き継ぐ。
     path = [
       "/home/${user}/.local"
+      # home-manager (nix-config) が入れるユーザーのパッケージ。
+      "/etc/profiles/per-user/${user}"
       "/run/wrappers"
       "/run/current-system/sw"
     ];
