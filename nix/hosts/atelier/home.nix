@@ -5,7 +5,6 @@
 {
   pkgs,
   homeModule,
-  unstablePkgs,
   ...
 }:
 
@@ -17,7 +16,6 @@
     # nixpkgs はシステムと同じものを使い、パッケージは /etc/profiles/per-user に置く。
     useGlobalPkgs = true;
     useUserPackages = true;
-    extraSpecialArgs = { inherit unstablePkgs; };
     # 手で置いたファイルと衝突したら、消さずに退避して進める。
     backupFileExtension = "hm-backup";
     users.nixos = homeModule;

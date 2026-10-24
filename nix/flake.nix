@@ -7,10 +7,8 @@
     };
 
     # lm-server の llama.cpp 用。新しいモデルアーキテクチャへの追従のため unstable を別途ピン留めする。
-    # autopilot が follows する nixpkgs-unstable とは独立して更新できるよう分けている。
     nixpkgs-llama-cpp.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     sops-nix = {
       url = "github:Mic92/sops-nix/3433ea14fbd9e6671d0ff0dd45ed15ee4c156ffa";
@@ -23,19 +21,17 @@
     # v3 (nuage-autopilot3) から v4 へ移行済み。設定の書式が変わっているため、
     # 差し戻す場合は hosts/autopilot-server/config.yaml も一緒に戻すこと。
     #
-    # nixpkgs は unstable に follows させる。v4 は Bun 1.2 以降のテキスト形式 bun.lock を
-    # 使っており、24.11 の bun (1.1.31) では読めずビルドが失敗する。
+    # autopilot-server で使用する自律開発ワーカー。
     autopilot = {
       url = "github:k-wa-wa/nuage-autopilot4";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # autopilot5 (Orca の窓口エージェントから任された仕事を裏で完走させる autopilot-run と、
     # 全エージェント共通のルール・スキル) を提供する。atelier で使用する。
-    # bun build --compile に新しめの bun が要るため、nixpkgs は unstable に follows させる。
     autopilot5 = {
       url = "github:k-wa-wa/nuage-autopilot5";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # atelier の nixos ユーザーの環境 (シェル・エディタ・git の設定など) は、Mac と共通の nix-config から読み込む。
@@ -47,7 +43,6 @@
     nix-config = {
       url = "github:k-wa-wa/nix-config";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.nixpkgs-unstable.follows = "nixpkgs-unstable";
       inputs.home-manager.follows = "home-manager";
     };
 
@@ -74,7 +69,6 @@
       nixpkgs,
       nixos-generators,
       nixpkgs-llama-cpp,
-      nixpkgs-unstable,
       sops-nix,
       autopilot,
       autopilot5,
@@ -138,7 +132,6 @@
           system = "x86_64-linux";
           specialArgs = {
             homeModule = nix-config.homeModules.atelier;
-            unstablePkgs = nixpkgs-unstable.legacyPackages.x86_64-linux;
           };
           modules = [
             autopilot5.nixosModules.autopilot5
@@ -382,16 +375,6 @@
 
         bluray-extractor = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = {
-            unstablePkgs = import nixpkgs-unstable {
-              system = "x86_64-linux";
-              config.allowUnfreePredicate =
-                pkg:
-                builtins.elem (nixpkgs.lib.getName pkg) [
-                  "makemkv"
-                ];
-            };
-          };
           modules = [
             ./hosts/base-vm/configuration.nix
             ./modules/common.nix
