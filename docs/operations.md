@@ -157,13 +157,17 @@ bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
 ### 4.2 atelier: 初期セットアップと更新
 
 atelier は Orca サーバー (`orca serve`) を常駐させ、スマホや PC の Orca から同じワークスペースに入る作業場である。
-nix (`nix/hosts/atelier/`) はツール・nix-ld・Tailscale・autopilot5・`orca-serve` の user ユニットを定義する。
+nix (`nix/hosts/atelier/`) はツール・nix-ld・autopilot5・`orca-serve` の user ユニットを定義する。
 更新の速い Orca 本体とエージェント CLI (claude / agy / copilot) は `~/setup.sh` が `~/.local` に入れる。
 
 VM を作った後 (nixos-bootstrap の完了後) に、次を順に行う。
 
 ```bash
 ssh -F .ssh/ssh_config atelier
+
+# 0. 一度だけ再起動する。nixos-bootstrap は起動処理の途中で本構成へ切り替えるため、
+#    本構成で増えた linger (ログアウト中も orca-serve を動かす設定) がその起動では効かない
+ls /var/lib/nixos-bootstrap-done && sudo systemctl reboot
 
 # 1. bot (bot-wa-wa) の token を置く。人間の token は置かない (setup.sh が拒否する)
 install -m 600 /dev/null /var/lib/atelier/secrets.env
@@ -172,15 +176,12 @@ vi /var/lib/atelier/secrets.env          # GH_TOKEN=github_pat_...
 # 2. Orca 本体・エージェント CLI を入れ、git の名前を bot にし、orca-serve を起動する
 ~/setup.sh
 
-# 3. Tailscale に参加する (MagicDNS 名 atelier で引けるようにする)
-sudo tailscale up
-
-# 4. エージェントにログインする (それぞれ対話で認証する)
+# 3. エージェントにログインする (それぞれ対話で認証する)
 claude   # /login
 agy
 copilot  # /login
 
-# 5. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
+# 4. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
 bash scripts/setup-autopilot-kubeconfig.sh
 ```
 
@@ -189,11 +190,12 @@ bash scripts/setup-autopilot-kubeconfig.sh
 ペアリングコードは `--no-pairing` を外して `orca serve` を起動したときにだけ出る。
 常駐ユニットは journald (VictoriaLogs へ転送される) にコードを残さないよう `--no-pairing` で動かしているので、
 ペアリングするときだけ一時的に手で起動する。ペアリング済みのクライアントはその後も使える。
+宛先は家の中でも出先でも `192.168.5.252` である (出先からは既存の Tailscale の subnet router 経由で届く)。
 
 ```bash
 systemctl --user stop orca-serve
-orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769              # 家の Mac 用 (LAN)
-orca-ide serve --port 6769 --pairing-address ws://atelier:6769 --mobile-pairing   # iPhone 用 (QR、Tailscale 経由)
+orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769                   # Mac 用
+orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769 --mobile-pairing   # iPhone 用 (QR)
 # 接続できたら Ctrl+C で止めて常駐に戻す
 systemctl --user start orca-serve
 ```

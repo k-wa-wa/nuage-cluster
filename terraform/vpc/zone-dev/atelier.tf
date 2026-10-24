@@ -8,7 +8,7 @@
 #
 # ネットワークは prvmain (SDN: 10.20.1.0/24) と vmbr0 (LAN: 192.168.5.0/24) の 2 本。
 # 既定経路は prvmain 側に置き、LAN 側は家の中の Mac から踏み台なしで入るために使う。
-# 外 (出先のスマホ・Mac) からは Tailscale で入る。
+# 外 (出先のスマホ・Mac) からは、別サーバーの Tailscale (subnet router) 経由で LAN 側に入る。
 #
 # シークレット (GitHub の bot token、Claude / Antigravity / Copilot のログイン) は SOPS で配布しない。
 # 万一の流出時の影響が大きいため、VM 起動後に手作業で配置・ログインする運用とする。

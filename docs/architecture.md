@@ -85,7 +85,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
 | autopilot-server | 251 | server-1 | 10.20.1.51 | - | nuage-autopilot 実行ホスト (8c/16GB, zone-dev で管理)。atelier へ移行後に廃止 |
-| atelier | 252 | server-1 | 10.20.1.52 | 192.168.5.252 | エージェントと開発する作業場。Orca サーバー + autopilot5 (8c/16GB, zone-dev で管理)。出先からは Tailscale |
+| atelier | 252 | server-1 | 10.20.1.52 | 192.168.5.252 | エージェントと開発する作業場。Orca サーバー + autopilot5 (8c/16GB, zone-dev で管理)。出先からは既存の Tailscale 経由で LAN 側に入る |
 | bluray-extractor | 240 | server-2 (停止中) | 10.20.1.80 | 192.168.5.240 | MakeMKV リッピング VM |
 | mainframe | 290 | server-1 | 10.20.1.90 | - | MVS 3.8j (Hercules) のメインフレーム。TN3270 は lb の VIP `:3270` で中継 ([mainframe.md](./mainframe.md)) |
 

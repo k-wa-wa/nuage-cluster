@@ -83,9 +83,3 @@ find "$ORCA_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name "$version" -exec rm -r
 systemctl --user daemon-reload
 systemctl --user restart orca-serve
 systemctl --user --no-pager status orca-serve | head -5
-
-if ! tailscale status >/dev/null 2>&1; then
-  echo
-  echo "Tailscale に未参加。次を実行してから Orca を接続すること:"
-  echo "  sudo tailscale up"
-fi

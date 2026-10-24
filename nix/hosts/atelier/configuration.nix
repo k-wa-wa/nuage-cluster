@@ -4,7 +4,7 @@
 # 窓口エージェント (claude / agy / copilot) が人間と話し、任された仕事は autopilot5 の
 # autopilot-run が裏で完走させる。
 #
-# nix では変わりにくいもの (ツール・ライブラリ・常駐ユニット・Tailscale) だけを定義する。
+# nix では変わりにくいもの (ツール・ライブラリ・常駐ユニット) だけを定義する。
 # 更新の速い Orca 本体とエージェント CLI は setup.sh が ~/.local に入れる。
 { lib, ... }:
 

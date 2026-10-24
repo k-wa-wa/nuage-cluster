@@ -8,13 +8,12 @@ let
   user = "nixos";
   port = 6769;
 
-  # 家の LAN (vmbr0)。Mac はここから直接つなぐ。
+  # 家の LAN (vmbr0)。家の中からは直接、出先からは別サーバーの Tailscale (subnet router) 経由でここに来る。
   lanAddress = "192.168.5.252";
   lanSubnet = "192.168.5.0/24";
 
   # クライアントが接続しに来る宛先の既定値。ペアリング情報に埋め込まれる。
-  # 出先からは Tailscale で入るので、MagicDNS 名にしておく (LAN の Mac はペアリング時に LAN の宛先を渡す)。
-  pairingAddress = "ws://atelier:${toString port}";
+  pairingAddress = "ws://${lanAddress}:${toString port}";
 in
 {
   # 配布バイナリ (Orca・claude・agy・copilot) を動かす。
@@ -100,15 +99,10 @@ in
     };
   };
 
-  # Orca は全インターフェースで待ち受けるため、Tailscale と家の LAN に限って開ける。
+  # Orca は全インターフェースで待ち受けるため、家の LAN に限って開ける。
   # SDN (10.20.1.0/24) には開けない。k8s 上のワークロードから届かないようにする
   # (認証はペアリングだけで、ペアリングされると任意のコマンドを実行できる)。
-  services.tailscale = {
-    enable = true;
-    # MagicDNS に resolv.conf を書き換えさせない。上の nameservers (wpcapp.net の split-horizon) を保つ。
-    extraSetFlags = [ "--accept-dns=false" ];
-  };
-  networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
+  # 出先からの接続は subnet router が送信元を自分の LAN アドレスに変換 (SNAT) するので、この規則で通る。
   # LAN 側の NIC 名は cloud-init が付けるので、インターフェース名ではなく宛先と送信元で絞る。
   networking.firewall.extraCommands = ''
     iptables -A nixos-fw -p tcp -d ${lanAddress} -s ${lanSubnet} --dport ${toString port} -j nixos-fw-accept
