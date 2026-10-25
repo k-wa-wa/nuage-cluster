@@ -53,6 +53,14 @@ class TestNormalization(unittest.TestCase):
             normalize_repo_name("-home-nixos-orca-workspaces-nuage-workspace-feature"),
             "nuage-workspace",
         )
+        self.assertEqual(
+            normalize_repo_name("file:///home/nixos/orca/workspaces/pechka/lanternfish"),
+            "pechka",
+        )
+        self.assertEqual(
+            normalize_repo_name("file:///tmp"),
+            "tmp",
+        )
         self.assertEqual(normalize_repo_name(""), "unknown")
 
     def test_normalize_model_name(self):
@@ -322,15 +330,33 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertNotIn(jsonl_path, collector.state["claude_offsets"])
 
     def test_autopilot_runs_collection(self):
-        # モックの autopilot 実行ディレクトリを作成
-        auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "test-ws", ".autopilot")
-        os.makedirs(auto_dir, exist_ok=True)
-
-        with open(os.path.join(auto_dir, "status"), "w", encoding="utf-8") as f:
+        # モックの autopilot 実行ディレクトリを作成（done, failed: ..., needs-human: ...）
+        auto_dir_done = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-done", ".autopilot")
+        os.makedirs(auto_dir_done, exist_ok=True)
+        with open(os.path.join(auto_dir_done, "status"), "w", encoding="utf-8") as f:
             f.write("done\n")
-
-        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+        with open(os.path.join(auto_dir_done, "run.log"), "w", encoding="utf-8") as f:
             f.write("[10:00:00] start impl=claude level=high reviewers=agy base=abcdef from=implement\n")
+
+        auto_dir_failed = os.path.join(self.test_dir, "workspaces", "pechka", "ws-failed", ".autopilot")
+        os.makedirs(auto_dir_failed, exist_ok=True)
+        with open(os.path.join(auto_dir_failed, "status"), "w", encoding="utf-8") as f:
+            f.write("failed: test execution timed out\n")
+        with open(os.path.join(auto_dir_failed, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=agy level=medium reviewers=claude base=123456\n")
+
+        auto_dir_human = os.path.join(self.test_dir, "workspaces", "nuage-autopilot5", "ws-human", ".autopilot")
+        os.makedirs(auto_dir_human, exist_ok=True)
+        with open(os.path.join(auto_dir_human, "status"), "w", encoding="utf-8") as f:
+            f.write("needs-human: merge conflicts require user intervention\n")
+        with open(os.path.join(auto_dir_human, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=claude level=low\n")
+
+        # 未完了ステータス（集計対象外）
+        auto_dir_running = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-running", ".autopilot")
+        os.makedirs(auto_dir_running, exist_ok=True)
+        with open(os.path.join(auto_dir_running, "status"), "w", encoding="utf-8") as f:
+            f.write("fixing (round 2)\n")
 
         collector = MetricsCollector(
             state_file=self.state_file,
@@ -338,9 +364,10 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
 
+        all_dirs = [auto_dir_done, auto_dir_failed, auto_dir_human, auto_dir_running]
         orig_glob = collector_mod.glob.glob
         orig_exists = os.path.exists
-        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
+        collector_mod.glob.glob = lambda p: all_dirs if "autopilot" in p else []
         os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
         try:
             collector.collect_autopilot_runs()
@@ -350,6 +377,102 @@ class TestMetricsCollector(unittest.TestCase):
 
         runs = collector.state["counters"]["autopilot_runs"]
         self.assertEqual(runs.get('impl="claude",level="high",repo="nuage-cluster",result="done"'), 1)
+        self.assertEqual(runs.get('impl="agy",level="medium",repo="pechka",result="failed"'), 1)
+        self.assertEqual(runs.get('impl="claude",level="low",repo="nuage-autopilot5",result="needs-human"'), 1)
+        # 未完了ステータスは含まれないこと
+        self.assertEqual(len(runs), 3)
+
+    def test_state_file_corruption_raises_error(self):
+        # 破損した JSON が存在する場合に空状態で継続せず RuntimeError で停止すること
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            f.write("{invalid_json: true, broken")
+
+        with self.assertRaises(RuntimeError):
+            MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=True,
+            )
+
+    def test_orca_stats_portal_context(self):
+        # worktree に .autopilot があっても Orca ペインのセッション時間は context="portal" になること
+        auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-x", ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+
+        orca_stats_file = os.path.join(self.test_dir, "orca-stats.json")
+        last_status_file = os.path.join(self.test_dir, "last-status.json")
+
+        sk = "test-tab:test-pane"
+        wt_path = os.path.dirname(auto_dir)
+
+        with open(last_status_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "version": 2,
+                "entries": {
+                    sk: {
+                        "paneKey": sk,
+                        "source": "claude",
+                        "worktreeId": f"uuid::{wt_path}",
+                    }
+                }
+            }))
+
+        with open(orca_stats_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "schemaVersion": 1,
+                "events": [
+                    {
+                        "type": "agent_start",
+                        "at": 1000,
+                        "worktreeId": f"uuid::{wt_path}",
+                        "meta": {"sessionKey": sk},
+                    },
+                    {
+                        "type": "agent_stop",
+                        "at": 2000,
+                        "meta": {"sessionKey": sk, "durationMs": 50000},
+                    }
+                ]
+            }))
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_exists = os.path.exists
+        def mock_exists(p):
+            if p.endswith("orca-stats.json"):
+                return True
+            if p.endswith("last-status.json"):
+                return True
+            return orig_exists(p)
+
+        orig_open = open
+        def mock_open(p, *args, **kwargs):
+            if str(p).endswith("orca-stats.json"):
+                return orig_open(orca_stats_file, *args, **kwargs)
+            if str(p).endswith("last-status.json"):
+                return orig_open(last_status_file, *args, **kwargs)
+            return orig_open(p, *args, **kwargs)
+
+        import builtins
+        os.path.exists = mock_exists
+        builtins.open = mock_open
+        try:
+            collector.collect_orca_stats()
+        finally:
+            os.path.exists = orig_exists
+            builtins.open = orig_open
+
+        duration = collector.state["counters"]["duration"]
+        expected_key = 'agent="claude",context="portal",repo="nuage-cluster"'
+        self.assertIn(expected_key, duration)
+        self.assertEqual(duration[expected_key], 50.0)
+        # context="autopilot" のキーが存在しないこと
+        unexpected_key = 'agent="claude",context="autopilot",repo="nuage-cluster"'
+        self.assertNotIn(unexpected_key, duration)
 
     def test_generate_prometheus_payload(self):
         collector = MetricsCollector(
@@ -436,6 +559,72 @@ class TestMetricsCollector(unittest.TestCase):
         # セッション数は 1 のまま増えていないこと
         sessions = collector2.state["counters"]["sessions"]
         self.assertEqual(sessions['agent="claude",context="autopilot",repo="nuage-cluster"'], 1)
+
+    def test_claude_seen_message_ids_order(self):
+        # seen_message_ids が 500 件を超えた場合に順序が保たれ最新 500 件が残ること
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-order.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            for i in range(550):
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                    "message": {
+                        "id": f"msg-ord-{i:04d}",
+                        "model": "claude-opus-5-5",
+                        "usage": {"input_tokens": 1, "output_tokens": 1},
+                    },
+                }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        offset_info = collector.state["claude_offsets"][jsonl_path]
+        seen_ids = offset_info["seen_message_ids"]
+        self.assertEqual(len(seen_ids), 500)
+        # 最初の 50 件 (0000〜0049) は切り捨てられ、最新 500 件 (0050〜0549) が順番通り残っていること
+        self.assertEqual(seen_ids[0], "msg-ord-0050")
+        self.assertEqual(seen_ids[-1], "msg-ord-0549")
+
+    def test_antigravity_conversation_repo_from_db(self):
+        # conversation_summaries.db から正しくワークスペースのリポジトリ名が引けること
+        import sqlite3
+        db_path = os.path.join(self.test_dir, "conversation_summaries.db")
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, workspace_uris TEXT)")
+            conn.execute(
+                "INSERT INTO conversation_summaries VALUES (?, ?)",
+                ("cid-test-1", '["file:///home/nixos/orca/workspaces/nuage-cluster/my-branch"]'),
+            )
+            conn.execute(
+                "INSERT INTO conversation_summaries VALUES (?, ?)",
+                ("cid-test-2", '["file:///tmp"]'),
+            )
+
+        orig_expanduser = os.path.expanduser
+        os.path.expanduser = lambda p: db_path if "conversation_summaries.db" in p else orig_expanduser(p)
+        try:
+            repo1 = collector_mod.get_antigravity_conversation_repo("cid-test-1")
+            self.assertEqual(repo1, "nuage-cluster")
+            repo2 = collector_mod.get_antigravity_conversation_repo("cid-test-2")
+            self.assertEqual(repo2, "tmp")
+            repo_unknown = collector_mod.get_antigravity_conversation_repo("nonexistent")
+            self.assertEqual(repo_unknown, "unknown")
+        finally:
+            os.path.expanduser = orig_expanduser
 
 
 if __name__ == "__main__":

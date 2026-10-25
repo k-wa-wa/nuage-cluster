@@ -8,10 +8,12 @@ Prometheus exposition format で VictoriaMetrics へ送信する。
 """
 
 import argparse
+import functools
 import glob
 import json
 import os
 import re
+import sqlite3
 import sys
 import time
 import urllib.error
@@ -27,6 +29,7 @@ KNOWN_REPOS = [
 ]
 
 
+@functools.lru_cache(maxsize=1)
 def get_candidate_repos() -> list[str]:
     """ワークスペース実ディレクトリと KNOWN_REPOS を統合した候補一覧（名前の降順）"""
     repos = set(KNOWN_REPOS)
@@ -56,6 +59,10 @@ def normalize_repo_name(raw: str) -> str:
     if not raw:
         return "unknown"
 
+    # URI 形式 file:///home/nixos/...
+    if raw.startswith("file://"):
+        raw = raw[len("file://") :]
+
     # パス形式: /orca/workspaces/<repo>/... または /workspaces/<repo>/...
     m = re.search(r"/(?:orca/)?workspaces/([^/\s\'\"]+)", raw)
     if m:
@@ -75,10 +82,39 @@ def normalize_repo_name(raw: str) -> str:
                 return known
         return normalize_identifier(part)
 
-    if "/projects/-tmp/" in raw or raw.endswith("-tmp"):
+    if "/projects/-tmp/" in raw or raw.endswith("-tmp") or raw == "/tmp" or raw.endswith("/tmp"):
         return "tmp"
 
     return normalize_identifier(raw)
+
+
+def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) -> str:
+    """conversation_summaries.db およびキャッシュから conversation_id に紐づくワークスペースの repo 名を取得"""
+    if not cid:
+        return "unknown"
+    if cached_map and cid in cached_map:
+        return cached_map[cid]
+    db_path = os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db")
+    if not os.path.exists(db_path):
+        return "unknown"
+    try:
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT workspace_uris FROM conversation_summaries WHERE conversation_id = ?",
+                (cid,),
+            ).fetchone()
+            if row and row[0]:
+                try:
+                    uris = json.loads(row[0])
+                    if isinstance(uris, list) and uris:
+                        repo = normalize_repo_name(uris[0])
+                        if repo != "unknown":
+                            return repo
+                except json.JSONDecodeError:
+                    pass
+    except Exception:
+        pass
+    return "unknown"
 
 
 def normalize_model_name(raw: str) -> str:
@@ -123,8 +159,9 @@ class MetricsCollector:
                     data = json.load(f)
                     if isinstance(data, dict):
                         return data
+                    raise ValueError(f"状態ファイルの内容が辞書型ではない: {type(data)}")
             except Exception as e:
-                self.warn(f"状態ファイル読み込み失敗: {e}")
+                raise RuntimeError(f"状態ファイル読み込み失敗 ({self.state_file}): {e}") from e
         return {
             "version": 1,
             "claude_offsets": {},
@@ -188,7 +225,7 @@ class MetricsCollector:
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
                 context = prev_meta.get("context", "portal")
                 saved_model = prev_meta.get("model", "unknown")
-                seen_ids = set(prev_meta.get("seen_message_ids", []))
+                seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
                 temp_counters = {}
                 temp_sessions = {}
@@ -233,7 +270,7 @@ class MetricsCollector:
                         if mid:
                             if mid in seen_ids:
                                 continue
-                            seen_ids.add(mid)
+                            seen_ids[mid] = True
 
                         model = (
                             msg.get("model")
@@ -273,8 +310,8 @@ class MetricsCollector:
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
-                # seen_message_ids は直近 500 件に制限して肥大化を防止する
-                recent_ids = list(seen_ids)[-500:] if len(seen_ids) > 500 else list(seen_ids)
+                # seen_message_ids は直近 500 件に制限して肥大化を防止する（順序を保持）
+                recent_ids = list(seen_ids.keys())[-500:]
                 offsets[path] = {
                     "offset": new_offset,
                     "repo": repo,
@@ -320,8 +357,14 @@ class MetricsCollector:
                 new_offset = prev_offset
                 is_new_session = (prev_offset == 0)
 
+                m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
+                cid = m_cid.group(1) if m_cid else ""
+                cid_map = self.state.get("cid_to_repo", {})
+
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo", "unknown")
+                if repo == "unknown" and cid:
+                    repo = get_antigravity_conversation_repo(cid, cid_map)
                 context = prev_meta.get("context", "portal")
                 current_model = prev_meta.get("model", "unknown")
 
@@ -353,6 +396,9 @@ class MetricsCollector:
                             current_model = normalize_model_name(m_model.group(1))
 
                         # repo 検出
+                        if repo == "unknown" and cid:
+                            repo = get_antigravity_conversation_repo(cid, cid_map)
+
                         m_repo = re.search(r"/home/nixos/orca/workspaces/([a-zA-Z0-9_\-]+)", content)
                         if m_repo:
                             candidate = m_repo.group(1)
@@ -437,8 +483,9 @@ class MetricsCollector:
                         wt = entry.get("worktreeId", "")
                         wt_path = wt.split("::")[-1] if "::" in wt else wt
                         repo = normalize_repo_name(wt_path) if wt_path else "unknown"
-                        has_autopilot = bool(wt_path and os.path.exists(os.path.join(wt_path, ".autopilot")))
-                        context = "autopilot" if has_autopilot else "portal"
+
+                        # Orca UI 上のペインは人間との対話窓口（portal）である
+                        context = "portal"
 
                         s_entry = orca_sessions.setdefault(pane_key, {})
                         if agent_name != "unknown":
@@ -446,6 +493,14 @@ class MetricsCollector:
                         if repo != "unknown":
                             s_entry["repo"] = repo
                         s_entry["context"] = context
+
+                        # Antigravity の conversation_id と repo の対応をキャッシュ
+                        provider_session = entry.get("providerSession", {})
+                        if provider_session.get("key") == "conversation_id":
+                            cid = provider_session.get("id")
+                            if cid and repo != "unknown":
+                                cid_map = self.state.setdefault("cid_to_repo", {})
+                                cid_map[cid] = repo
             except Exception as e:
                 self.warn(f"last-status.json 読み取り警告: {e}")
 
@@ -461,7 +516,7 @@ class MetricsCollector:
                 ev_type = ev.get("type")
                 ev_at = ev.get("at", 0)
 
-                # start イベントで sessionKey と worktree / context を記録
+                # start イベントで sessionKey と worktree を記録
                 if ev_type == "agent_start":
                     meta = ev.get("meta", {})
                     sk = meta.get("sessionKey", "")
@@ -471,10 +526,9 @@ class MetricsCollector:
                         s_entry = orca_sessions.setdefault(sk, {})
                         if wt_path:
                             repo = normalize_repo_name(wt_path)
-                            has_autopilot = os.path.exists(os.path.join(wt_path, ".autopilot"))
                             if repo != "unknown":
                                 s_entry["repo"] = repo
-                            s_entry["context"] = "autopilot" if has_autopilot else "portal"
+                        s_entry["context"] = "portal"
 
                 if ev_at <= last_ts:
                     continue
@@ -493,7 +547,7 @@ class MetricsCollector:
                     session_info = orca_sessions.get(sk, {})
                     agent = session_info.get("agent", "unknown")
                     repo = session_info.get("repo", "unknown")
-                    context = session_info.get("context", "portal")
+                    context = "portal"
 
                     key = f'agent="{agent}",context="{context}",repo="{repo}"'
                     temp_duration[key] = round(temp_duration.get(key, 0.0) + duration_sec, 3)
@@ -525,16 +579,19 @@ class MetricsCollector:
                     continue
 
                 with open(status_file, "r", encoding="utf-8") as f:
-                    result = f.read().strip()
+                    raw_status = f.read().strip()
+
+                # status ファイルは "done", "failed: <理由>", "needs-human: <理由>" 形式で書かれる
+                result_type = raw_status.split(":", 1)[0].strip()
 
                 # 完了ステータスのみ集計対象とする
-                if result not in ("done", "failed", "needs-human"):
+                if result_type not in ("done", "failed", "needs-human"):
                     continue
 
                 status_mtime = os.path.getmtime(status_file)
                 prev_record = recorded_runs.get(d)
 
-                if prev_record and prev_record.get("status") == result and prev_record.get("mtime") == status_mtime:
+                if prev_record and prev_record.get("status") == raw_status and prev_record.get("mtime") == status_mtime:
                     continue
 
                 # run.log から impl, level を抽出
@@ -555,11 +612,12 @@ class MetricsCollector:
                 # パスから repo を判定
                 repo = normalize_repo_name(d)
 
-                key = f'impl="{impl}",level="{level}",repo="{repo}",result="{result}"'
+                key = f'impl="{impl}",level="{level}",repo="{repo}",result="{result_type}"'
                 runs_counter[key] = runs_counter.get(key, 0) + 1
 
                 recorded_runs[d] = {
-                    "status": result,
+                    "status": raw_status,
+                    "result_type": result_type,
                     "mtime": status_mtime,
                 }
 

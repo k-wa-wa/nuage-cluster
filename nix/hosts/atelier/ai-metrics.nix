@@ -5,12 +5,17 @@
 { pkgs, ... }:
 
 let
+  user = "nixos";
   collectorScript = ../../../scripts/ai-agent-metrics-collector.py;
 in
 {
   systemd.user.timers.ai-agent-metrics-collector = {
     description = "AI Agent 使用量メトリクス定期収集タイマー";
     wantedBy = [ "timers.target" ];
+
+    unitConfig = {
+      ConditionUser = user;
+    };
 
     timerConfig = {
       OnCalendar = "*:0/1";
@@ -20,6 +25,10 @@ in
 
   systemd.user.services.ai-agent-metrics-collector = {
     description = "AI Agent 使用量メトリクス収集と VictoriaMetrics 連携";
+
+    unitConfig = {
+      ConditionUser = user;
+    };
 
     serviceConfig = {
       Type = "oneshot";
