@@ -8,7 +8,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from pathlib import Path
 import sys
 
 # テスト対象スクリプトのインポート
@@ -45,6 +44,14 @@ class TestNormalization(unittest.TestCase):
         self.assertEqual(
             normalize_repo_name("/home/nixos/.claude/projects/-tmp/xxx.jsonl"),
             "tmp",
+        )
+        self.assertEqual(
+            normalize_repo_name("/home/nixos/orca/workspaces/nuage-workspace/main"),
+            "nuage-workspace",
+        )
+        self.assertEqual(
+            normalize_repo_name("-home-nixos-orca-workspaces-nuage-workspace-feature"),
+            "nuage-workspace",
         )
         self.assertEqual(normalize_repo_name(""), "unknown")
 
@@ -84,6 +91,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
                 "message": {
+                    "id": "msg-001",
                     "model": "claude-opus-5-5",
                     "usage": {
                         "input_tokens": 100,
@@ -103,7 +111,6 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
 
-        # collect_claude の対象パスを一時ディレクトリに差し替えテスト
         orig_glob = collector_mod.glob.glob
         collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
         try:
@@ -119,6 +126,47 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"'], 100)
         self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="thinking"'], 10)
         self.assertEqual(sessions['agent="claude",context="autopilot",repo="nuage-cluster"'], 1)
+
+    def test_claude_duplicate_message_id_dedup(self):
+        # 同一 message.id を持つ複数行が重複計上されないことのテスト
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-dup.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            # 1つの応答の content ブロック (thinking / text / tool_use) が複数行に分かれて同じ id / usage を持つ
+            for _ in range(3):
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                    "message": {
+                        "id": "msg-dup-123",
+                        "model": "claude-opus-5-5",
+                        "usage": {
+                            "input_tokens": 100,
+                            "output_tokens": 50,
+                        },
+                    },
+                }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        # 3行あっても 100 / 50 の 1 回分のみ加算されること
+        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"'], 100)
+        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="output"'], 50)
 
     def test_antigravity_collection(self):
         # モックの Antigravity ログを作成
@@ -164,6 +212,114 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(tokens['agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="input"'], 1200)
         self.assertEqual(tokens['agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="output"'], 80)
         self.assertEqual(sessions['agent="agy",context="autopilot",repo="nuage-cluster"'], 1)
+
+    def test_antigravity_incremental_preserves_labels(self):
+        # 差分実行時にも判定済みラベル (repo, model, context) が保持されることのテスト
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-inc", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたは自律実行の担当である。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "content": "ワークスペース /home/nixos/orca/workspaces/nuage-cluster/feat で作業する。",
+            }) + "\n")
+
+        collector1 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector1.collect_antigravity()
+            collector1._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        # 追記（モデル変更や自律実行プロンプトを含まない純粋な回答追記）
+        with open(transcript_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 20,
+                "output_tokens": 15,
+                "content": "追加の思考ログ",
+            }) + "\n")
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector2.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector2.state["counters"]["tokens"]
+        expected_key = 'agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+        # 1回目 10 + 2回目 20 = 30
+        self.assertEqual(tokens[expected_key], 30)
+        # unknown ラベルに入っていないこと
+        unknown_key = 'agent="agy",context="portal",model="unknown",repo="unknown",type="input"'
+        self.assertNotIn(unknown_key, tokens)
+
+    def test_file_error_rollback(self):
+        # パース途中でエラーが出たファイルの中間状態がロールバックされ、オフセットも進まないこと
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-err.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "message": {
+                    "id": "msg-err-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100, "output_tokens": 50},
+                },
+            }) + "\n")
+            # 壊れた行（usage が辞書でない不正データ等）ではなく、意図的に型エラーを起こす異常値
+            f.write('{"type": "assistant", "message": {"id": "msg-err-2", "usage": {"input_tokens": "INVALID_NOT_INT"}}}\n')
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        # エラーが記録されたこと
+        self.assertTrue(collector.has_errors)
+        # トークンは途中でロールバックされ 0 件であること
+        self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
+        # オフセットも保存されていないこと
+        self.assertNotIn(jsonl_path, collector.state["claude_offsets"])
 
     def test_autopilot_runs_collection(self):
         # モックの autopilot 実行ディレクトリを作成
@@ -214,9 +370,6 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertIn("# TYPE nuage_ai_agent_sessions_total counter", payload)
         self.assertIn('nuage_ai_agent_sessions_total{agent="claude",context="autopilot",repo="nuage-cluster"} 1', payload)
 
-
-
-
     def test_state_persistence_and_incremental(self):
         # 状態保存と増分読み取りのテスト
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
@@ -229,6 +382,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
                 "message": {
+                    "id": "msg-inc-1",
                     "model": "claude-opus-5-5",
                     "usage": {"input_tokens": 50, "output_tokens": 10},
                 },
@@ -258,6 +412,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
                 "message": {
+                    "id": "msg-inc-2",
                     "model": "claude-opus-5-5",
                     "usage": {"input_tokens": 30, "output_tokens": 5},
                 },

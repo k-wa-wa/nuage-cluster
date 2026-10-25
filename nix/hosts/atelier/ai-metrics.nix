@@ -21,11 +21,6 @@ in
   systemd.user.services.ai-agent-metrics-collector = {
     description = "AI Agent 使用量メトリクス収集と VictoriaMetrics 連携";
 
-    path = with pkgs; [
-      python3
-      curl
-    ];
-
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.python3}/bin/python3 ${collectorScript}";

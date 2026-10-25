@@ -16,7 +16,6 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 KNOWN_REPOS = [
     "nuage-cluster",
@@ -24,7 +23,22 @@ KNOWN_REPOS = [
     "pechka",
     "nuage-monitoring-stack",
     "nuage-usage-ledger",
+    "nuage-workspace",
 ]
+
+
+def get_candidate_repos() -> list[str]:
+    """ワークスペース実ディレクトリと KNOWN_REPOS を統合した候補一覧（名前の降順）"""
+    repos = set(KNOWN_REPOS)
+    base_dir = "/home/nixos/orca/workspaces"
+    if os.path.exists(base_dir):
+        try:
+            for entry in os.listdir(base_dir):
+                if entry and not entry.startswith("."):
+                    repos.add(entry)
+        except OSError:
+            pass
+    return sorted(repos, key=len, reverse=True)
 
 
 def normalize_identifier(val: str, default: str = "unknown") -> str:
@@ -47,7 +61,7 @@ def normalize_repo_name(raw: str) -> str:
     if m:
         candidate = m.group(1)
         if candidate not in ("repo", "workspace", "name"):
-            for known in KNOWN_REPOS:
+            for known in get_candidate_repos():
                 if candidate.startswith(known):
                     return known
             return normalize_identifier(candidate)
@@ -56,10 +70,10 @@ def normalize_repo_name(raw: str) -> str:
     m = re.search(r"-home-nixos-orca-workspaces-([a-zA-Z0-9_\-]+)", raw)
     if m:
         part = m.group(1)
-        for known in KNOWN_REPOS:
+        for known in get_candidate_repos():
             if part.startswith(known):
                 return known
-        return normalize_identifier(part.split("-")[0])
+        return normalize_identifier(part)
 
     if "/projects/-tmp/" in raw or raw.endswith("-tmp"):
         return "tmp"
@@ -87,11 +101,19 @@ class MetricsCollector:
         self.vm_url = vm_url.rstrip("/")
         self.dry_run = dry_run
         self.verbose = verbose
+        self.has_errors = False
         self.state = self._load_state()
 
     def log(self, msg: str):
         if self.verbose:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}", file=sys.stderr)
+
+    def warn(self, msg: str):
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 警告: {msg}", file=sys.stderr)
+
+    def error(self, msg: str):
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] エラー: {msg}", file=sys.stderr)
+        self.has_errors = True
 
     def _load_state(self) -> dict:
         """状態ファイルの読み込み"""
@@ -102,12 +124,13 @@ class MetricsCollector:
                     if isinstance(data, dict):
                         return data
             except Exception as e:
-                self.log(f"警告: 状態ファイル読み込み失敗: {e}")
+                self.warn(f"状態ファイル読み込み失敗: {e}")
         return {
             "version": 1,
             "claude_offsets": {},
             "agy_offsets": {},
             "last_orca_stats_timestamp": 0,
+            "orca_sessions": {},
             "autopilot_runs": {},
             "counters": {
                 "tokens": {},
@@ -140,9 +163,20 @@ class MetricsCollector:
         for path in files:
             try:
                 file_size = os.path.getsize(path)
-                prev_offset = offsets.get(path, 0)
+                prev_data = offsets.get(path, {})
+                if isinstance(prev_data, int):
+                    prev_offset = prev_data
+                    prev_meta = {}
+                elif isinstance(prev_data, dict):
+                    prev_offset = prev_data.get("offset", 0)
+                    prev_meta = prev_data
+                else:
+                    prev_offset = 0
+                    prev_meta = {}
+
                 if prev_offset > file_size:
                     prev_offset = 0
+                    prev_meta = {}
 
                 if file_size == prev_offset:
                     continue
@@ -150,9 +184,14 @@ class MetricsCollector:
                 new_offset = prev_offset
                 is_new_session = (prev_offset == 0)
 
-                # パスから推測される既定 repo
-                repo = normalize_repo_name(path)
-                context = "portal"
+                # 前回のパース状態からメタデータを復元
+                repo = prev_meta.get("repo") or normalize_repo_name(path)
+                context = prev_meta.get("context", "portal")
+                saved_model = prev_meta.get("model", "unknown")
+                seen_ids = set(prev_meta.get("seen_message_ids", []))
+
+                temp_counters = {}
+                temp_sessions = {}
 
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
                     f.seek(prev_offset)
@@ -172,22 +211,16 @@ class MetricsCollector:
                         except json.JSONDecodeError:
                             continue
 
-                        # context 判定
+                        # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
                         entrypoint = record.get("entrypoint", "")
+                        if entrypoint == "sdk-cli":
+                            context = "autopilot"
+
                         cwd = record.get("cwd", "")
                         if cwd:
                             extracted_repo = normalize_repo_name(cwd)
                             if extracted_repo != "unknown":
                                 repo = extracted_repo
-
-                        content_str = str(record.get("content", ""))
-                        if (
-                            entrypoint == "sdk-cli"
-                            or "自律実行の担当" in content_str
-                            or "コードレビュアー" in content_str
-                            or ".autopilot/brief.md" in content_str
-                        ):
-                            context = "autopilot"
 
                         # トークン使用量のパース
                         msg = record.get("message") or {}
@@ -195,21 +228,29 @@ class MetricsCollector:
                         if not usage or not isinstance(usage, dict):
                             continue
 
+                        # 重複カウント防止: 1 つの応答の複数行に同じ message.id / requestId と usage が付与される
+                        mid = msg.get("id") or record.get("requestId")
+                        if mid:
+                            if mid in seen_ids:
+                                continue
+                            seen_ids.add(mid)
+
                         model = (
                             msg.get("model")
                             or record.get("requestedModel")
                             or record.get("advisorModel")
-                            or "unknown"
+                            or saved_model
                         )
                         model = normalize_identifier(model)
+                        saved_model = model
 
-                        input_tokens = usage.get("input_tokens", 0) or 0
-                        output_tokens = usage.get("output_tokens", 0) or 0
-                        cache_read = usage.get("cache_read_input_tokens", 0) or 0
-                        cache_creation = usage.get("cache_creation_input_tokens", 0) or 0
+                        input_tokens = int(usage.get("input_tokens", 0) or 0)
+                        output_tokens = int(usage.get("output_tokens", 0) or 0)
+                        cache_read = int(usage.get("cache_read_input_tokens", 0) or 0)
+                        cache_creation = int(usage.get("cache_creation_input_tokens", 0) or 0)
 
                         output_details = usage.get("output_tokens_details") or {}
-                        thinking = output_details.get("thinking_tokens", 0) or 0
+                        thinking = int(output_details.get("thinking_tokens", 0) or 0)
 
                         for token_type, count in [
                             ("input", input_tokens),
@@ -220,16 +261,30 @@ class MetricsCollector:
                         ]:
                             if count > 0 or token_type in ("input", "output"):
                                 key = f'agent="claude",context="{context}",model="{model}",repo="{repo}",type="{token_type}"'
-                                counters[key] = counters.get(key, 0) + count
+                                temp_counters[key] = temp_counters.get(key, 0) + count
 
                 if is_new_session and new_offset > 0:
                     s_key = f'agent="claude",context="{context}",repo="{repo}"'
-                    sessions[s_key] = sessions.get(s_key, 0) + 1
+                    temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
-                offsets[path] = new_offset
+                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
+                for k, v in temp_counters.items():
+                    counters[k] = counters.get(k, 0) + v
+                for k, v in temp_sessions.items():
+                    sessions[k] = sessions.get(k, 0) + v
+
+                # seen_message_ids は直近 500 件に制限して肥大化を防止する
+                recent_ids = list(seen_ids)[-500:] if len(seen_ids) > 500 else list(seen_ids)
+                offsets[path] = {
+                    "offset": new_offset,
+                    "repo": repo,
+                    "context": context,
+                    "model": saved_model,
+                    "seen_message_ids": recent_ids,
+                }
 
             except Exception as e:
-                self.log(f"エラー: Claude ログ処理失敗 ({path}): {e}")
+                self.error(f"Claude ログ処理失敗 ({path}): {e}")
 
     def collect_antigravity(self):
         """Antigravity のセッションログを差分パース"""
@@ -244,20 +299,34 @@ class MetricsCollector:
         for path in files:
             try:
                 file_size = os.path.getsize(path)
-                prev_offset = offsets.get(path, 0)
+                prev_data = offsets.get(path, {})
+                if isinstance(prev_data, int):
+                    prev_offset = prev_data
+                    prev_meta = {}
+                elif isinstance(prev_data, dict):
+                    prev_offset = prev_data.get("offset", 0)
+                    prev_meta = prev_data
+                else:
+                    prev_offset = 0
+                    prev_meta = {}
+
                 if prev_offset > file_size:
                     prev_offset = 0
+                    prev_meta = {}
 
                 if file_size == prev_offset:
                     continue
 
                 new_offset = prev_offset
                 is_new_session = (prev_offset == 0)
-                session_counted = not is_new_session
 
-                repo = "unknown"
-                context = "portal"
-                current_model = "unknown"
+                # 前回のパース状態からメタデータを復元
+                repo = prev_meta.get("repo", "unknown")
+                context = prev_meta.get("context", "portal")
+                current_model = prev_meta.get("model", "unknown")
+
+                temp_counters = {}
+                temp_sessions = {}
 
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
                     f.seek(prev_offset)
@@ -288,7 +357,7 @@ class MetricsCollector:
                         if m_repo:
                             candidate = m_repo.group(1)
                             if candidate not in ("repo", "workspace", "name"):
-                                for known in KNOWN_REPOS:
+                                for known in get_candidate_repos():
                                     if candidate.startswith(known):
                                         repo = known
                                         break
@@ -304,9 +373,9 @@ class MetricsCollector:
                             context = "autopilot"
 
                         # トークン取得
-                        input_tokens = record.get("input_tokens", 0) or 0
-                        output_tokens = record.get("output_tokens", 0) or 0
-                        cache_read = record.get("cache_read_tokens", 0) or 0
+                        input_tokens = int(record.get("input_tokens", 0) or 0)
+                        output_tokens = int(record.get("output_tokens", 0) or 0)
+                        cache_read = int(record.get("cache_read_tokens", 0) or 0)
 
                         if input_tokens > 0 or output_tokens > 0 or cache_read > 0:
                             for token_type, count in [
@@ -315,16 +384,27 @@ class MetricsCollector:
                                 ("cache_read", cache_read),
                             ]:
                                 key = f'agent="agy",context="{context}",model="{current_model}",repo="{repo}",type="{token_type}"'
-                                counters[key] = counters.get(key, 0) + count
+                                temp_counters[key] = temp_counters.get(key, 0) + count
 
                 if is_new_session and new_offset > 0:
                     s_key = f'agent="agy",context="{context}",repo="{repo}"'
-                    sessions[s_key] = sessions.get(s_key, 0) + 1
+                    temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
-                offsets[path] = new_offset
+                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
+                for k, v in temp_counters.items():
+                    counters[k] = counters.get(k, 0) + v
+                for k, v in temp_sessions.items():
+                    sessions[k] = sessions.get(k, 0) + v
+
+                offsets[path] = {
+                    "offset": new_offset,
+                    "repo": repo,
+                    "context": context,
+                    "model": current_model,
+                }
 
             except Exception as e:
-                self.log(f"エラー: Antigravity ログ処理失敗 ({path}): {e}")
+                self.error(f"Antigravity ログ処理失敗 ({path}): {e}")
 
     def collect_orca_stats(self):
         """~/.config/orca/orca-stats.json をパースしてセッション時間等を集計"""
@@ -335,9 +415,9 @@ class MetricsCollector:
 
         last_ts = self.state.get("last_orca_stats_timestamp", 0)
         duration_counters = self.state.setdefault("counters", {}).setdefault("duration", {})
+        orca_sessions = self.state.setdefault("orca_sessions", {})
 
-        # last-status.json から sessionKey -> agent のマッピングを取得
-        agent_map = {}
+        # last-status.json から稼働中ペインの sessionKey -> {agent, repo, context} を更新蓄積
         last_status_path = os.path.join(home, ".config", "orca", "agent-hooks", "last-status.json")
         if os.path.exists(last_status_path):
             try:
@@ -350,11 +430,24 @@ class MetricsCollector:
                             or entry.get("agentPresence", {}).get("agent")
                             or entry.get("payload", {}).get("agentType")
                         )
+                        agent_name = "unknown"
                         if raw_agent:
                             agent_name = "agy" if "antigravity" in raw_agent.lower() else normalize_identifier(raw_agent)
-                            agent_map[pane_key] = agent_name
+
+                        wt = entry.get("worktreeId", "")
+                        wt_path = wt.split("::")[-1] if "::" in wt else wt
+                        repo = normalize_repo_name(wt_path) if wt_path else "unknown"
+                        has_autopilot = bool(wt_path and os.path.exists(os.path.join(wt_path, ".autopilot")))
+                        context = "autopilot" if has_autopilot else "portal"
+
+                        s_entry = orca_sessions.setdefault(pane_key, {})
+                        if agent_name != "unknown":
+                            s_entry["agent"] = agent_name
+                        if repo != "unknown":
+                            s_entry["repo"] = repo
+                        s_entry["context"] = context
             except Exception as e:
-                self.log(f"last-status.json 読み取り警告: {e}")
+                self.warn(f"last-status.json 読み取り警告: {e}")
 
         try:
             with open(stats_path, "r", encoding="utf-8") as f:
@@ -362,19 +455,26 @@ class MetricsCollector:
 
             events = data.get("events", [])
             max_ts = last_ts
-            session_worktree = {}
+            temp_duration = {}
 
             for ev in events:
                 ev_type = ev.get("type")
                 ev_at = ev.get("at", 0)
 
-                # start イベントで worktree を保持
+                # start イベントで sessionKey と worktree / context を記録
                 if ev_type == "agent_start":
                     meta = ev.get("meta", {})
                     sk = meta.get("sessionKey", "")
                     wt = ev.get("worktreeId", "")
-                    if sk and wt:
-                        session_worktree[sk] = wt
+                    wt_path = wt.split("::")[-1] if "::" in wt else wt
+                    if sk:
+                        s_entry = orca_sessions.setdefault(sk, {})
+                        if wt_path:
+                            repo = normalize_repo_name(wt_path)
+                            has_autopilot = os.path.exists(os.path.join(wt_path, ".autopilot"))
+                            if repo != "unknown":
+                                s_entry["repo"] = repo
+                            s_entry["context"] = "autopilot" if has_autopilot else "portal"
 
                 if ev_at <= last_ts:
                     continue
@@ -390,18 +490,21 @@ class MetricsCollector:
                         continue
 
                     duration_sec = round(duration_ms / 1000.0, 3)
-                    wt = session_worktree.get(sk, "")
-                    repo = normalize_repo_name(wt) if wt else "unknown"
-                    agent = agent_map.get(sk, "orca")
-                    context = "portal"
+                    session_info = orca_sessions.get(sk, {})
+                    agent = session_info.get("agent", "unknown")
+                    repo = session_info.get("repo", "unknown")
+                    context = session_info.get("context", "portal")
 
                     key = f'agent="{agent}",context="{context}",repo="{repo}"'
-                    duration_counters[key] = round(duration_counters.get(key, 0.0) + duration_sec, 3)
+                    temp_duration[key] = round(temp_duration.get(key, 0.0) + duration_sec, 3)
+
+            for k, v in temp_duration.items():
+                duration_counters[k] = round(duration_counters.get(k, 0.0) + v, 3)
 
             self.state["last_orca_stats_timestamp"] = max_ts
 
         except Exception as e:
-            self.log(f"エラー: orca-stats.json 処理失敗: {e}")
+            self.error(f"orca-stats.json 処理失敗: {e}")
 
     def collect_autopilot_runs(self):
         """/home/nixos/orca/workspaces/*/*/.autopilot/ の実行結果を集計"""
@@ -461,7 +564,7 @@ class MetricsCollector:
                 }
 
             except Exception as e:
-                self.log(f"エラー: autopilot ログ処理失敗 ({d}): {e}")
+                self.error(f"autopilot ログ処理失敗 ({d}): {e}")
 
     def generate_prometheus_payload(self) -> str:
         """Prometheus Exposition Format のテキストを生成"""
@@ -548,6 +651,8 @@ class MetricsCollector:
         if self.dry_run:
             print(payload, end="")
             self.log(f"ドライラン完了 (処理時間: {time.time() - start_time:.3f}s)")
+            if self.has_errors:
+                sys.exit(1)
             return
 
         if payload.strip():
@@ -557,6 +662,9 @@ class MetricsCollector:
 
         self._save_state()
         self.log(f"集計完了 (処理時間: {time.time() - start_time:.3f}s)")
+
+        if self.has_errors:
+            sys.exit(1)
 
 
 def default_state_file() -> str:
