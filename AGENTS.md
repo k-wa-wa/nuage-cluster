@@ -40,6 +40,16 @@
 | NixOS LXC / VM (`nix/`) | master へ push → `system.autoUpgrade` が自動適用 |
 | Terraform (`terraform/`) | ユーザーが `terragrunt apply` を実行（AI は plan まで） |
 
+`nix/` を変更したときは、反映の案内を push で終わらせず、対象ホストで nixos-upgrade を起動して結果を見るところまで、そのまま貼れるコマンドで示す (実行はユーザーが行う)。
+nixos-upgrade は終わるまで待ち、失敗すればエラーで返る。
+
+```bash
+ssh <host> 'sudo systemctl start nixos-upgrade; journalctl -u nixos-upgrade -n 20 --no-pager -o cat'
+```
+
+- 対象のホストをすべて並べる。swfs-cluster・pg-cluster・lb のように複数台で動くものは、自動更新の時刻をずらして quorum を保っているので、1 台ずつ、前のホストの成功を確かめてから次へ進む。
+- 変更が効いたことを確かめるコマンド (ユニットの状態・設定ファイルの中身など) も続けて示す。
+
 ## 3. Skills 索引
 
 作業種別ごとの手段・コマンド・注意点は `.agents/skills/` を参照する。
