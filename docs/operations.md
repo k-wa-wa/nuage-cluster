@@ -49,10 +49,10 @@ LXC ホストには `system.autoUpgrade` が設定されており、**master へ
 即時反映したい場合:
 
 ```bash
-# リモートから手動適用
+# リモートから手動適用 (sudo を使うので Mac から。atelier の agent ではできない)
 nixos-rebuild switch --flake ./nix#lb-1 --target-host nixos@192.168.5.201 --use-remote-sudo
 
-# もしくはコンテナ内で自動アップグレードをトリガー
+# もしくはコンテナ内で自動アップグレードをトリガー (atelier の agent でもできる。4.2)
 sudo systemctl start nixos-upgrade.service
 journalctl -u nixos-upgrade.service -f
 ```
@@ -154,7 +154,56 @@ bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
 環境変数を設定する必要はない。ServiceAccountのトークンを再発行した場合や、kubeconfigが
 壊れた場合は同スクリプトを再実行すればよい。
 
-### 4.2 atelier: 初期セットアップと更新
+### 4.2 atelier: ノード調査用 SSH 鍵の配布
+
+atelier のエージェントは、Mac と同じ `ssh <host>` で各 NixOS ホストに入る。入る先は `nixos` ではなく、
+権限を狭めた `agent` ユーザー (`nix/modules/agent-user.nix`、common.nix を読む全ホストにある) である。
+k8s の read-only SA (4.1) と同じ位置付けで、できることは次に限る。
+
+- 読み取り。`systemd-journal` グループに入っているので、全ユニットの `journalctl` を読める。sops-nix の secrets は読めない
+- `sudo systemctl start nixos-upgrade` (`nixos-upgrade.service` の表記も可)。master の構成を反映するだけで、任意の設定は流し込めない
+- それ以外の sudo、`/tmp/nix` からの一時 rebuild、`nixos-rebuild --target-host` は Mac (`nixos` ユーザー) の作業である
+
+鍵は Mac で作って管理し、atelier に手で置く。kubeconfig と同じく SOPS には載せない
+(atelier の秘密は SOPS で配らない方針、`terraform/vpc/zone-dev/atelier.tf`)。
+`authorized_keys` では `from="10.20.1.52,192.168.5.252"` で atelier の 2 本の足からに限り、`restrict` で転送をすべて禁じる。
+転送を禁じているので lb-1 を踏み台にできない。atelier は SDN (10.20.1.0/24) にも LAN (192.168.5.0/24) にも直接届くため、
+atelier の `/etc/ssh/ssh_config` (`nix/hosts/atelier/configuration.nix`) はリポジトリの `.ssh/ssh_config` を Include したうえで、
+User を `agent`、鍵を `/var/lib/atelier/agent_ed25519` にし、ProxyJump を使わないよう上書きする。
+
+```bash
+# 手元の nuage-cluster (リポジトリルート) で実行する。何度実行してもよい
+bash scripts/setup-atelier-ssh-key.sh            # atelier へ配置する
+```
+
+スクリプトは次を行う。
+
+1. `.ssh/keys/atelier-agent` (git 管理外) が無ければ ed25519・パスフレーズなしで作る
+2. 公開鍵を `nix/modules/atelier-agent.pub` に書く。このファイルは commit する (無いと全ホストの nix の評価がエラーになる)
+3. 秘密鍵を atelier の `/var/lib/atelier/agent_ed25519` (0600・所有者 nixos) に置く
+
+公開鍵が変わったときは、`nix/modules/atelier-agent.pub` を commit して master に入れ、全ホストで nixos-upgrade を起動して反映する。
+
+#### 鍵の入れ替え
+
+```bash
+rm .ssh/keys/atelier-agent .ssh/keys/atelier-agent.pub
+bash scripts/setup-atelier-ssh-key.sh
+# nix/modules/atelier-agent.pub を commit・push し、master に入ったら全ホストで nixos-upgrade を起動する
+```
+
+全ホストに新しい公開鍵が行き渡るまで、atelier からは入れない (古い鍵の秘密鍵は atelier で上書きされている)。
+
+#### 確認 (atelier で)
+
+```bash
+ssh lb-1 id                                       # agent・systemd-journal で、wheel が無い
+ssh lb-1 'sudo -n true'                           # 拒否される
+ssh lb-1 'journalctl -u sshd -n 3 --no-pager'     # 読める
+ssh pg-cluster-1 hostname                         # ProxyJump なしで届く
+```
+
+### 4.3 atelier: 初期セットアップと更新
 
 atelier は Orca サーバー (`orca serve`) を常駐させ、スマホや PC の Orca から同じワークスペースに入る作業場である。
 nix (`nix/hosts/atelier/`) はツール・nix-ld・autopilot5・`orca-serve` の user ユニットを定義する。
@@ -185,6 +234,9 @@ copilot  # /login
 
 # 4. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
 bash scripts/setup-autopilot-kubeconfig.sh
+
+# 5. ノード調査用の SSH 鍵を置く (手元の nuage-cluster で実行。4.2)。鍵を作り直したときだけ公開鍵の commit が要る
+bash scripts/setup-atelier-ssh-key.sh
 ```
 
 #### クライアント (Mac・iPhone) のペアリング

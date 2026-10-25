@@ -30,11 +30,11 @@ NixOS + Terraform で Proxmox LXC 上にミドルウェア (PostgreSQL, MinIO �
 
 コンテナ起動後、サービスが仕様 (VIP、接続疎通、フェイルオーバー等) を満たすまでデバッグループを回す。
 
-- 検証・デバッグ・rsync + `/tmp/nix` からの一時適用の手段は [[modify-nix-host]] を参照
+- 検証・デバッグ・rsync + `/tmp/nix` からの一時適用の手段は [[modify-nix-host]] を参照。一時適用は sudo が要るので Mac で行い、atelier の `agent` ユーザーではできない (atelier のエージェントはコマンドを示して人間に頼む)
 - 問題が解消するまで「ソース修正 → 一時適用 → 検証」を繰り返す
 
 ## フェーズ 4: 最終適用と動作確認 (User / AI)
 
 1. **確定版の commit & push (User)**
-2. **本適用の確認 (AI)**: 各ノードで `nixos-upgrade.service` をトリガーし、リモートの master から最新 flake が正常に適用されることを確認する ([[modify-nix-host]])
+2. **本適用の確認 (AI)**: 人間の指示を受けて、各ノードで `nixos-upgrade.service` をトリガーし、リモートの master から最新 flake が正常に適用されることを確認する。複数台のクラスタは 1 台ずつ、前のノードの成功を確かめてから次へ進む。atelier の `agent` ユーザーでもできる ([[modify-nix-host]])
 3. **最終動作確認 (AI)**: サービス起動状況・VIP 割り当て・エンドポイント疎通をテストし、構築完了とする

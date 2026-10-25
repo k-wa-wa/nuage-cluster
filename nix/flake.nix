@@ -9,7 +9,6 @@
     # lm-server の llama.cpp 用。新しいモデルアーキテクチャへの追従のため unstable を別途ピン留めする。
     nixpkgs-llama-cpp.url = "github:nixos/nixpkgs/nixos-unstable";
 
-
     sops-nix = {
       url = "github:Mic92/sops-nix/3433ea14fbd9e6671d0ff0dd45ed15ee4c156ffa";
       inputs.nixpkgs.follows = "nixpkgs";
