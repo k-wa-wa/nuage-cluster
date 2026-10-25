@@ -41,22 +41,10 @@ lb (HAProxy / CoreDNS / keepalived) の実体は NixOS LXC (`nix/hosts/loadbalan
 
 ## NixOS ミドルウェア層の調査
 
-まず VictoriaLogs / VictoriaMetrics (`http://10.20.1.20:8427`、認証なし) を引く。全ホストの journald のログと node-exporter のメトリクスが入っている。
-
-```bash
-curl -s http://10.20.1.20:8427/select/logsql/query --data-urlencode 'query=_time:1h _HOSTNAME:pg-cluster-1 _SYSTEMD_UNIT:patroni.service | limit 20'
-curl -s http://10.20.1.20:8427/api/v1/query --data-urlencode 'query=up'
-```
-
-ssh で入ると、その場の状態を見られる。
-
 ```bash
 ssh pg-cluster-1 "systemctl status patroni"
 ssh <host> "journalctl -u <service> -n 50 --no-pager"
 ```
-
-atelier からは `agent` ユーザーとして入るため、読み取りと `sudo systemctl start nixos-upgrade` しかできない。
-`sudo systemctl restart <service>` などの sudo や sops-nix の secrets の参照は Mac の作業なので、コマンドを示して人間に頼む ([[modify-nix-host]])。
 
 - PostgreSQL の VIP (`10.20.1.40`) は keepalived (`nix/hosts/postgres-cluster/keepalived.nix`) が管理。k8s からの宛先 IP は EndpointSlice (`manifests/apps/pg-cluster/base/service.yaml`) で定義しており、両者は別管理のためズレていないか確認する
 - DB のユーザー・データベース作成は `nix/hosts/postgres-cluster/patroni.nix` の `bootstrap.post_init` で行われる
@@ -66,5 +54,5 @@ atelier からは `agent` ユーザーとして入るため、読み取りと `s
 - **ソース修正が本対応**。k8s マニフェストなら [[modify-k8s-manifests]]、NixOS なら [[modify-nix-host]]、インフラなら [[modify-terraform]] の手段で直す
 - 検証目的の一時適用手段:
   - `kubectl apply -k <overlay>` / `kubectl rollout restart deploy/<name>` (selfHeal で巻き戻る)
-  - NixOS は rsync + `/tmp/nix` からの一時 rebuild ([[modify-nix-host]])。sudo が要るので Mac だけで、atelier の agent ではできない
+  - NixOS は rsync + `/tmp/nix` からの一時 rebuild ([[modify-nix-host]])
 - 障害対応チェックリストは `docs/operations.md` §5 も参照
