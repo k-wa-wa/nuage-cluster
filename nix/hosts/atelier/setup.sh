@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# atelier の nixos ユーザーで実行し、更新の速いツールを ~/.local に入れる。
+# atelier の nixos ユーザーで実行し、更新の速いツールを ~/.local に入れ、nuage のリポジトリを最新の master に揃える。
 # 初回にも更新にも使う。何度実行してもよい。
 #
 #   ~/setup.sh                          # すべて最新にする
@@ -12,6 +12,21 @@ set -euo pipefail
 SECRETS=/var/lib/atelier/secrets.env
 ORCA_ROOT="$HOME/.local/share/orca-ide"
 BIN="$HOME/.local/bin"
+
+# 前もってクローンし、Orca に登録しておくリポジトリ (k-wa-wa/<名前>)。
+# nuage-workspace の AGENTS.md の地図と揃える。nuage-autopilot4 は autopilot-server でだけ使う旧版なので入れない。
+REPOS=(
+  nuage-workspace
+  nuage-cluster
+  nuage-monitoring-stack
+  pechka
+  bare-web-proxy
+  nuage-home
+  nuage-usage-ledger
+  cicerone3270
+  nuage-autopilot5
+  nix-config
+)
 
 if [ "$(id -u)" -eq 0 ]; then
   echo "root ではなく nixos ユーザーで実行すること" >&2
@@ -85,3 +100,40 @@ find "$ORCA_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name "$version" -exec rm -r
 systemctl --user daemon-reload
 systemctl --user restart orca-serve
 systemctl --user --no-pager status orca-serve | head -5
+
+# リポジトリの登録は起動した Orca に対して行うので、受け付けられるようになるまで待つ。
+for _ in $(seq 60); do
+  orca-ide status --json 2>/dev/null | jq -e '.result.runtime.state == "ready"' >/dev/null && break
+  sleep 1
+done
+if ! orca-ide status --json 2>/dev/null | jq -e '.result.runtime.state == "ready"' >/dev/null; then
+  echo "Orca が 60 秒たっても起動しない。journalctl --user -u orca-serve を確かめること" >&2
+  exit 1
+fi
+
+echo "== リポジトリ"
+# ghq の置き場所へクローンして Orca に登録し、master を origin に揃える。
+# Orca のワークスペースは別の worktree に作るので、本体は master のまま変更を置かない前提である。
+# 前提から外れたリポジトリは作業を消さないよう fetch だけにとどめ、最後にまとめて知らせて失敗させる。
+skipped=()
+for name in "${REPOS[@]}"; do
+  orca-get "k-wa-wa/$name" >/dev/null
+  path="$(ghq root)/github.com/k-wa-wa/$name"
+  git -C "$path" fetch --prune --quiet origin
+  branch=$(git -C "$path" branch --show-current)
+  if [ "$branch" != master ]; then
+    skipped+=("$name: master ではなく ${branch:-detached HEAD} を開いている")
+  elif [ -n "$(git -C "$path" status --porcelain)" ]; then
+    skipped+=("$name: 未 commit の変更がある")
+  elif [ -n "$(git -C "$path" rev-list origin/master..master)" ]; then
+    skipped+=("$name: master に origin に無い commit がある")
+  else
+    git -C "$path" merge --ff-only --quiet origin/master
+    echo "$name $(git -C "$path" log -1 --format='%h %s')"
+  fi
+done
+if [ "${#skipped[@]}" -gt 0 ]; then
+  echo "最新の master にできなかったリポジトリがある (fetch は済み):" >&2
+  printf '  %s\n' "${skipped[@]}" >&2
+  exit 1
+fi

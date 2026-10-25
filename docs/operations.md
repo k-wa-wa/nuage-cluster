@@ -174,7 +174,8 @@ ls /var/lib/nixos-bootstrap-done && sudo systemctl reboot
 install -m 600 /dev/null /var/lib/atelier/secrets.env
 vi /var/lib/atelier/secrets.env          # GH_TOKEN=github_pat_...
 
-# 2. Orca 本体・エージェント CLI を入れ、git の名前を bot にし、orca-serve を起動する
+# 2. Orca 本体・エージェント CLI を入れ、git の名前を bot にし、orca-serve を起動し、
+#    nuage のリポジトリ (setup.sh の REPOS) を ~/ghq にクローンして Orca に登録する
 ~/setup.sh
 
 # 3. エージェントにログインする (それぞれ対話で認証する)
@@ -211,6 +212,8 @@ autopilot5 が作業ごとに使うモデルは `nix/hosts/atelier/models.yaml` 
 
 ```bash
 ~/setup.sh                        # すべて最新にする (orca-serve は再起動するが、セッションは残る)
+                                  # リポジトリの本体も master を origin に揃える。別のブランチ・未 commit の変更・
+                                  # origin に無い commit があるものは fetch だけにとどめ、一覧を出して失敗する
 ORCA_VERSION=1.4.238 ~/setup.sh   # Orca の版を指定する。スマホ・Mac の Orca と版を揃えるときに使う
 ```
 
