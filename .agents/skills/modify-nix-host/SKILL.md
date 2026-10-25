@@ -15,22 +15,6 @@ description: Reference of commands and techniques for changing, validating, appl
 - `nix/modules/common.nix`: 共通モジュール
 - シークレットの配線は [[sops-secrets]] を参照
 
-## SSH で入れるユーザーと権限
-
-`ssh <host>` は Mac でも atelier でも同じコマンドで通るが、入る先のユーザーが違う (AGENTS.md「ノードへのSSH接続」、`docs/operations.md` 4.2)。
-
-| できること | Mac (`nixos`) | atelier (`agent`) |
-| :-- | :-- | :-- |
-| `systemctl status`・`journalctl` (全ユニット) などの読み取り | ○ | ○ |
-| `sudo systemctl start nixos-upgrade` (`.service` 付きも可) | ○ | ○ |
-| それ以外の sudo (`sudo systemctl start multi-user.target`・`sudo systemctl restart <service>` など) | ○ | × |
-| `rsync` + `sudo nixos-rebuild switch --flake /tmp/nix#<host>` の一時適用 | ○ | × |
-| `nixos-rebuild switch --target-host` | ○ | × |
-| sops-nix の secrets の参照 | ○ | × |
-
-atelier で × の操作が要るときは、コマンドを示して人間に Mac で実行してもらう。
-ログとメトリクスは ssh で入る前に VictoriaLogs / VictoriaMetrics (`http://10.20.1.20:8427`) で引ける。
-
 ## ローカル検証
 
 ```bash
@@ -49,21 +33,19 @@ nix flake update nix-config --flake ./nix
 基本経路は master へ push → `system.autoUpgrade` が起動時 (30秒後) + daily で自動適用 (LXC / VM 共通)。
 
 ```bash
-# 手動での即時適用 (ssh_config のホスト名が使える。Mac だけ)
+# 手動での即時適用 (ssh_config のホスト名が使える)
 nixos-rebuild switch --flake ./nix#lb-1 --target-host lb-1 --use-remote-sudo
 
-# push 済みの内容を即時反映させたい場合 (対象ノード上で。atelier の agent でもできる)
+# push 済みの内容を即時反映させたい場合 (対象ノード上で)
 ssh lb-1 "sudo systemctl start nixos-upgrade.service"
 ssh lb-1 "journalctl -u nixos-upgrade.service -f"
 ```
-
-nixos-upgrade の起動は本番に効くので、人間がはっきり指示したときだけ行う (AGENTS.md 2 章)。
 
 `nix/` を master に push すると GitHub Actions (`nix-images.yaml`) が LXC ベースイメージをビルドし GitHub Release (`nix-images-lxc`) に公開する。
 
 ## push 前のデバッグ用一時適用
 
-コミットせずにリモートで検証したい場合の手段 (sudo が要るので Mac だけ。atelier の agent ではできない):
+コミットせずにリモートで検証したい場合の手段:
 
 ```bash
 # ローカルの変更をノードへ同期
@@ -92,6 +74,6 @@ ssh <host> "journalctl -u nixos-upgrade.service -n 50 --no-pager"
 - loadbalancer の keepalived は nopreempt 設定。VIP の動きを検証する際は state 遷移 (MASTER/BACKUP) のログを確認する
 - **新規ノードの初回構築で、新規ユニットが起動しないことがある** (swfs-cluster で発生)。`nixos-upgrade` と `bootstrap-second-switch` が成功しているのに、ミドルウェアの unit や `keepalived-boot-delay.timer` が `inactive (dead)` のままで、`journalctl -u <unit> -b` も空になる。unit は enabled で `multi-user.target` に wants されているため、再起動すれば自動で起動する。再起動せずに拾うには次を実行する。`multi-user.target` の wants のうち未起動のユニットだけが起動し、起動済みのユニットには影響しない。keepalived は timer 経由で 5 秒後に起動する。
   ```bash
-  ssh <host> "sudo systemctl start multi-user.target"   # Mac だけ
+  ssh <host> "sudo systemctl start multi-user.target"
   ```
   原因は未特定。`bootstrap.nix` のコメントにある nixpkgs の既知の不安定さと同じ系統と考えられる。2 回目の switch は現在の世代と同じ設定を再適用するため、初回で起動されなかったユニットは「新規」として検出されず、救済にならない (推測)

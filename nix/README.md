@@ -5,7 +5,6 @@
 ### 1. 手動での即時適用 (ローカルからリモートへ適用)
 
 ローカルマシンの変更を各サーバーに即座にデプロイする場合は、以下のコマンドを使用する。
-リモートで sudo を使うため、Mac (`nixos` ユーザー) から行う。atelier の `agent` ユーザー (`modules/agent-user.nix`) ではできない。
 
 ```bash
 # loadbalancer (例: lb-1)
@@ -31,7 +30,7 @@ LXCコンテナ (loadbalancerなど) には `system.autoUpgrade` が設定され
 
 #### 手動で自動アップグレードをトリガーする
 
-コンテナ内で以下のコマンドを実行する (Mac の `nixos` でも、atelier から入る `agent` でも実行できる。`agent` に許した sudo はこれだけである):
+コンテナ内で以下のコマンドを実行する:
 
 ```bash
 sudo systemctl start nixos-upgrade.service

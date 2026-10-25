@@ -13,8 +13,6 @@ ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
 bash .ssh/gen-keys.sh
 ```
 
-atelier のエージェントが各ホストへ入るための鍵 (`agent` ユーザー用) は、atelier を作った後に `scripts/setup-atelier-ssh-key.sh` で作って配る ([operations.md](./operations.md) 4.2)。
-
 ### SOPS (Age) キー
 
 ```bash
