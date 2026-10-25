@@ -6,8 +6,6 @@
   makeWrapper,
   python3,
   gcc,
-  glibc,
-  rocmPackages,
 }:
 
 let
@@ -27,7 +25,7 @@ let
     ]
   );
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "strata";
   inherit version;
 
@@ -52,11 +50,9 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     gcc.cc.lib
-    glibc
-    rocmPackages.clr
   ];
 
-  # 同梱の HIP/ROCm 共有ライブラリが $ORIGIN からロードされるよう RPATH を保持する
+  # 同梱の HIP/ROCm 共有ライブラリが $ORIGIN からロードされるよう RPATH を追加する
   appendRunpaths = [
     "$ORIGIN"
     "/run/opengl-driver/lib"

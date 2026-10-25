@@ -9,52 +9,51 @@ let
   cfg = config.services.strata;
 
   configFile = pkgs.writeText "strata.json" (
-    builtins.toJSON {
-      exe = "${cfg.package}/bin/strata";
-      args = [
-        "--pack"
-        (toString cfg.packDir)
-        "--native"
-        "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
-        "--ple-gguf"
-        "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
-      ]
-      ++ lib.optionals (cfg.expertProfile != null) [
-        "--expert-profile"
-        (toString cfg.expertProfile)
-      ]
-      ++ [
-        "--expert-cache"
-        "auto"
-        "--prefill"
-        "2048"
-        "--spec"
-        "3"
-        "--spec-min-p"
-        "0.9"
-        "--max-context"
-        (toString cfg.maxContext)
-        "--kv"
-        "q4_0"
-        "--kv-resident"
-        "20480"
-        "--mmap-experts"
-      ];
-      env = {
-        STRATA_HIP_PROMPT_F16 = "1";
-        STRATA_WMMA_GEMM = "1";
-        STRATA_PF_GEMM = "1";
-      };
-      cwd = "/var/lib/strata";
-      tokenizer = "${toString cfg.packDir}/tokenizer";
-      model_name = cfg.modelName;
-      log = "/var/lib/strata/strata-engine.log";
-      lib_dirs = [
-        "${cfg.package}/lib/strata"
-      ];
-      host = cfg.host;
-      port = cfg.port;
-    }
+    builtins.toJSON (
+      {
+        exe = "${cfg.package}/bin/strata";
+        args = [
+          "--pack"
+          (toString cfg.packDir)
+          "--native"
+          "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
+          "--ple-gguf"
+          "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
+        ]
+        ++ lib.optionals (cfg.expertProfile != null) [
+          "--expert-profile"
+          (toString cfg.expertProfile)
+        ]
+        ++ [
+          "--expert-cache"
+          "auto"
+          "--prefill"
+          "2048"
+          "--spec"
+          "3"
+          "--spec-min-p"
+          "0.9"
+          "--max-context"
+          (toString cfg.maxContext)
+          "--kv"
+          "q4_0"
+          "--kv-resident"
+          "20480"
+          "--mmap-experts"
+        ];
+        cwd = "/var/lib/strata";
+        tokenizer = "${toString cfg.packDir}/tokenizer";
+        model_name = cfg.modelName;
+        log = "/var/lib/strata/strata-engine.log";
+        lib_dirs = [
+          "${cfg.package}/lib/strata"
+        ];
+        allowed_hosts = cfg.allowedHosts;
+      }
+      // lib.optionalAttrs (cfg.apiKey != null) {
+        api_key = cfg.apiKey;
+      }
+    )
   );
 in
 {
@@ -77,6 +76,18 @@ in
       type = lib.types.port;
       default = 8085;
       description = "OpenAI 互換 API のリッスンポート。";
+    };
+
+    allowedHosts = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "*" ];
+      description = "API サーバーが受け付ける Host ヘッダ一覧（DNS rebinding 対策）。[*] で全許可。";
+    };
+
+    apiKey = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "API 認証キー。null の場合は認証なし。";
     };
 
     openFirewall = lib.mkOption {
@@ -117,7 +128,24 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # 同一 GPU (VRAM 16GB) を共有できないため、Strata 有効時は llama-cpp を自動で無効化する
+    services.llama-cpp.enable = lib.mkForce false;
+
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+
+    users.users.strata = {
+      isSystemUser = true;
+      group = "strata";
+      extraGroups = [
+        "render"
+        "video"
+      ];
+      description = "Strata inference service user";
+    };
+
+    users.groups.strata = {
+      members = [ "agent" ];
+    };
 
     systemd.services.strata = {
       description = "Strata MoE Inference Engine (Qwen3.8-Flash-Next)";
@@ -135,15 +163,19 @@ in
 
       serviceConfig = {
         Type = "simple";
-        DynamicUser = true;
+        User = "strata";
+        Group = "strata";
         SupplementaryGroups = [
           "render"
           "video"
         ];
         StateDirectory = "strata";
+        StateDirectoryMode = "0775";
         WorkingDirectory = "/var/lib/strata";
         PrivateDevices = false; # GPU デバイス (/dev/kfd, /dev/dri/*) にアクセスするために必要
-        ExecStart = "${cfg.package}/bin/strata-server --engine strata --config ${configFile} --host ${cfg.host} --port ${toString cfg.port}";
+        ExecStart =
+          "${cfg.package}/bin/strata-server --engine strata --config ${configFile} --host ${cfg.host} --port ${toString cfg.port}"
+          + lib.optionalString (cfg.apiKey != null) " --api-key ${cfg.apiKey}";
         Restart = "always";
         RestartSec = "10s";
         LimitMEMLOCK = "infinity";
