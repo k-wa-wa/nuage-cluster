@@ -21,14 +21,20 @@
     - Shard 1 (39.2 GB): `Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf`
     - Shard 2 (28.8 GB / PLE table): `Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf`
 
-## 3. ROCm (`gfx1102`) 向けビルド環境の検証結果
+## 3. ROCm (`gfx1102`) 向けビルド環境と API サーバー構成の検証
 
-### 3.1 NixOS 上での CMake / ROCm ビルド検証
+### 3.1 ソースビルド環境と公式 prebuilt の採用
 - `rocmPackages.clr` (Clang 22.0.0, hipClang), `rocmPackages.hipblas`, `rocmPackages.hipblaslt`, `rocmPackages.rocblas` を用いた環境において、`-DCMAKE_HIP_ARCHITECTURES=gfx1102` を指定した CMake / Ninja ビルドの configure が正常に通ることを確認した。
 - `find_package(hipblas)` および `find_package(hipblaslt)` が正常に解決され、`roc::hipblaslt` がリンク対象として検出されることを確認した。
-- NixOS 上で再現可能に利用できるよう、Nix derivation (`nix/hosts/lm-server/pkgs/strata.nix` および `strata-source.nix`) を整備した。
+- ただし、上流の `CMakeLists.txt` には `install` ルールが定義されておらず、また HIP カーネルのフルビルド完了とリンク動作確認までは未完了である。
+- そのため、実機検証および再現可能な Nix パッケージ化にあたっては、`gfx1102`（Navi 33）向けコードオブジェクトが同梱された公式 prebuilt リリース（`rx7900`）を採用し、NixOS の autoPatchelf を適用した derivation (`nix/hosts/lm-server/pkgs/strata.nix`) として整備した。
 
-### 3.2 ランタイムリンクと gfx1102 最適化
+### 3.2 サーバー構成と OpenAI 互換 API 起動経路
+- 推論エンジンバイナリ `strata` の `--serve` オプションは stdin/stdout 経由で 1 行ずつ要求を処理する IPC モードであり、直接 systemd サービスとして起動すると stdin が `/dev/null` となり EOF で終了を繰り返す。
+- OpenAI 互換 HTTP API (ポート 8085) は、Python 製のサーバー層 (`serve/server.py`) が `strata.json` を解釈してエンジンを子プロセスとして管理・中継することで提供される。
+- NixOS 上で再現可能に動作させるため、`pkgs/strata.nix` において推論エンジンと `strata-control`（Python サーバー層）を統合し、`strata-server` および pack 生成ツール `strata-pack` を生成するラッパーを整備した。
+
+### 3.3 ランタイムリンクと gfx1102 最適化
 - Navi 33 (`gfx1102`) では、デフォルトの `CUDA_R_16BF` (BFLOAT16) による GEMM が `HIPBLAS_STATUS_EXECUTION_FAILED` (code 6) を返す挙動が確認された。
 - 以下の環境変数を指定することで、RDNA3 の WMMA ネイティブ GEMM および FP16 ルートが正常に起動し、安定動作することを確認した：
   - `STRATA_HIP_PROMPT_F16=1`: プロンプトの 16-bit GEMM を FP16 入出力で実行
@@ -47,17 +53,41 @@
 | **量子化方式** | UD-IQ4_XS (14.2 GB) | GSQ-RCO IQ2_XS (計 68.0 GB) |
 | **トークン生成速度** | **22.41 tok/s** (201 tok / 8.92 s) | **10.5〜10.8 tok/s** (233 tok / 22.15 s) |
 | **初回プロンプト処理 (TTFT)** | **875 ms** (74.3 tok/s) | **4,593〜5,239 ms** (12.4〜14.2 tok/s) |
-| **ホスト RAM 使用量** | 2.3 GiB | **2.8 GiB** (空き 28 GiB, 32GB 枠内に完全収容) |
+| **ホスト RAM 使用量** | 2.3 GiB | **2.8 GiB** (プロセス RSS。OS ページキャッシュ最大 43.2 GB 利用) |
 | **GPU VRAM 使用量** | 15.5 GiB / 16.0 GiB | **15.39 GiB** / 16.0 GiB (16GB 枠内に完全収容) |
 | **投機的デコード (MTP)** | 有効 (採択率 55.7%) | 有効 (採択率 53.3〜62.5%) |
-| **VRAM エキスパート数** | 全層常駐 (100%) | **7,064 スロット** (キャッシュヒット率 84.5〜87.8%) |
+| **VRAM エキスパート数** | 全層常駐 (100%) | **8,616 スロット (11.53 GiB)** (キャッシュヒット率 84.5〜87.8%) |
 
 ### 4.2 メモリ挙動の評価
 - **ホスト RAM**:
-  - 全エキスパート（35.4 GB）を物理 RAM に載せる `--resident-experts` は 32GB RAM の VM では OOM となるが、Strata の `--mmap-experts` モードを使用することで、OS のページキャッシュと連携して動作させた。
-  - 実メモリ使用量は **2.8 GiB** に抑えられ、32GB 枠内に対して極めて安全に稼働した。
+  - 全エキスパート（35.4 GB）を物理 RAM に常駐させる `--resident-experts` は 32GB RAM の VM では OOM となるが、Strata の `--mmap-experts` モードを使用することで、OS のページキャッシュと連携して動作させた。
+  - プロセスの実メモリ（RSS）は **2.8 GiB** に抑えられ、ページキャッシュ（ログ記録: 最大 43,243 MB）は OS のファイルキャッシュとして動的に解放・再利用されるため、32GB 枠内で安全に稼働した。
 - **GPU VRAM**:
-  - KV キャッシュを `q4_0`、KV streaming を `20480`、VRAM エキスパートキャッシュを `auto`（7,064 スロット、約 9.46 GiB）に配分することで、合計 **15.39 GiB** となり、16GB の VRAM に完全に収容された。
+  - KV キャッシュを `q4_0`、KV streaming を `20480`、VRAM エキスパートキャッシュを `auto`（8,616 スロット、約 11.53 GiB）に配分することで、合計 **15.39 GiB** となり、16GB の VRAM に完全に収容された。
+
+### 4.3 起動に必要な環境構築手順
+Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施する：
+
+1. **モデル GGUF のダウンロード**:
+   ```bash
+   mkdir -p /var/lib/strata/models/IQ2_XS
+   cd /var/lib/strata/models/IQ2_XS
+   # Shard 1 (39.2 GB)
+   aria2c -s 8 -x 8 -k 1M -c "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/main/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
+   # Shard 2 (28.8 GB)
+   aria2c -s 8 -x 8 -k 1M -c "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/main/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
+   ```
+
+2. **Pack の抽出・生成**:
+   `strata.nix` パッケージ同梱の `strata-pack` ツールを用いて、GGUF から pack (`dense.bin` および tokenizer) を作成する。
+   ```bash
+   strata-pack \
+     --gguf /var/lib/strata/models/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf \
+     --out /var/lib/strata/packs/iq2_xs
+   ```
+
+3. **Expert Profile の配置**:
+   パッケージ同梱のプロファイルファイル (`<strata-pkg>/share/strata/data/expert-profile.bin`) を使用する。`strata.nix` モジュールの `expertProfile` オプションにデフォルトで設定されている。
 
 ## 5. ボトルネック分析と技術的課題
 
@@ -74,7 +104,7 @@
    - Qwen3.8-27B（14GB）は全パラメータが 16GB VRAM 内に収まり純粋な GPU メモリ帯域（数百 GB/s）で動作する。
    - 一方、125B MoE（68GB）は単一 16GB GPU では物理的にオフロードが不可避であり、PCIe / ディスク I/O 帯域が全体の律速となる。
 
-## 6. 結論と今後の推奨事項
+## 6. 結論と本番運用の推奨
 
 1. **動作検証の結論**:
    - Strata 0.2 による `Qwen3.8-Flash-Next` の起動、OpenAI 互換 API による推論リクエスト、および 32GB RAM / 16GB VRAM 枠内での安定稼働を実機で実証した。
@@ -82,3 +112,5 @@
 2. **本番運用の推奨**:
    - **対話応答速度を重視する場合**: 現行の `Qwen3.8-27B` (21〜27 tok/s) を継続利用することが推奨される。
    - **推論知能・長文推論品質を重視する場合**: 今回整備した `strata.nix` により、必要に応じて Strata (Qwen3.8-Flash-Next) に切り替え可能な構成が確立された。
+3. **実機上の検証資材の扱い**:
+   - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 64GB、pack 約 1.5GB、計約 67GB）は、現状ルートディスク（200GB）の空き容量が約 96GB あり運用に影響がないため、再検証や必要時の切り替え用に保持している。不要であれば削除可能である。
