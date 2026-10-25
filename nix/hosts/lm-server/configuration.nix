@@ -4,6 +4,7 @@
   imports = [
     ./llama-cpp.nix
     ./gpu-reboot-once.nix
+    ./strata.nix
   ];
 
   environment.systemPackages = with pkgs; [
