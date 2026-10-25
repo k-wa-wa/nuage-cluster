@@ -168,6 +168,8 @@ class MetricsCollector:
             "agy_offsets": {},
             "last_orca_stats_timestamp": 0,
             "orca_sessions": {},
+            "portal_cids": {},
+            "cid_to_repo": {},
             "autopilot_runs": {},
             "counters": {
                 "tokens": {},
@@ -182,6 +184,15 @@ class MetricsCollector:
         if self.dry_run:
             self.log("ドライランのため状態ファイルを更新しない")
             return
+
+        # 辞書キャッシュの肥大化防止（直近 1000 件に制限）
+        for key in ("orca_sessions", "portal_cids", "cid_to_repo", "autopilot_runs"):
+            d = self.state.get(key)
+            if isinstance(d, dict) and len(d) > 1000:
+                keys_to_remove = list(d.keys())[:-1000]
+                for k in keys_to_remove:
+                    del d[k]
+
         os.makedirs(os.path.dirname(os.path.abspath(self.state_file)), exist_ok=True)
         tmp_path = f"{self.state_file}.tmp.{os.getpid()}"
         with open(tmp_path, "w", encoding="utf-8") as f:
@@ -230,22 +241,23 @@ class MetricsCollector:
                 temp_counters = {}
                 temp_sessions = {}
 
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(path, "rb") as f:
                     f.seek(prev_offset)
                     while True:
                         line_start = f.tell()
-                        line = f.readline()
-                        if not line:
+                        raw_line = f.readline()
+                        if not raw_line:
                             break
-                        if not line.endswith("\n"):
+                        if not raw_line.endswith(b"\n"):
                             # 不完全な行は次回に回す
                             f.seek(line_start)
                             break
                         new_offset = f.tell()
 
                         try:
+                            line = raw_line.decode("utf-8", errors="replace")
                             record = json.loads(line)
-                        except json.JSONDecodeError:
+                        except (json.JSONDecodeError, UnicodeDecodeError):
                             continue
 
                         # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
@@ -360,32 +372,36 @@ class MetricsCollector:
                 m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
                 cid = m_cid.group(1) if m_cid else ""
                 cid_map = self.state.get("cid_to_repo", {})
+                portal_cids = self.state.get("portal_cids", {})
 
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo", "unknown")
                 if repo == "unknown" and cid:
                     repo = get_antigravity_conversation_repo(cid, cid_map)
                 context = prev_meta.get("context", "portal")
+                if cid and cid in portal_cids:
+                    context = "portal"
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
                 temp_sessions = {}
 
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(path, "rb") as f:
                     f.seek(prev_offset)
                     while True:
                         line_start = f.tell()
-                        line = f.readline()
-                        if not line:
+                        raw_line = f.readline()
+                        if not raw_line:
                             break
-                        if not line.endswith("\n"):
+                        if not raw_line.endswith(b"\n"):
                             f.seek(line_start)
                             break
                         new_offset = f.tell()
 
                         try:
+                            line = raw_line.decode("utf-8", errors="replace")
                             record = json.loads(line)
-                        except json.JSONDecodeError:
+                        except (json.JSONDecodeError, UnicodeDecodeError):
                             continue
 
                         content = str(record.get("content", ""))
@@ -395,28 +411,31 @@ class MetricsCollector:
                         if m_model:
                             current_model = normalize_model_name(m_model.group(1))
 
-                        # repo 検出
-                        if repo == "unknown" and cid:
-                            repo = get_antigravity_conversation_repo(cid, cid_map)
+                        # context 検出: 初回ターン (step_index == 0) の USER_INPUT に autopilot 起動プロンプトがあるかで判定
+                        # last-status.json の portal に載っている conversation は常に portal を維持
+                        if not (cid and cid in portal_cids):
+                            if record.get("step_index") == 0 and record.get("type") == "USER_INPUT":
+                                if (
+                                    "あなたは自律実行の担当である" in content
+                                    or "あなたはコードレビュアーである" in content
+                                ):
+                                    context = "autopilot"
 
-                        m_repo = re.search(r"/home/nixos/orca/workspaces/([a-zA-Z0-9_\-]+)", content)
-                        if m_repo:
-                            candidate = m_repo.group(1)
-                            if candidate not in ("repo", "workspace", "name"):
-                                for known in get_candidate_repos():
-                                    if candidate.startswith(known):
-                                        repo = known
-                                        break
-                                else:
-                                    repo = normalize_identifier(candidate)
-
-                        # context 検出
-                        if (
-                            "自律実行の担当" in content
-                            or "コードレビュアー" in content
-                            or ".autopilot/brief.md" in content
-                        ):
-                            context = "autopilot"
+                        # repo 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
+                        if repo == "unknown":
+                            if cid:
+                                repo = get_antigravity_conversation_repo(cid, cid_map)
+                            if repo == "unknown":
+                                m_repo = re.search(r"/home/nixos/orca/workspaces/([a-zA-Z0-9_\-]+)", content)
+                                if m_repo:
+                                    candidate = m_repo.group(1)
+                                    if candidate not in ("repo", "workspace", "name"):
+                                        for known in get_candidate_repos():
+                                            if candidate.startswith(known):
+                                                repo = known
+                                                break
+                                        else:
+                                            repo = normalize_identifier(candidate)
 
                         # トークン取得
                         input_tokens = int(record.get("input_tokens", 0) or 0)
@@ -452,8 +471,60 @@ class MetricsCollector:
             except Exception as e:
                 self.error(f"Antigravity ログ処理失敗 ({path}): {e}")
 
+    def update_active_sessions(self):
+        """last-status.json から稼働中ペインの sessionKey -> {agent, repo, context} および Antigravity portal CID を更新蓄積"""
+        home = os.path.expanduser("~")
+        last_status_path = os.path.join(home, ".config", "orca", "agent-hooks", "last-status.json")
+        if not os.path.exists(last_status_path):
+            return
+
+        orca_sessions = self.state.setdefault("orca_sessions", {})
+        portal_cids = self.state.setdefault("portal_cids", {})
+        cid_map = self.state.setdefault("cid_to_repo", {})
+
+        try:
+            with open(last_status_path, "r", encoding="utf-8") as f:
+                status_data = json.load(f)
+                entries = status_data.get("entries", {})
+                for pane_key, entry in entries.items():
+                    raw_agent = (
+                        entry.get("source")
+                        or entry.get("agentPresence", {}).get("agent")
+                        or entry.get("payload", {}).get("agentType")
+                    )
+                    agent_name = "unknown"
+                    if raw_agent:
+                        agent_name = "agy" if "antigravity" in raw_agent.lower() else normalize_identifier(raw_agent)
+
+                    wt = entry.get("worktreeId", "")
+                    wt_path = wt.split("::")[-1] if "::" in wt else wt
+                    repo = normalize_repo_name(wt_path) if wt_path else "unknown"
+
+                    # Orca UI 上のペインは人間との対話窓口（portal）である
+                    context = "portal"
+
+                    s_entry = orca_sessions.setdefault(pane_key, {})
+                    if agent_name != "unknown":
+                        s_entry["agent"] = agent_name
+                    if repo != "unknown":
+                        s_entry["repo"] = repo
+                    s_entry["context"] = context
+
+                    # Antigravity の conversation_id と repo の対応、および portal CID の記録
+                    provider_session = entry.get("providerSession", {})
+                    if provider_session.get("key") == "conversation_id":
+                        cid = provider_session.get("id")
+                        if cid:
+                            portal_cids[cid] = True
+                            if repo != "unknown":
+                                cid_map[cid] = repo
+        except Exception as e:
+            self.warn(f"last-status.json 読み取り警告: {e}")
+
     def collect_orca_stats(self):
         """~/.config/orca/orca-stats.json をパースしてセッション時間等を集計"""
+        self.update_active_sessions()
+
         home = os.path.expanduser("~")
         stats_path = os.path.join(home, ".config", "orca", "orca-stats.json")
         if not os.path.exists(stats_path):
@@ -462,47 +533,6 @@ class MetricsCollector:
         last_ts = self.state.get("last_orca_stats_timestamp", 0)
         duration_counters = self.state.setdefault("counters", {}).setdefault("duration", {})
         orca_sessions = self.state.setdefault("orca_sessions", {})
-
-        # last-status.json から稼働中ペインの sessionKey -> {agent, repo, context} を更新蓄積
-        last_status_path = os.path.join(home, ".config", "orca", "agent-hooks", "last-status.json")
-        if os.path.exists(last_status_path):
-            try:
-                with open(last_status_path, "r", encoding="utf-8") as f:
-                    status_data = json.load(f)
-                    entries = status_data.get("entries", {})
-                    for pane_key, entry in entries.items():
-                        raw_agent = (
-                            entry.get("source")
-                            or entry.get("agentPresence", {}).get("agent")
-                            or entry.get("payload", {}).get("agentType")
-                        )
-                        agent_name = "unknown"
-                        if raw_agent:
-                            agent_name = "agy" if "antigravity" in raw_agent.lower() else normalize_identifier(raw_agent)
-
-                        wt = entry.get("worktreeId", "")
-                        wt_path = wt.split("::")[-1] if "::" in wt else wt
-                        repo = normalize_repo_name(wt_path) if wt_path else "unknown"
-
-                        # Orca UI 上のペインは人間との対話窓口（portal）である
-                        context = "portal"
-
-                        s_entry = orca_sessions.setdefault(pane_key, {})
-                        if agent_name != "unknown":
-                            s_entry["agent"] = agent_name
-                        if repo != "unknown":
-                            s_entry["repo"] = repo
-                        s_entry["context"] = context
-
-                        # Antigravity の conversation_id と repo の対応をキャッシュ
-                        provider_session = entry.get("providerSession", {})
-                        if provider_session.get("key") == "conversation_id":
-                            cid = provider_session.get("id")
-                            if cid and repo != "unknown":
-                                cid_map = self.state.setdefault("cid_to_repo", {})
-                                cid_map[cid] = repo
-            except Exception as e:
-                self.warn(f"last-status.json 読み取り警告: {e}")
 
         try:
             with open(stats_path, "r", encoding="utf-8") as f:
@@ -594,20 +624,16 @@ class MetricsCollector:
                 if prev_record and prev_record.get("status") == raw_status and prev_record.get("mtime") == status_mtime:
                     continue
 
-                # run.log から impl, level を抽出
+                # run.log から impl, level を抽出（最新の start 行を採用）
                 impl = "unknown"
                 level = "unknown"
                 if os.path.exists(run_log_file):
                     with open(run_log_file, "r", encoding="utf-8", errors="replace") as f:
-                        for _ in range(20):
-                            line = f.readline()
-                            if not line:
-                                break
+                        for line in f:
                             m_start = re.search(r"start\s+impl=(\S+)\s+level=(\S+)", line)
                             if m_start:
                                 impl = normalize_identifier(m_start.group(1))
                                 level = normalize_identifier(m_start.group(2))
-                                break
 
                 # パスから repo を判定
                 repo = normalize_repo_name(d)
@@ -699,6 +725,7 @@ class MetricsCollector:
         start_time = time.time()
         self.log("メトリクス集計開始")
 
+        self.update_active_sessions()
         self.collect_claude()
         self.collect_antigravity()
         self.collect_orca_stats()

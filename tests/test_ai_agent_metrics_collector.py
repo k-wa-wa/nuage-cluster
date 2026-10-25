@@ -8,6 +8,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import sys
 
 # テスト対象スクリプトのインポート
@@ -625,6 +626,195 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertEqual(repo_unknown, "unknown")
         finally:
             os.path.expanduser = orig_expanduser
+
+    def test_send_failure_does_not_save_state(self):
+        # 送信が例外で失敗したときに状態ファイルが保存されないことのテスト
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+        collector.state["counters"]["tokens"]["test_token"] = 100
+        collector.send_to_victoriametrics = mock.MagicMock(side_effect=RuntimeError("connection refused"))
+
+        with self.assertRaises(RuntimeError):
+            collector.run()
+
+        # 状態ファイルが作成されていないこと
+        self.assertFalse(os.path.exists(self.state_file))
+
+    def test_send_to_victoriametrics_http_error(self):
+        # HTTP レスポンスが 2xx 以外または HTTPError のときに RuntimeError で終了することのテスト
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+
+        import urllib.error
+        from io import BytesIO
+
+        # 1. HTTPError (例: 403 Forbidden)
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            url="http://localhost:8427/api/v1/import/prometheus",
+            code=403,
+            msg="Forbidden",
+            hdrs={},
+            fp=BytesIO(b"unauthorized route"),
+        )):
+            with self.assertRaises(RuntimeError) as ctx:
+                collector.send_to_victoriametrics("test_payload 1")
+            self.assertIn("HTTP エラー (403)", str(ctx.exception))
+
+        # 2. 予期しないステータスコード (例: 302 Redirect)
+        mock_resp = mock.MagicMock()
+        mock_resp.status = 302
+        mock_resp.__enter__.return_value = mock_resp
+        with mock.patch("urllib.request.urlopen", return_value=mock_resp):
+            with self.assertRaises(RuntimeError) as ctx:
+                collector.send_to_victoriametrics("test_payload 1")
+            self.assertIn("予期しないステータスコード: HTTP 302", str(ctx.exception))
+
+    def test_antigravity_portal_not_overwritten_by_skill_reading(self):
+        # portal セッションで .autopilot/brief.md を読んでも context="autopilot" に誤判定されないこと
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-portal-1", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        # 人間からの指示で始まり、途中のツール出力等で .autopilot/brief.md が出現
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>アプリの状況を教えて</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 100,
+                "output_tokens": 20,
+                "content": "ファイルを読みます .autopilot/brief.md を確認中",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        # last-status.json 由来の portal_cids に登録
+        collector.state["portal_cids"]["conv-portal-1"] = True
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        self.assertIn('agent="agy",context="portal",model="unknown",repo="unknown",type="input"', tokens)
+        self.assertEqual(tokens['agent="agy",context="portal",model="unknown",repo="unknown",type="input"'], 100)
+
+    def test_antigravity_repo_not_overwritten_by_content_path(self):
+        # DB から repo が確定した後、本文に別リポジトリのパスが出ても repo が上書きされないこと
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-repo-test", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>作業開始</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "content": "別リポジトリのファイル /home/nixos/orca/workspaces/pechka/foo を参照した",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        # cid_to_repo で nuage-cluster に紐づけられている
+        collector.state["cid_to_repo"]["conv-repo-test"] = "nuage-cluster"
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        self.assertIn('agent="agy",context="portal",model="unknown",repo="nuage-cluster",type="input"', tokens)
+        self.assertNotIn('repo="pechka"', str(tokens))
+
+    def test_state_cache_pruning(self):
+        # 状態保存時に 1000 件を超えたキャッシュが古い順にトリムされることのテスト
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+        for i in range(1050):
+            collector.state["orca_sessions"][f"sk-{i:04d}"] = {"agent": "claude"}
+            collector.state["portal_cids"][f"cid-{i:04d}"] = True
+
+        collector._save_state()
+
+        # 保存後のファイルを読み込み直して検証
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        self.assertEqual(len(collector2.state["orca_sessions"]), 1000)
+        self.assertEqual(len(collector2.state["portal_cids"]), 1000)
+        # 最初の 50 件 (0000〜0049) が削除され、最新 1000 件 (0050〜1049) が残っていること
+        self.assertNotIn("sk-0000", collector2.state["orca_sessions"])
+        self.assertIn("sk-0050", collector2.state["orca_sessions"])
+        self.assertIn("sk-1049", collector2.state["orca_sessions"])
+
+    def test_autopilot_run_latest_start(self):
+        # run.log に複数回 start が記録された場合、最新（最後）のものが採用されること
+        auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-multi-start", ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "status"), "w", encoding="utf-8") as f:
+            f.write("done\n")
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=claude level=standard reviewers=agy\n")
+            f.write("[10:05:00] retry\n")
+            f.write("[10:10:00] start impl=agy level=high reviewers=claude\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        orig_exists = os.path.exists
+        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
+        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
+        try:
+            collector.collect_autopilot_runs()
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.exists = orig_exists
+
+        runs = collector.state["counters"]["autopilot_runs"]
+        # 最後の impl=agy level=high が採用されること
+        self.assertIn('impl="agy",level="high",repo="nuage-cluster",result="done"', runs)
+        self.assertNotIn('impl="claude"', str(runs))
 
 
 if __name__ == "__main__":
