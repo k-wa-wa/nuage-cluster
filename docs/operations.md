@@ -154,7 +154,50 @@ bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
 環境変数を設定する必要はない。ServiceAccountのトークンを再発行した場合や、kubeconfigが
 壊れた場合は同スクリプトを再実行すればよい。
 
-### 4.2 atelier: 初期セットアップと更新
+### 4.2 atelier: ノードへ入る SSH 鍵の配布
+
+atelier のエージェントは `ssh <host>` で各 NixOS ホストに `agent` ユーザー (`nix/modules/agent-user.nix`、common.nix を読む全ホストにある) として入る。
+権限は Mac の `nixos` と同じである。
+
+鍵は Mac で作って管理し、atelier に手で置く。kubeconfig と同じく SOPS には載せない
+(atelier の秘密は SOPS で配らない方針、`terraform/vpc/zone-dev/atelier.tf`)。
+`authorized_keys` では `from="10.20.1.52,192.168.5.252"` で atelier の 2 本の足からに限り、`restrict` で転送をすべて禁じる。
+転送を禁じているので lb-1 を踏み台にできない。atelier は SDN (10.20.1.0/24) にも LAN (192.168.5.0/24) にも直接届くため、
+atelier の `/etc/ssh/ssh_config` (`nix/hosts/atelier/configuration.nix`) はリポジトリの `.ssh/ssh_config` を Include したうえで、
+User を `agent`、鍵を `/var/lib/atelier/agent_ed25519` にし、ProxyJump を使わないよう上書きする。
+
+```bash
+# 手元の nuage-cluster (リポジトリルート) で実行する。何度実行してもよい
+bash scripts/setup-atelier-ssh-key.sh            # atelier へ配置する
+```
+
+スクリプトは次を行う。
+
+1. `.ssh/keys/atelier-agent` (git 管理外) が無ければ ed25519・パスフレーズなしで作る
+2. 公開鍵を `nix/modules/atelier-agent.pub` に書く。このファイルは commit する (無いと全ホストの nix の評価がエラーになる)
+3. 秘密鍵を atelier の `/var/lib/atelier/agent_ed25519` (0600・所有者 nixos) に置く
+
+公開鍵が変わったときは、`nix/modules/atelier-agent.pub` を commit して master に入れ、全ホストで nixos-upgrade を起動して反映する。
+
+#### 鍵の入れ替え
+
+```bash
+rm .ssh/keys/atelier-agent .ssh/keys/atelier-agent.pub
+bash scripts/setup-atelier-ssh-key.sh
+# nix/modules/atelier-agent.pub を commit・push し、master に入ったら全ホストで nixos-upgrade を起動する
+```
+
+全ホストに新しい公開鍵が行き渡るまで、atelier からは入れない (古い鍵の秘密鍵は atelier で上書きされている)。
+
+#### 確認 (atelier で)
+
+```bash
+ssh lb-1 id                                       # agent で、wheel に入っている
+ssh lb-1 'sudo -n true && echo ok'                # ok と出る
+ssh pg-cluster-1 hostname                         # ProxyJump なしで届く
+```
+
+### 4.3 atelier: 初期セットアップと更新
 
 atelier は Orca サーバー (`orca serve`) を常駐させ、スマホや PC の Orca から同じワークスペースに入る作業場である。
 nix (`nix/hosts/atelier/`) はツール・nix-ld・autopilot5・`orca-serve` の user ユニットを定義する。
@@ -185,6 +228,9 @@ copilot  # /login
 
 # 4. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
 bash scripts/setup-autopilot-kubeconfig.sh
+
+# 5. ノードへ入る SSH 鍵を置く (手元の nuage-cluster で実行。4.2)。鍵を作り直したときだけ公開鍵の commit が要る
+bash scripts/setup-atelier-ssh-key.sh
 ```
 
 #### クライアント (Mac・iPhone) のペアリング

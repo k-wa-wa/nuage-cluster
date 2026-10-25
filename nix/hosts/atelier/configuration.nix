@@ -29,6 +29,19 @@
     ];
   };
 
+  # エージェントは Mac と同じ `ssh <host>` で各ホストに入る。ホスト一覧はリポジトリの .ssh/ssh_config を Include して共有し、
+  # 入る先のユーザーは agent (modules/agent-user.nix、権限は Mac の nixos と同じ)、鍵は atelier 用のもの (scripts/setup-atelier-ssh-key.sh が置く) にする。
+  # ssh_config は先に得た値が勝つので、Include より前に書いて User・鍵・ProxyJump を上書きする。
+  # agent の鍵は転送を禁じている (restrict) ため lb-1 を踏み台にできず、atelier は SDN にも LAN にも直接届くので ProxyJump は使わない。
+  programs.ssh.extraConfig = ''
+    Host *
+        User agent
+        IdentityFile /var/lib/atelier/agent_ed25519
+        IdentitiesOnly yes
+        ProxyJump none
+    Include /home/nixos/ghq/github.com/k-wa-wa/nuage-cluster/.ssh/ssh_config
+  '';
+
   # setup.sh が入れる Orca・エージェント CLI と autopilot のスキルが呼ぶコマンドを通す。
   environment.localBinInPath = true;
 

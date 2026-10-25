@@ -10,6 +10,7 @@ in
 
 {
   imports = [
+    ./agent-user.nix
     ./journald-upload.nix
   ];
 
