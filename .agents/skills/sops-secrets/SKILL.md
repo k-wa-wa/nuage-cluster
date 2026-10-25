@@ -37,7 +37,7 @@ sops updatekeys <file>                 # 受信者変更後の再暗号化
 ## 復号失敗時の確認手段
 
 - **Terraform**: `terraform/secrets.yaml` に対象キーが存在するか、`.sops.yaml` のルールにマッチしているか確認
-- **NixOS**: `ssh <host> "ls /var/lib/nix-provisioning/sops-key"`。無ければ PVE ホスト側の `/var/lib/pve/<host>/` と `terraform/pve/hosts-secrets` の適用状況を確認。`.sops.yaml` に `lb_key` が含まれているかも確認
+- **NixOS**: `ssh <host> "ls /var/lib/nix-provisioning/sops-key"`。atelier の `agent` ユーザーで `Permission denied` になるのは権限不足であり、鍵が無いこととは別である。そのときは Mac で `ssh <host> "sudo ls -l /var/lib/nix-provisioning/sops-key /run/secrets"` を実行してもらう。sops-nix の secrets も agent には読めない。無ければ PVE ホスト側の `/var/lib/pve/<host>/` と `terraform/pve/hosts-secrets` の適用状況を確認。`.sops.yaml` に `lb_key` が含まれているかも確認
 - **Kubernetes**: `kubectl get secret sops-age-key -n argocd` の存在確認。消えていれば `scripts/apply-apps.sh` 内の手順で再登録。AVP のログは `kubectl -n argocd logs deploy/argocd-repo-server -c avp`
 
 ## 関連ドキュメント

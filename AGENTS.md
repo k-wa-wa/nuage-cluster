@@ -17,12 +17,23 @@
   ```
 
 - **ノードへのSSH接続**:
-  `~/.ssh/config` が本リポジトリの `.ssh/ssh_config`（`.ssh/gen-keys.sh` が生成）を Include しているため、ホスト名だけで接続できる。これを正とし、`-i` や `-o` オプションを毎回指定しない。
+  Mac では `~/.ssh/config`、atelier では `/etc/ssh/ssh_config` が本リポジトリの `.ssh/ssh_config`（`.ssh/gen-keys.sh` が生成）を Include しているため、ホスト名だけで接続できる。これを正とし、`-i` や `-o` オプションを毎回指定しない。
   ```bash
   ssh lb-1
   ssh pg-cluster-1 "journalctl -u patroni -n 50 --no-pager"
   ```
   接続できないホストは `.ssh/gen-keys.sh` の `NODES` に `"ホスト名:IP:ユーザー名"` を追記し、`bash .ssh/gen-keys.sh` を再実行して登録する。ホスト名 ↔ IP の対応もこのファイルを正とする。
+
+  Mac でも atelier でも同じコマンドで入れるが、入る先のユーザーと権限が違う。
+  - **Mac**: `nixos` ユーザー (wheel・パスワードなし sudo) として入る。完全な管理者である
+  - **atelier**: `/etc/ssh/ssh_config` (`nix/hosts/atelier/configuration.nix`) が User・鍵・ProxyJump を上書きし、`agent` ユーザー (`nix/modules/agent-user.nix`) として ProxyJump なしで直接入る。できるのは読み取り (全ユニットの `journalctl` を含む) と `sudo systemctl start nixos-upgrade` だけである。それ以外の sudo、`/tmp/nix` からの一時 rebuild、sops-nix の secrets の参照は Mac の作業なので、コマンドを示して人間に頼む
+  - 鍵は Mac で `scripts/setup-atelier-ssh-key.sh` が作って atelier に置く (`docs/operations.md` 4.2)
+
+  ホストの調査は、ssh で入る前にまず VictoriaLogs / VictoriaMetrics (`http://10.20.1.20:8427`、認証なし) を見る。全ホストの journald のログと node-exporter のメトリクスが入っている。
+  ```bash
+  curl -s http://10.20.1.20:8427/select/logsql/query --data-urlencode 'query=_time:1h _HOSTNAME:pg-cluster-1 _SYSTEMD_UNIT:patroni.service | limit 20'
+  curl -s http://10.20.1.20:8427/api/v1/query --data-urlencode 'query=up'
+  ```
 
 ## 2. GitOps 原則
 
@@ -40,7 +51,8 @@
 | NixOS LXC / VM (`nix/`) | master へ push → `system.autoUpgrade` が自動適用 |
 | Terraform (`terraform/`) | ユーザーが `terragrunt apply` を実行（AI は plan まで） |
 
-`nix/` を変更したときは、反映の案内を push で終わらせず、対象ホストで nixos-upgrade を起動して結果を見るところまで、そのまま貼れるコマンドで示す (実行はユーザーが行う)。
+`nix/` を変更したときは、反映の案内を push で終わらせず、対象ホストで nixos-upgrade を起動して結果を見るところまで、そのまま貼れるコマンドで示す。
+人間がはっきり指示したときは、エージェントが実行してよい (atelier の `agent` ユーザーにも許してある)。いつ実行してよいかは個人ルール (本番に効く操作は指示があったときだけ行う) に従う。
 nixos-upgrade は終わるまで待ち、失敗すればエラーで返る。
 
 ```bash
