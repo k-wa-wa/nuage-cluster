@@ -6,7 +6,7 @@
 #
 # nix では変わりにくいもの (ツール・ライブラリ・常駐ユニット) だけを定義する。
 # 更新の速い Orca 本体とエージェント CLI は setup.sh が ~/.local に入れる。
-{ lib, ... }:
+{ lib, agentRules, ... }:
 
 {
   imports = [
@@ -38,6 +38,8 @@
     user = "nixos";
     # 作業ごとのモデルの並び。モデルの更新はこのファイルだけで行う。
     models = ./models.yaml;
+    # Mac と共通の個人のルール (nix-config の rules.md)。Mac だけのルール (git は人間が扱う) は入れない。
+    extraRules = [ agentRules ];
   };
 
   # GitHub への書き込みはすべて bot (bot-wa-wa) として行う。git は gh 経由で GH_TOKEN を使う。

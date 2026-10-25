@@ -159,6 +159,7 @@ bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
 atelier は Orca サーバー (`orca serve`) を常駐させ、スマホや PC の Orca から同じワークスペースに入る作業場である。
 nix (`nix/hosts/atelier/`) はツール・nix-ld・autopilot5・`orca-serve` の user ユニットを定義する。
 更新の速い Orca 本体とエージェント CLI (claude / agy / copilot) は `~/setup.sh` が `~/.local` に入れる。
+nixos ユーザーのシェル環境と、エージェントが読む個人の共通ルール (`rules.md`。autopilot5 の `home/AGENTS.md` の後ろに足す) は nix-config から読み込む。
 
 VM を作った後 (nixos-bootstrap の完了後) に、次を順に行う。
 

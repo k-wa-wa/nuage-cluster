@@ -34,7 +34,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # atelier の nixos ユーザーの環境 (シェル・エディタ・git の設定など) は、Mac と共通の nix-config から読み込む。
+    # atelier の nixos ユーザーの環境 (シェル・エディタ・git の設定など) と、エージェントに渡す個人の共通ルールは、
+    # Mac と共通の nix-config から読み込む。
     # nix-config を更新したら `nix flake update nix-config --flake ./nix` で取り込む。
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
@@ -132,6 +133,8 @@
           system = "x86_64-linux";
           specialArgs = {
             homeModule = nix-config.homeModules.atelier;
+            # 個人の共通ルール (日本語・失敗を隠さない など)。autopilot5 の共通ルールの後ろに足す。
+            agentRules = nix-config.lib.agentRules;
           };
           modules = [
             autopilot5.nixosModules.autopilot5
