@@ -29,11 +29,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792831178,
-        "narHash": "sha256-c5lF8Z2ABadGkb2wq1d3SqECgxGUELS3QnSjF8ZZh3I=",
+        "lastModified": 1792905216,
+        "narHash": "sha256-viMEaDf7GfTY9S6HdOhNyQBeriMk2oAzvCW+4JDuqpE=",
         "owner": "k-wa-wa",
         "repo": "nuage-autopilot5",
-        "rev": "22eb632beecfa110a7447f4e6450dbd626d5c85d",
+        "rev": "6c4748c5cd82a86dde18530d7579935aab04e4d1",
         "type": "github"
       },
       "original": {
@@ -129,11 +129,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792841047,
-        "narHash": "sha256-OQoSaXCAKBMejFvlovzV9mMNjNboghuH041Fi7fDnzw=",
+        "lastModified": 1792904979,
+        "narHash": "sha256-SNoIO3WCFEBZjW4qFMeLuvqGCdm9BqOfYxrm4xDJyHY=",
         "owner": "k-wa-wa",
         "repo": "nix-config",
-        "rev": "c240b37271074eacc0715fd76523444cb5ed190e",
+        "rev": "3e8c3966397f2cf5e3d40ce6e47700abcae4c8f6",
         "type": "github"
       },
       "original": {
