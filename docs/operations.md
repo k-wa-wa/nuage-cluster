@@ -199,6 +199,7 @@ bash scripts/setup-atelier-ssh-key.sh
 ```bash
 ssh lb-1 id                                       # agent・systemd-journal で、wheel が無い
 ssh lb-1 'sudo -n true'                           # 拒否される
+ssh lb-1 'sudo -n -l'                             # 許されるのが systemctl start nixos-upgrade(.service) の 2 つだけである
 ssh lb-1 'journalctl -u sshd -n 3 --no-pager'     # 読める
 ssh pg-cluster-1 hostname                         # ProxyJump なしで届く
 ```
