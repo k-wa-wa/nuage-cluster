@@ -3,12 +3,12 @@
 let
   # GPU (Radeon RX 7600 XT, gfx1102, VRAM 16GB) に全層を載せられるサイズを選ぶ。
   # Qwen3.8-27B は 64 層中 16 層のみ full attention のため KV キャッシュが小さく、
-  # UD-IQ4_XS (14.3GB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.9GB)。
+  # UD-IQ4_XS (14.3 GB / 13.3 GiB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.5 GiB / 約 16.6 GB)。
   # IQ4_XS は UD-Q3_K_XL (13.1GB) と生成速度が同等以上で、重みの精度が高い。
   # Qwen3.8-Flash-Next (125B MoE) は mmap 構成であれば 32GB RAM / 16GB VRAM 上で動作可能
   # であるが、単一 GPU におけるストレージ / PCIe オフロード帯域の制約により 10 tok/s 前後にとどまる。
   # そのため、全層を単一 GPU に常駐させて 20 tok/s 超が出る 27B dense モデルを採用している。
-  # なお、services.strata とは同一 GPU (VRAM 15.5GB) を奪い合うため排他関係にある。
+  # なお、services.strata とは同一 GPU (VRAM 約 15.5 GiB) を奪い合うため排他関係にある。
   modelName = "qwen3.8-27b";
   model = llamaCppPkgs.fetchurl {
     name = "Qwen3.8-27B-UD-IQ4_XS.gguf";

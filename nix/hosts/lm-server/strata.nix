@@ -9,51 +9,46 @@ let
   cfg = config.services.strata;
 
   configFile = pkgs.writeText "strata.json" (
-    builtins.toJSON (
-      {
-        exe = "${cfg.package}/bin/strata";
-        args = [
-          "--pack"
-          (toString cfg.packDir)
-          "--native"
-          "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
-          "--ple-gguf"
-          "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
-        ]
-        ++ lib.optionals (cfg.expertProfile != null) [
-          "--expert-profile"
-          (toString cfg.expertProfile)
-        ]
-        ++ [
-          "--expert-cache"
-          "auto"
-          "--prefill"
-          "2048"
-          "--spec"
-          "3"
-          "--spec-min-p"
-          "0.9"
-          "--max-context"
-          (toString cfg.maxContext)
-          "--kv"
-          "q4_0"
-          "--kv-resident"
-          "20480"
-          "--mmap-experts"
-        ];
-        cwd = "/var/lib/strata";
-        tokenizer = "${toString cfg.packDir}/tokenizer";
-        model_name = cfg.modelName;
-        log = "/var/lib/strata/strata-engine.log";
-        lib_dirs = [
-          "${cfg.package}/lib/strata"
-        ];
-        allowed_hosts = cfg.allowedHosts;
-      }
-      // lib.optionalAttrs (cfg.apiKey != null) {
-        api_key = cfg.apiKey;
-      }
-    )
+    builtins.toJSON {
+      exe = "${cfg.package}/bin/strata";
+      args = [
+        "--pack"
+        (toString cfg.packDir)
+        "--native"
+        "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
+        "--ple-gguf"
+        "${toString cfg.modelDir}/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
+      ]
+      ++ lib.optionals (cfg.expertProfile != null) [
+        "--expert-profile"
+        (toString cfg.expertProfile)
+      ]
+      ++ [
+        "--expert-cache"
+        "auto"
+        "--prefill"
+        "2048"
+        "--spec"
+        "3"
+        "--spec-min-p"
+        "0.9"
+        "--max-context"
+        (toString cfg.maxContext)
+        "--kv"
+        "q4_0"
+        "--kv-resident"
+        "20480"
+        "--mmap-experts"
+      ];
+      cwd = "/var/lib/strata";
+      tokenizer = "${toString cfg.packDir}/tokenizer";
+      model_name = cfg.modelName;
+      log = "/var/lib/strata/strata-engine.log";
+      lib_dirs = [
+        "${cfg.package}/lib/strata"
+      ];
+      allowed_hosts = cfg.allowedHosts;
+    }
   );
 in
 {
@@ -81,13 +76,13 @@ in
     allowedHosts = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "*" ];
-      description = "API サーバーが受け付ける Host ヘッダ一覧（DNS rebinding 対策）。[*] で全許可。";
+      description = "API サーバーが受け付ける Host ヘッダ一覧（DNS rebinding 対策）。クラスタ内通信（k8s サービス名や IP 経由）の 403 回避のため [*] を既定値とする。";
     };
 
-    apiKey = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
+    apiKeyFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
       default = null;
-      description = "API 認証キー。null の場合は認証なし。";
+      description = "API 認証キーを含む EnvironmentFile のパス (STRATA_API_KEY=... を記載)。null の場合は認証なし。Nix store やプロセス引数への漏洩を防ぐためファイル経由で渡す。";
     };
 
     openFirewall = lib.mkOption {
@@ -131,6 +126,8 @@ in
     # 同一 GPU (VRAM 16GB) を共有できないため、Strata 有効時は llama-cpp を自動で無効化する
     services.llama-cpp.enable = lib.mkForce false;
 
+    environment.systemPackages = [ cfg.package ];
+
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
     users.users.strata = {
@@ -173,9 +170,8 @@ in
         StateDirectoryMode = "0775";
         WorkingDirectory = "/var/lib/strata";
         PrivateDevices = false; # GPU デバイス (/dev/kfd, /dev/dri/*) にアクセスするために必要
-        ExecStart =
-          "${cfg.package}/bin/strata-server --engine strata --config ${configFile} --host ${cfg.host} --port ${toString cfg.port}"
-          + lib.optionalString (cfg.apiKey != null) " --api-key ${cfg.apiKey}";
+        EnvironmentFile = lib.optional (cfg.apiKeyFile != null) cfg.apiKeyFile;
+        ExecStart = "${cfg.package}/bin/strata-server --engine strata --config ${configFile} --host ${cfg.host} --port ${toString cfg.port}";
         Restart = "always";
         RestartSec = "10s";
         LimitMEMLOCK = "infinity";

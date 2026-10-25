@@ -34,7 +34,7 @@
 - 推論エンジンバイナリ `strata` の `--serve` オプションは stdin/stdout 経由で 1 行ずつ要求を処理する IPC モードであり、直接 systemd サービスとして起動すると stdin が `/dev/null` となり EOF で終了を繰り返す。
 - OpenAI 互換 HTTP API (ポート 8085) は、Python 製のサーバー層 (`serve/server.py`) が `strata.json` を解釈してエンジンを子プロセスとして管理・中継することで提供される。
 - NixOS 上で再現可能に動作させるため、`pkgs/strata.nix` において推論エンジンと `strata-control`（Python サーバー層）を統合し、`strata-server` および pack 生成ツール `strata-pack` を生成するラッパーを整備した。
-- 本 derivation で生成された Nix store パス（`/nix/store/...-strata-0.2.6/`）のバイナリおよびラッパーを用い、実機 GPU 上で `strata-server` を起動して OpenAI 互換 API (`/v1/chat/completions`) 経由で推論リクエストが正常に完走することを確認済みである。
+- 本 derivation（コミット `3448719` でビルドした Nix store パス `/nix/store/6v0svdcsh97gflb9gq85a535p335x5s7-strata-0.2.6/`）のバイナリおよびラッパーを用い、実機 GPU 上で `strata-server` を起動して OpenAI 互換 API (`/v1/chat/completions`) 経由で推論リクエストが正常に完走することを確認済みである。HEAD では未使用の依存パッケージを整理しており、手元ビルドおよび `ldd` による動的リンク依存の完全解決を確認している。
 
 ### 3.3 ランタイムリンクと gfx1102 最適化
 - Navi 33 (`gfx1102`) では、デフォルトの `CUDA_R_16BF` (BFLOAT16) による GEMM が `HIPBLAS_STATUS_EXECUTION_FAILED` (code 6) を返す挙動が確認された。
@@ -52,13 +52,15 @@
 | 項目 | 現行: llama-cpp (Qwen3.8-27B) | 検証: Strata 0.2 (Flash-Next 125B MoE) |
 | :--- | :--- | :--- |
 | **モデル規模** | 27B dense | **125B MoE** (6B active) |
-| **量子化方式** | UD-IQ4_XS (14.2 GB / 13.2 GiB) | GSQ-RCO IQ2_XS (計 63.4 GiB / 68.0 GB) |
-| **トークン生成速度** | **22.41 tok/s** (201 tok / 8.92 s) | **10.5〜10.8 tok/s** (233 tok / 22.15 s) |
+| **量子化方式** | UD-IQ4_XS (14.3 GB / 13.3 GiB) | GSQ-RCO IQ2_XS (計 63.4 GiB / 68.0 GB) |
+| **トークン生成速度** | **22.41 tok/s** (*1) | **10.5〜10.8 tok/s** (233 tok / 22.15 s) |
 | **初回プロンプト処理 (TTFT)** | **875 ms** (74.3 tok/s) | **4,593〜5,239 ms** (12.4〜14.2 tok/s) |
 | **ホスト RAM 使用量** | 2.3 GiB | **約 3.0 GiB** (プロセス実メモリ used。OS ページキャッシュ最大約 29.5 GiB 利用) |
-| **GPU VRAM 使用量** | 15.5 GiB / 16.0 GiB | **15.39 GiB** / 16.0 GiB (16GB 枠内に完全収容) |
+| **GPU VRAM 使用量** | 15.5 GiB / 16.0 GiB (約 16.6 GB) | **15.39 GiB** / 16.0 GiB (16GB 枠内に完全収容) |
 | **投機的デコード (MTP)** | 有効 (採択率 55.7%) | 有効 (採択率 53.3〜62.5%) |
 | **VRAM エキスパート数** | 全層常駐 (100%) | **8,616 スロット (11.53 GiB)** (キャッシュヒット率 84.5〜87.8%) |
+
+*1: llama-server 内部計測値（201 tok / 8.92 s の単純除算では 22.53 tok/s）。
 
 ### 4.2 メモリ挙動の評価
 - **ホスト RAM**:
@@ -72,7 +74,7 @@
 Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施する：
 
 1. **モデル GGUF のダウンロード**:
-   `/var/lib/strata` は `strata:strata`（モード 0775、`agent` ユーザーも `strata` グループに所属）で管理される。
+   `/var/lib/strata` は Strata 有効化前は手動作成した `agent:users` (0755) であり、`services.strata.enable = true` 有効化後は systemd の `StateDirectory` により `strata:strata` (0775) で管理される（`agent` ユーザーも `strata` グループに所属）。有効化後にファイルを配置・編集する場合は、`chmod -R g+w /var/lib/strata` でグループ書き込み権限を付与するか `sudo` で作業する。
    ```bash
    mkdir -p /var/lib/strata/models/IQ2_XS
    cd /var/lib/strata/models/IQ2_XS
@@ -83,7 +85,7 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
    ```
 
 2. **Pack の抽出・生成**:
-   `strata.nix` パッケージ同梱の `strata-pack` ツールを用いて、GGUF から pack (`dense.bin` および tokenizer) を作成する。
+   `strata.nix` パッケージ同梱の `strata-pack` ツールを用いて、GGUF から pack (`dense.bin` および tokenizer) を作成する。`strata-pack` は Strata 有効化時に `environment.systemPackages` 経由で PATH に入る。有効化前に実行する場合はビルド済み Nix store パス（`/nix/store/...-strata-0.2.6/bin/strata-pack`）またはパッケージ同梱のスクリプト直接実行（`python3 /var/lib/strata/serve/tools/iq_pack.py`）を使用する。
    ```bash
    strata-pack \
      --gguf /var/lib/strata/models/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf \
@@ -98,7 +100,7 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
 目標生成速度（40〜60 tok/s）および現行 27B（21〜27 tok/s）に達しなかった要因をログとプロファイリングから特定した：
 
 1. **ストレージ I/O 待ちが全生成時間の約 54% を占有**:
-   - エンジンログ：
+   - エンジンログ（※ 以下のプロファイリング数値は、ボトルネック詳細分析用に実施した別リクエスト「100 トークン生成、総生成時間 9,297 ms」時のログに基づく）：
      `decode waited 5040.2 ms in 3103 fetches` (総生成時間 9,297 ms 中)
    - VRAM キャッシュから漏れた約 12〜15% のエキスパート参照において、仮想ディスク (`/dev/vda2`) からのオンデマンド読み出しが発生した。
    - 純粋な計算時間のみであれば 9,297 - 5,040 = 4,257 ms (100 トークン) であり、**約 23.5 tok/s** の計算能力が出ているが、ストレージ I/O 待ちによって見かけの速度が約 10.8 tok/s に低下している。
@@ -115,6 +117,22 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
    - 生成速度は実測 **10.5〜10.8 tok/s** であり、目標（40〜60 tok/s）や現行 27B（21〜27 tok/s）には届かないが、125B 級の知能を持つモデルが 16GB GPU + 32GB RAM のコンシューマ環境で OOM なく完走することを確認した。
 2. **本番運用の推奨と切り替え手順**:
    - **対話応答速度を重視する場合**: 現行の `Qwen3.8-27B` (21〜27 tok/s) を継続利用することが推奨される。
-   - **推論知能・長文推論品質を重視する場合**: `nix/hosts/lm-server/configuration.nix` において `services.strata.enable = true` を設定することで Strata (Qwen3.8-Flash-Next) に切り替え可能である。モジュール側で `services.llama-cpp.enable` は自動的に `lib.mkForce false` で無効化され、安全に排他起動する。
-3. **実機上の検証資材の扱い**:
-   - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 63.4 GiB、pack 約 1.5 GiB、計約 64.9 GiB）は、現状ルートディスク（200GB）の空き容量が約 96GB あり運用に影響がないため、再検証や必要時の切り替え用に保持している。不要であれば削除可能である。
+   - **推論知能・長文推論品質を重視する場合**: Strata (Qwen3.8-Flash-Next) に切り替え可能である。ただし、安全に切り替えるには以下の前提条件と設定調整が必要となる：
+     1. **事前資材の配置確認**: `/var/lib/strata/models/IQ2_XS` に GGUF モデル（約 63.4 GiB）および `/var/lib/strata/packs/iq2_xs` に pack（約 1.5 GiB）が事前に生成・配置されていることを確認する。資材が無い状態で有効化するとサービスが起動失敗を繰り返し、`Restart=always` で 10 秒ごとの再起動ループに陥る。
+     2. **ポートとモデル名の整合性確保**:
+        - 現行の Kubernetes 側（`manifests/apps/litellm/base/config.yaml` および `manifests/apps/external-service/base/lm-server.yaml`）は、ポート `8080` かつモデル名 `openai/qwen3.8-27b` を参照している。
+        - Strata の既定値はポート `8085`、モデル名 `qwen3.8-flash-next` であるため、そのまま有効化すると LiteLLM 経由の推論が停止する。
+        - そのため、既存クライアントへの影響を避けてインプレースで切り替える場合は、`nix/hosts/lm-server/configuration.nix` で以下のようにポートとモデル名を揃える：
+          ```nix
+          services.strata = {
+            enable = true;
+            port = 8080;
+            modelName = "qwen3.8-27b";
+          };
+          ```
+          （あるいは、LiteLLM / external-service 側の設定をポート 8085 / `openai/qwen3.8-flash-next` に合わせて GitOps で更新する）
+     3. **有効化と排他起動**: `services.strata.enable = true` を設定することで、モジュール側で `services.llama-cpp.enable` は自動的に `lib.mkForce false` で無効化され、同一 GPU (16GB VRAM) を奪い合うことなく安全に排他起動する。
+3. **実機上の検証資材の扱いとバックアップへの影響**:
+   - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 63.4 GiB、pack 約 1.5 GiB、計約 64.9 GiB）は、現状ルートディスク（200GB）の空き容量が約 96GB あり、ローカルディスク容量面では即座の問題はない。
+   - ただし、`terraform/vpc/zone-private-k8s/lm-server.tf` に定義されている Proxmox Backup Server (PBS) への日次スナップショットバックアップ (`lm_server_backup`) において、これらの資材により PBS 上で約 65GB 分のバックアップストレージ消費が発生する（PBS のチャンク重複排除により日次の増分差分は抑えられるが、ベースデータとして保持される）。
+   - そのため、Strata を長期間運用に供しない場合や PBS のストレージ容量を節約したい場合は、`/var/lib/strata` 配下の資材を削除することを推奨する。
