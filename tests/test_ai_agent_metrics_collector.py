@@ -1456,7 +1456,11 @@ class TestMetricsCollector(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_rates_yaml("model-a:\n  input: 1.0\nmodel-a:\n  output: 2.0\n")
         with self.assertRaises(ValueError):
+            parse_rates_yaml("gemini-3.8-flash:\n  input: 0.1\ngemini-3-8-flash:\n  input: 0.2\n")
+        with self.assertRaises(ValueError):
             parse_rates_yaml("model-a:\n  input: 1.0\n  input: 2.0\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  input: 1.0\n    output: 2.0\n")
         with self.assertRaises(RuntimeError):
             load_rates("/nonexistent/rates.yaml")
 

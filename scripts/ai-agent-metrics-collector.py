@@ -402,7 +402,9 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
         cache_creation: 18.75
     """
     rates: dict[str, dict[str, float]] = {}
+    normalized_models: dict[str, str] = {}
     current_model: str | None = None
+    current_indent: int | None = None
 
     for line_no, raw_line in enumerate(content.splitlines(), start=1):
         # コメント除去
@@ -424,11 +426,22 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
                 raise ValueError(f"行 {line_no}: モデル名が空である")
             if model_key in rates:
                 raise ValueError(f"行 {line_no}: モデル定義が重複している ({model_key})")
+            norm_model_key = normalize_identifier(model_key)
+            if norm_model_key in normalized_models:
+                raise ValueError(
+                    f"行 {line_no}: 正規化後のモデル名が '{normalized_models[norm_model_key]}' と重複している ({model_key})"
+                )
+            normalized_models[norm_model_key] = model_key
             current_model = model_key
+            current_indent = None
             rates[current_model] = {}
         else:
             if current_model is None:
                 raise ValueError(f"行 {line_no}: モデル定義より前に単価項目が記述されている: {raw_line}")
+            if current_indent is None:
+                current_indent = indent
+            elif indent != current_indent:
+                raise ValueError(f"行 {line_no}: インデント幅が揃っていない: {raw_line}")
             if ":" not in stripped:
                 raise ValueError(f"行 {line_no}: キーと値の区切り ':' が存在しない: {raw_line}")
             k, v = stripped.split(":", 1)
@@ -467,7 +480,20 @@ def load_rates(path: str) -> dict[str, dict[str, float]]:
         raise RuntimeError(f"単価定義ファイル読み込み失敗 ({path}): {e}") from e
 
 
-def match_model_rate_key(model: str, rates: dict[str, dict[str, float]]) -> str | None:
+def build_rate_norm_map(rates: dict[str, dict[str, float]]) -> dict[str, str]:
+    """rates キーの正規化マップを構築（例: gemini-3.8-flash -> gemini-3-8-flash）"""
+    norm_map: dict[str, str] = {}
+    for k in rates:
+        norm_map[k.lower()] = k
+        norm_map[normalize_identifier(k)] = k
+    return norm_map
+
+
+def match_model_rate_key(
+    model: str,
+    rates: dict[str, dict[str, float]],
+    norm_map: dict[str, str] | None = None,
+) -> str | None:
     """
     モデル名（例: gemini-3-8-flash-high, claude-opus-5-5-low, Gemini 3.8 Flash (High)）を正規化し、
     rates 辞書内の対応するモデルキー（例: gemini-3.8-flash, claude-opus-5-5）を返す。
@@ -483,11 +509,8 @@ def match_model_rate_key(model: str, rates: dict[str, dict[str, float]]) -> str 
     if raw in rates:
         return raw
 
-    # rates キーの正規化マップを構築（例: gemini-3.8-flash -> gemini-3-8-flash）
-    norm_map: dict[str, str] = {}
-    for k in rates:
-        norm_map[k.lower()] = k
-        norm_map[normalize_identifier(k)] = k
+    if norm_map is None:
+        norm_map = build_rate_norm_map(rates)
 
     base_raw = raw.split("@", 1)[0].strip()
     candidate = normalize_model_name(base_raw)
@@ -522,7 +545,7 @@ _LOGGED_DEV_RATES_FALLBACK = False
 
 
 def default_rates_file() -> str:
-    """利用可能な既定の単価定義ファイルパスを判定"""
+    """利用可能な既定の単価定義ファイルパスを判定 ($AUTOPILOT_RATES -> /etc/autopilot5/rates.yaml -> リポジトリ内の nix/hosts/atelier/rates.yaml)"""
     global _LOGGED_DEV_RATES_FALLBACK
     env_path = os.environ.get("AUTOPILOT_RATES")
     if env_path:
@@ -569,6 +592,7 @@ class MetricsCollector:
         else:
             self.rates_file = rates_file or default_rates_file()
             self.rates = load_rates(self.rates_file)
+        self._rate_norm_map = build_rate_norm_map(self.rates)
         self.state = self._load_state()
 
     def log(self, msg: str):
@@ -590,7 +614,7 @@ class MetricsCollector:
 
     def _resolve_model_rates(self, model: str) -> dict[str, float] | None:
         """モデル名から対応する単価辞書を取得"""
-        rate_key = match_model_rate_key(model, self.rates)
+        rate_key = match_model_rate_key(model, self.rates, norm_map=self._rate_norm_map)
         if rate_key is None:
             return None
         return self.rates.get(rate_key)
@@ -1450,7 +1474,7 @@ def main():
     parser.add_argument(
         "--rates-file",
         default=None,
-        help="モデル単価定義ファイルのパス (既定: $AUTOPILOT_RATES または /etc/autopilot5/rates.yaml)",
+        help="モデル単価定義ファイルのパス (既定: $AUTOPILOT_RATES -> /etc/autopilot5/rates.yaml -> リポジトリ内の nix/hosts/atelier/rates.yaml)",
     )
     parser.add_argument(
         "--dry-run",
