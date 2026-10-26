@@ -39,6 +39,14 @@ let
         "--kv-resident"
         "20480"
       ]
+      ++ lib.optionals (cfg.pleRowCache != null) [
+        "--ple-row-cache"
+        (toString cfg.pleRowCache)
+      ]
+      ++ lib.optionals (cfg.pleIo != "direct") [
+        "--ple-io"
+        cfg.pleIo
+      ]
       ++ lib.optional (!cfg.resident) "--mmap-experts";
       cwd = "/var/lib/strata";
       tokenizer = "${toString cfg.packDir}/tokenizer";
@@ -125,6 +133,22 @@ in
       type = lib.types.bool;
       default = true;
       description = "全エキスパート（約 33GiB）を RAM に完全常駐させるかどうか。true の場合は --mmap-experts を外して物理メモリに常駐させ、ディスク I/O 待ちを 0 にして高速推論を行う。RAM が 48GB 未満などで不足する場合は false（mmap 有効）にする。なお、RAM 不足時はエンジンが警告を出して自動的に mmap フォールバックを行うため、常駐が正しく機能しているかは /var/lib/strata/strata-engine.log に `expert arena: resident` が出力されていることで確認できる。";
+    };
+
+    pleRowCache = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = 50000000;
+      description = "PLE 行キャッシュ数（90B/行）。既定値の 1048576（約 90MB）から 50,000,000（約 4.2GiB）に拡大することで、SSD ランダムリードを大幅に削減し初動を高速化する。";
+    };
+
+    pleIo = lib.mkOption {
+      type = lib.types.enum [
+        "direct"
+        "mmap"
+        "ram"
+      ];
+      default = "direct";
+      description = "PLE N-gram テーブルの読み出し方式。direct（SSD 直接読み出し）、mmap（ページキャッシュ利用）、ram（完全 RAM 固定）。";
     };
   };
 
