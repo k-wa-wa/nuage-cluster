@@ -10,6 +10,7 @@
 
 {
   imports = [
+    ./ai-metrics.nix
     ./devtools.nix
     ./home.nix
     ./orca.nix
