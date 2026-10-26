@@ -74,13 +74,15 @@ Nix Flake のルートは `nix/` であるため、本ディレクトリの資�
    ```bash
    cp docs/ideas/strata/strata.nix nix/hosts/lm-server/strata.nix
    cp -r docs/ideas/strata/pkgs nix/hosts/lm-server/pkgs
+   # Nix Flake は git 追跡対象のファイルのみ評価するため、ステージングに追加する
+   git add nix/hosts/lm-server/strata.nix nix/hosts/lm-server/pkgs
    ```
 
 2. **`nix/hosts/lm-server/configuration.nix` への組み込み**:
    ```nix
    imports = [
-     ./hardware-configuration.nix
      ./llama-cpp.nix
+     ./gpu-reboot-once.nix
      ./strata.nix
    ];
 

@@ -3,7 +3,7 @@
 let
   # GPU (Radeon RX 7600 XT, gfx1102, VRAM 16GB) に全層を載せられるサイズを選ぶ。
   # Qwen3.8-27B は 64 層中 16 層のみ full attention のため KV キャッシュが小さく、
-  # UD-IQ4_XS (14.3 GB / 13.3 GiB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.5 GiB / 約 16.6 GB)。
+  # UD-IQ4_XS (14.3GB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.9GB)。
   # IQ4_XS は UD-Q3_K_XL (13.1GB) と生成速度が同等以上で、重みの精度が高い。
   # Qwen3.8-Flash-Next (125B MoE) は 48GB RAM 常駐モードにおいて実測 21〜23 tok/s で
   # 動作することが検証されたが、量子化歪みや Thinking ループ等の課題により本採用は見送られた
