@@ -38,8 +38,8 @@ let
         "q4_0"
         "--kv-resident"
         "20480"
-        "--mmap-experts"
-      ];
+      ]
+      ++ lib.optional (!cfg.resident) "--mmap-experts";
       cwd = "/var/lib/strata";
       tokenizer = "${toString cfg.packDir}/tokenizer";
       model_name = cfg.modelName;
@@ -119,6 +119,12 @@ in
       type = lib.types.int;
       default = 32768;
       description = "最大コンテキスト長（トークン数）。";
+    };
+
+    resident = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "全エキスパート（約 33GiB）を RAM に完全常駐させるかどうか。true の場合は --mmap-experts を外して物理メモリに常駐させ、ディスク I/O 待ちを 0 にして高速推論を行う。RAM が 48GB 未満などで不足する場合は false（mmap 有効）にする。";
     };
   };
 

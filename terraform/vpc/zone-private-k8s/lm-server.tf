@@ -18,8 +18,8 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   }
 
   memory {
-    dedicated = 32768
-    floating  = 32768
+    dedicated = 49152
+    floating  = 49152
   }
 
   initialization {
@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
 
   hostpci {
     device = "hostpci1"
-    id     = "0000:06:00"
+    id     = "0000:05:00"
     pcie   = true
     xvga   = false
     rombar = true
