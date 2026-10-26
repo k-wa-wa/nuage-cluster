@@ -184,6 +184,7 @@ def extract_task_from_brief(ws_path: str) -> str:
 
 
 AUTOPILOT_START_LINE_RE = re.compile(r"^(?:\[[^\]]*\]\s*)?start\s+impl=(\S+)\s+level=(\S+)")
+AUTOPILOT_PR_LINE_RE = re.compile(r"^\[\d{2}:\d{2}:\d{2}\] PR #(\d+)$", re.MULTILINE)
 
 
 def _extract_latest_run_log_content(content: str) -> str:
@@ -212,19 +213,32 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
     result_path = os.path.join(auto_dir, "result.md")
     run_log_path = os.path.join(auto_dir, "run.log")
 
-    sources: list[str] = []
+    result_content: str | None = None
+    latest_run_log: str | None = None
     if os.path.exists(result_path):
         try:
             with open(result_path, "r", encoding="utf-8", errors="replace") as f:
-                sources.append(f.read())
+                result_content = f.read()
         except Exception:
             pass
     if os.path.exists(run_log_path):
         try:
             with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
-                sources.append(_extract_latest_run_log_content(f.read()))
+                latest_run_log = _extract_latest_run_log_content(f.read())
         except Exception:
             pass
+
+    # 1. autopilot 自身が最新 run 区間に記録した "[HH:MM:SS] PR #N" 行を最優先
+    if latest_run_log:
+        matches = AUTOPILOT_PR_LINE_RE.findall(latest_run_log)
+        if matches:
+            return matches[-1]
+
+    sources: list[str] = []
+    if result_content is not None:
+        sources.append(result_content)
+    if latest_run_log is not None:
+        sources.append(latest_run_log)
 
     if not sources:
         return default
@@ -235,20 +249,20 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
     url_pattern = re.compile(r"https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)")
     pr_pattern = re.compile(r"(?:PR\s*#|pull/|pulls/)(\d+)")
 
-    # 1. 該当リポジトリの URL があれば最優先
+    # 2. 該当リポジトリの URL があれば優先
     if repo_url_pattern:
         for content in sources:
             matches = repo_url_pattern.findall(content)
             if matches:
                 return matches[-1]
 
-    # 2. 一般的な gh pr create の出力 URL (https://github.com/.../pull/N) を優先
+    # 3. 一般的な gh pr create の出力 URL (https://github.com/.../pull/N) を優先
     for content in sources:
         matches = url_pattern.findall(content)
         if matches:
             return matches[-1]
 
-    # 3. URL がない場合、PR #N などの表記を抽出
+    # 4. URL がない場合、PR #N などの表記を抽出
     for content in sources:
         matches = pr_pattern.findall(content)
         if matches:

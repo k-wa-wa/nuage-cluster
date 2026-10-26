@@ -132,7 +132,18 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                 f.write("[10:00:00] PR #57\n[10:05:00] == done\n")
             self.assertEqual(extract_pr_number(tmp_dir), "57")
 
-            # result.md に URL 形式
+            # autopilot が記録した [HH:MM:SS] PR #N 行がある場合、エージェント出力内の別 PR URL より最優先される
+            with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] start impl=agy level=high reviewers=claude base=abcdef from=implement\n"
+                    "[10:05:00] PR #64\n"
+                    "[10:10:00] == fixing (round 1)\n"
+                    "直前 PR #63 (https://github.com/k-wa-wa/nuage-cluster/pull/63) の仕様に合わせて修正した。\n"
+                )
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster"), "64")
+
+            # [HH:MM:SS] PR #N 行が無い場合、result.md 等にある URL 形式から抽出する
+            os.remove(os.path.join(auto_dir, "run.log"))
             with open(os.path.join(auto_dir, "result.md"), "w", encoding="utf-8") as f:
                 f.write("PR: https://github.com/k-wa-wa/nuage-cluster/pull/123\n")
             self.assertEqual(extract_pr_number(tmp_dir), "123")
@@ -1932,15 +1943,20 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
 
-        orig_glob = collector_mod.glob.glob
         orig_exists = os.path.exists
-        collector_mod.glob.glob = lambda p: [auto1, auto2] if "autopilot" in p else []
-        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
-        try:
+        with (
+            mock.patch.object(
+                collector_mod.glob,
+                "glob",
+                side_effect=lambda p: [auto1, auto2] if "autopilot" in p else [],
+            ),
+            mock.patch.object(
+                os.path,
+                "exists",
+                side_effect=lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p),
+            ),
+        ):
             collector.collect_autopilot_runs()
-        finally:
-            collector_mod.glob.glob = orig_glob
-            os.path.exists = orig_exists
 
         expected_key1 = (
             'branch="bot-wa-wa/feature-ai-agent-active-status",impl="agy",level="high",'
@@ -2006,20 +2022,25 @@ class TestMetricsCollector(unittest.TestCase):
         )
 
         all_dirs = [auto_dead, auto_nopid] + terminal_dirs
-        orig_glob = collector_mod.glob.glob
         orig_exists = os.path.exists
-        collector_mod.glob.glob = lambda p: all_dirs if "autopilot" in p else []
-        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
 
         def mock_pid_running(pid: int) -> bool:
             return pid == os.getpid()
 
-        try:
-            with mock.patch.object(collector_mod, "is_pid_running", side_effect=mock_pid_running):
-                collector.collect_autopilot_runs()
-        finally:
-            collector_mod.glob.glob = orig_glob
-            os.path.exists = orig_exists
+        with (
+            mock.patch.object(
+                collector_mod.glob,
+                "glob",
+                side_effect=lambda p: all_dirs if "autopilot" in p else [],
+            ),
+            mock.patch.object(
+                os.path,
+                "exists",
+                side_effect=lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p),
+            ),
+            mock.patch.object(collector_mod, "is_pid_running", side_effect=mock_pid_running),
+        ):
+            collector.collect_autopilot_runs()
 
         # いずれのワークスペースも active としては出力されないこと
         self.assertEqual(collector.active_autopilots, {})
@@ -2052,11 +2073,19 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
 
-        orig_glob = collector_mod.glob.glob
         orig_exists = os.path.exists
-        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
-        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
-        try:
+        with (
+            mock.patch.object(
+                collector_mod.glob,
+                "glob",
+                side_effect=lambda p: [auto_dir] if "autopilot" in p else [],
+            ),
+            mock.patch.object(
+                os.path,
+                "exists",
+                side_effect=lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p),
+            ),
+        ):
             # 1回目: summarizing で稼働中
             collector.collect_autopilot_runs()
             payload1 = collector.generate_prometheus_payload()
@@ -2074,9 +2103,6 @@ class TestMetricsCollector(unittest.TestCase):
             payload2 = collector.generate_prometheus_payload()
             self.assertNotIn("nuage_ai_agent_autopilot_active", payload2)
             self.assertIn("nuage_ai_agent_autopilot_runs_total{", payload2)
-        finally:
-            collector_mod.glob.glob = orig_glob
-            os.path.exists = orig_exists
 
     def test_autopilot_reused_workspace_pr_and_impl_compat(self):
         # ワークスペースを使い回した際、未作成の PR に前回の PR 番号が付かないこと（active / runs_total 両方）
@@ -2116,11 +2142,19 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
 
-        orig_glob = collector_mod.glob.glob
         orig_exists = os.path.exists
-        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
-        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
-        try:
+        with (
+            mock.patch.object(
+                collector_mod.glob,
+                "glob",
+                side_effect=lambda p: [auto_dir] if "autopilot" in p else [],
+            ),
+            mock.patch.object(
+                os.path,
+                "exists",
+                side_effect=lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p),
+            ),
+        ):
             # 1. 稼働中 (PR 未作成): 前回の #60 ではなく pr="unknown" になり、impl="claude" になること
             collector.collect_autopilot_runs()
             expected_active_key = (
@@ -2145,9 +2179,6 @@ class TestMetricsCollector(unittest.TestCase):
                 'pr="none",repo="nuage-cluster",result="failed",task="2回目のタスク"'
             )
             self.assertEqual(runs, {expected_run_key: 1})
-        finally:
-            collector_mod.glob.glob = orig_glob
-            os.path.exists = orig_exists
 
 
 if __name__ == "__main__":
