@@ -24,6 +24,10 @@ normalize_model_name = collector_mod.normalize_model_name
 get_git_branch_from_worktree = collector_mod.get_git_branch_from_worktree
 extract_task_from_brief = collector_mod.extract_task_from_brief
 extract_pr_number = collector_mod.extract_pr_number
+is_terminal_autopilot_status = collector_mod.is_terminal_autopilot_status
+normalize_autopilot_phase = collector_mod.normalize_autopilot_phase
+is_pid_running = collector_mod.is_pid_running
+get_running_autopilot_pid = collector_mod.get_running_autopilot_pid
 _read_run_log_steps = collector_mod._read_run_log_steps
 detect_phase = collector_mod.detect_phase
 get_antigravity_conversation_meta = collector_mod.get_antigravity_conversation_meta
@@ -1830,6 +1834,230 @@ class TestMetricsCollector(unittest.TestCase):
             )
             mock_def.assert_not_called()
             self.assertEqual(collector_explicit.rates_file, custom_rates_path)
+
+    def test_normalize_autopilot_phase_and_terminal_status(self):
+        # 各 status 表記からの phase 正規化検証
+        self.assertEqual(normalize_autopilot_phase("implementing (agy)"), "implementing")
+        self.assertEqual(normalize_autopilot_phase("implementing (claude)\n"), "implementing")
+        self.assertEqual(normalize_autopilot_phase("waiting CI (round 1)"), "waiting_ci")
+        self.assertEqual(normalize_autopilot_phase("waiting CI (round 2)"), "waiting_ci")
+        self.assertEqual(normalize_autopilot_phase("reviewing (round 1: claude)"), "reviewing")
+        self.assertEqual(normalize_autopilot_phase("reviewing (round 2: agy, copilot)"), "reviewing")
+        self.assertEqual(normalize_autopilot_phase("fixing (round 2)"), "fixing")
+        self.assertEqual(normalize_autopilot_phase("summarizing"), "summarizing")
+
+        # 完了系および空の status の判定と phase 正規化結果の検証
+        for terminal in (
+            "done",
+            "done\n",
+            "failed: 実装担当が異常終了した",
+            "needs-human: 修正ループが上限（3 回）に達した",
+            "stopped: 人間が停止した",
+            "",
+            "\n",
+            "-",
+        ):
+            self.assertTrue(is_terminal_autopilot_status(terminal), f"should be terminal: {terminal!r}")
+            self.assertEqual(normalize_autopilot_phase(terminal), "unknown")
+
+        for active in (
+            "implementing (agy)",
+            "waiting CI (round 1)",
+            "reviewing (round 1: claude)",
+            "fixing (round 2)",
+            "summarizing",
+        ):
+            self.assertFalse(is_terminal_autopilot_status(active), f"should be active: {active!r}")
+
+    def test_autopilot_active_running_output(self):
+        # 1. PR 作成前の実装中タスク (nuage-cluster)
+        ws1 = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-active")
+        auto1 = os.path.join(ws1, ".autopilot")
+        os.makedirs(auto1, exist_ok=True)
+        with open(os.path.join(auto1, "run.pid"), "w", encoding="utf-8") as f:
+            f.write(f"{os.getpid()}\n")
+        with open(os.path.join(auto1, "status"), "w", encoding="utf-8") as f:
+            f.write("implementing (agy)\n")
+        with open(os.path.join(auto1, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[23:51:34] start impl=agy level=high reviewers=claude base=1cfde718 from=implement\n")
+        with open(os.path.join(auto1, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 自走中ステータスの新設\n\n詳細...")
+        git1 = os.path.join(ws1, ".git")
+        os.makedirs(git1, exist_ok=True)
+        with open(os.path.join(git1, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feature-ai-agent-active-status\n")
+
+        # 2. PR 作成済みの CI 待ちタスク (nuage-monitoring-stack)
+        ws2 = os.path.join(self.test_dir, "workspaces", "nuage-monitoring-stack", "feature-dash")
+        auto2 = os.path.join(ws2, ".autopilot")
+        os.makedirs(auto2, exist_ok=True)
+        with open(os.path.join(auto2, "run.pid"), "w", encoding="utf-8") as f:
+            f.write(f"{os.getpid()}\n")
+        with open(os.path.join(auto2, "status"), "w", encoding="utf-8") as f:
+            f.write("waiting CI (round 1)\n")
+        with open(os.path.join(auto2, "run.log"), "w", encoding="utf-8") as f:
+            f.write(
+                "[10:00:00] start impl=claude:claude-opus-5-5@high level=standard reviewers=agy base=abcdef12\n"
+                "[10:05:00] PR #64\n"
+            )
+        with open(os.path.join(auto2, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# ダッシュボード更新\n")
+        git2 = os.path.join(ws2, ".git")
+        os.makedirs(git2, exist_ok=True)
+        with open(os.path.join(git2, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feature-dash\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        orig_exists = os.path.exists
+        collector_mod.glob.glob = lambda p: [auto1, auto2] if "autopilot" in p else []
+        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
+        try:
+            collector.collect_autopilot_runs()
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.exists = orig_exists
+
+        expected_key1 = (
+            'branch="bot-wa-wa/feature-ai-agent-active-status",impl="agy",level="high",'
+            'phase="implementing",pr="unknown",repo="nuage-cluster",task="自走中ステータスの新設"'
+        )
+        expected_key2 = (
+            'branch="bot-wa-wa/feature-dash",impl="claude",level="standard",'
+            'phase="waiting_ci",pr="64",repo="nuage-monitoring-stack",task="ダッシュボード更新"'
+        )
+        self.assertEqual(collector.active_autopilots.get(expected_key1), 1)
+        self.assertEqual(collector.active_autopilots.get(expected_key2), 1)
+        self.assertEqual(len(collector.active_autopilots), 2)
+        self.assertEqual(len(collector.state["counters"]["autopilot_runs"]), 0)
+
+        payload = collector.generate_prometheus_payload()
+        self.assertIn(
+            "# HELP nuage_ai_agent_autopilot_active Whether an autopilot task is currently running (1 for running)",
+            payload,
+        )
+        self.assertIn("# TYPE nuage_ai_agent_autopilot_active gauge", payload)
+        self.assertIn(f"nuage_ai_agent_autopilot_active{{{expected_key1}}} 1", payload)
+        self.assertIn(f"nuage_ai_agent_autopilot_active{{{expected_key2}}} 1", payload)
+
+    def test_autopilot_active_not_emitted_when_dead_or_completed(self):
+        # 1. status は未完了だが run.pid のプロセスが非生存
+        auto_dead = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-dead", ".autopilot")
+        os.makedirs(auto_dead, exist_ok=True)
+        with open(os.path.join(auto_dead, "run.pid"), "w", encoding="utf-8") as f:
+            f.write("999999\n")
+        with open(os.path.join(auto_dead, "status"), "w", encoding="utf-8") as f:
+            f.write("reviewing (round 1: claude)\n")
+        with open(os.path.join(auto_dead, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=claude level=high\n")
+
+        # 2. status は未完了だが run.pid ファイルが存在しない
+        auto_nopid = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-nopid", ".autopilot")
+        os.makedirs(auto_nopid, exist_ok=True)
+        with open(os.path.join(auto_nopid, "status"), "w", encoding="utf-8") as f:
+            f.write("fixing (round 2)\n")
+
+        # 3. run.pid は生存しているが status が完了系 (done, needs-human, failed, stopped)
+        terminal_dirs = []
+        for idx, st in enumerate([
+            "done",
+            "needs-human: 修正ループが上限に達した",
+            "failed: 実装担当が異常終了した",
+            "stopped: 人間が停止した",
+        ]):
+            d = os.path.join(self.test_dir, "workspaces", "nuage-cluster", f"ws-term-{idx}", ".autopilot")
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "run.pid"), "w", encoding="utf-8") as f:
+                f.write(f"{os.getpid()}\n")
+            with open(os.path.join(d, "status"), "w", encoding="utf-8") as f:
+                f.write(f"{st}\n")
+            with open(os.path.join(d, "run.log"), "w", encoding="utf-8") as f:
+                f.write("[10:00:00] start impl=agy level=high\n")
+            terminal_dirs.append(d)
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        all_dirs = [auto_dead, auto_nopid] + terminal_dirs
+        orig_glob = collector_mod.glob.glob
+        orig_exists = os.path.exists
+        collector_mod.glob.glob = lambda p: all_dirs if "autopilot" in p else []
+        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
+
+        def mock_pid_running(pid: int) -> bool:
+            return pid == os.getpid()
+
+        try:
+            with mock.patch.object(collector_mod, "is_pid_running", side_effect=mock_pid_running):
+                collector.collect_autopilot_runs()
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.exists = orig_exists
+
+        # いずれのワークスペースも active としては出力されないこと
+        self.assertEqual(collector.active_autopilots, {})
+        payload = collector.generate_prometheus_payload()
+        self.assertNotIn("nuage_ai_agent_autopilot_active", payload)
+
+        # 完了カウンタ (done, needs-human, failed の 3 件) は従来通り集計されること
+        runs = collector.state["counters"]["autopilot_runs"]
+        self.assertEqual(sum(runs.values()), 3)
+
+    def test_autopilot_active_disappears_after_task_completes(self):
+        # 実行中から完了に遷移した際、active メトリクスが出力されなくなり、完了カウンタに加算されること
+        ws = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-transition")
+        auto_dir = os.path.join(ws, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        pid_file = os.path.join(auto_dir, "run.pid")
+        status_file = os.path.join(auto_dir, "status")
+        with open(pid_file, "w", encoding="utf-8") as f:
+            f.write(f"{os.getpid()}\n")
+        with open(status_file, "w", encoding="utf-8") as f:
+            f.write("summarizing\n")
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=claude level=high\n[10:10:00] PR #70\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 遷移テスト用タスク\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        orig_exists = os.path.exists
+        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
+        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
+        try:
+            # 1回目: summarizing で稼働中
+            collector.collect_autopilot_runs()
+            payload1 = collector.generate_prometheus_payload()
+            self.assertIn("nuage_ai_agent_autopilot_active{", payload1)
+            self.assertIn('phase="summarizing"', payload1)
+            self.assertIn('pr="70"', payload1)
+            self.assertNotIn("nuage_ai_agent_autopilot_runs_total", payload1)
+
+            # 2回目: 完了して status=done, run.pid 削除
+            os.remove(pid_file)
+            with open(status_file, "w", encoding="utf-8") as f:
+                f.write("done\n")
+
+            collector.collect_autopilot_runs()
+            payload2 = collector.generate_prometheus_payload()
+            self.assertNotIn("nuage_ai_agent_autopilot_active", payload2)
+            self.assertIn("nuage_ai_agent_autopilot_runs_total{", payload2)
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.exists = orig_exists
 
 
 if __name__ == "__main__":

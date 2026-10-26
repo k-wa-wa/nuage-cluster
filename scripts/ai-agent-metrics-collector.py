@@ -183,16 +183,16 @@ def extract_task_from_brief(ws_path: str) -> str:
     return "unknown"
 
 
-def extract_pr_number(ws_path: str, repo: str | None = None) -> str:
+def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "none") -> str:
     """ワークスペースの .autopilot/run.log または result.md から PR 番号を抽出"""
     if not ws_path:
-        return "none"
+        return default
     if ws_path.startswith("file://"):
         ws_path = ws_path[len("file://") :]
 
     auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
     if not os.path.exists(auto_dir):
-        return "none"
+        return default
 
     result_path = os.path.join(auto_dir, "result.md")
     run_log_path = os.path.join(auto_dir, "run.log")
@@ -240,7 +240,105 @@ def extract_pr_number(ws_path: str, repo: str | None = None) -> str:
             except Exception:
                 pass
 
-    return "none"
+    return default
+
+
+TERMINAL_AUTOPILOT_STATUSES = ("done", "failed", "needs-human", "stopped")
+
+
+def is_terminal_autopilot_status(raw_status: str) -> bool:
+    """
+    .autopilot/status の先頭行が完了系 (done, failed:, needs-human:, stopped:)
+    または空・無効値であるかを判定する。
+    """
+    if not raw_status:
+        return True
+    lines = raw_status.splitlines()
+    if not lines:
+        return True
+    first_line = lines[0].strip()
+    if not first_line or first_line == "-":
+        return True
+    prefix = first_line.split(":", 1)[0].strip().lower()
+    return prefix in TERMINAL_AUTOPILOT_STATUSES
+
+
+def normalize_autopilot_phase(raw_status: str) -> str:
+    """
+    .autopilot/status の内容から実行フェーズ名を正規化して抽出する。
+    例:
+      "implementing (agy)" -> "implementing"
+      "waiting CI (round 1)" -> "waiting_ci"
+      "reviewing (round 1: claude)" -> "reviewing"
+      "fixing (round 2)" -> "fixing"
+      "summarizing" -> "summarizing"
+    """
+    if not raw_status or is_terminal_autopilot_status(raw_status):
+        return "unknown"
+    first_line = raw_status.splitlines()[0].strip()
+    base = first_line.split("(", 1)[0].strip().lower()
+    phase = re.sub(r"[^a-z0-9]+", "_", base).strip("_")
+    return phase or "unknown"
+
+
+def is_pid_running(pid: int) -> bool:
+    """指定された PID のプロセスが実在・稼働中であるか確認する"""
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def get_running_autopilot_pid(auto_dir: str) -> int | None:
+    """ワークスペースの .autopilot/run.pid を読み取り、プロセスが生存していれば PID を返す"""
+    if not auto_dir:
+        return None
+    pid_file = os.path.join(auto_dir, "run.pid")
+    if not os.path.exists(pid_file):
+        return None
+    try:
+        with open(pid_file, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read().strip()
+        if not content:
+            return None
+        pid = int(content)
+        if is_pid_running(pid):
+            return pid
+    except (ValueError, OSError):
+        pass
+    return None
+
+
+def extract_autopilot_impl_and_level(auto_dir: str, raw_status: str = "") -> tuple[str, str]:
+    """ワークスペースの .autopilot/run.log または status から (impl, level) を抽出"""
+    impl = "unknown"
+    level = "unknown"
+    run_log_file = os.path.join(auto_dir, "run.log")
+    if os.path.exists(run_log_file):
+        try:
+            with open(run_log_file, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    m_start = re.search(r"start\s+impl=(\S+)\s+level=(\S+)", line)
+                    if m_start:
+                        raw_impl = m_start.group(1).split(":", 1)[0]
+                        impl = normalize_identifier(raw_impl)
+                        level = normalize_identifier(m_start.group(2))
+        except Exception:
+            pass
+
+    if impl == "unknown" and raw_status:
+        lines = raw_status.splitlines()
+        first_line = lines[0].strip() if lines else ""
+        m_impl = re.match(r"^implementing\s*\(\s*([^):\s]+)", first_line, re.IGNORECASE)
+        if m_impl:
+            impl = normalize_identifier(m_impl.group(1))
+
+    return impl, level
 
 
 @functools.lru_cache(maxsize=32)
@@ -585,6 +683,7 @@ class MetricsCollector:
         self.dry_run = dry_run
         self.verbose = verbose
         self.has_errors = False
+        self.active_autopilots: dict[str, int] = {}
         self._warned_unpriced_models: set[str] = set()
         if rates is not None:
             self.rates_file = rates_file or ""
@@ -1274,7 +1373,8 @@ class MetricsCollector:
             self.error(f"orca-stats.json 処理失敗: {e}")
 
     def collect_autopilot_runs(self):
-        """/home/nixos/orca/workspaces/*/*/.autopilot/ の実行結果を集計"""
+        """/home/nixos/orca/workspaces/*/*/.autopilot/ の実行結果および稼働中ステータスを集計"""
+        self.active_autopilots = {}
         base_dir = "/home/nixos/orca/workspaces"
         if not os.path.exists(base_dir):
             return
@@ -1286,16 +1386,37 @@ class MetricsCollector:
         for d in dirs:
             try:
                 status_file = os.path.join(d, "status")
-                run_log_file = os.path.join(d, "run.log")
 
                 if not os.path.exists(status_file):
                     continue
 
-                with open(status_file, "r", encoding="utf-8") as f:
+                with open(status_file, "r", encoding="utf-8", errors="replace") as f:
                     raw_status = f.read().strip()
 
-                # status ファイルは "done", "failed: <理由>", "needs-human: <理由>" 形式で書かれる
-                result_type = raw_status.split(":", 1)[0].strip()
+                if not raw_status:
+                    continue
+
+                first_line = raw_status.splitlines()[0].strip()
+                # status ファイルは "done", "failed: <理由>", "needs-human: <理由>", "stopped: <理由>" または実行中フェーズが書かれる
+                result_type = first_line.split(":", 1)[0].strip()
+
+                # 未完了ステータスの場合、run.pid の生存を確認して稼働中メトリクス (nuage_ai_agent_autopilot_active) を記録
+                if not is_terminal_autopilot_status(first_line):
+                    if get_running_autopilot_pid(d) is not None:
+                        impl, level = extract_autopilot_impl_and_level(d, first_line)
+                        ws_dir = os.path.dirname(d)
+                        repo = normalize_repo_name(d)
+                        branch = get_git_branch_from_worktree(ws_dir)
+                        task = extract_task_from_brief(ws_dir)
+                        pr = extract_pr_number(ws_dir, repo=repo, default="unknown")
+                        phase = normalize_autopilot_phase(first_line)
+
+                        active_key = (
+                            f'branch="{branch}",impl="{impl}",level="{level}",'
+                            f'phase="{phase}",pr="{pr}",repo="{repo}",task="{task}"'
+                        )
+                        self.active_autopilots[active_key] = 1
+                    continue
 
                 # 完了ステータスのみ集計対象とする
                 if result_type not in ("done", "failed", "needs-human"):
@@ -1308,15 +1429,7 @@ class MetricsCollector:
                     continue
 
                 # run.log から impl, level を抽出（最新の start 行を採用）
-                impl = "unknown"
-                level = "unknown"
-                if os.path.exists(run_log_file):
-                    with open(run_log_file, "r", encoding="utf-8", errors="replace") as f:
-                        for line in f:
-                            m_start = re.search(r"start\s+impl=(\S+)\s+level=(\S+)", line)
-                            if m_start:
-                                impl = normalize_identifier(m_start.group(1))
-                                level = normalize_identifier(m_start.group(2))
+                impl, level = extract_autopilot_impl_and_level(d, first_line)
 
                 # パスから repo を判定
                 ws_dir = os.path.dirname(d)
@@ -1381,6 +1494,13 @@ class MetricsCollector:
             lines.append("# TYPE nuage_ai_agent_autopilot_runs_total counter")
             for k in sorted(runs_data.keys()):
                 lines.append(f"nuage_ai_agent_autopilot_runs_total{{{k}}} {runs_data[k]}")
+
+        # 6. autopilot active
+        if self.active_autopilots:
+            lines.append("# HELP nuage_ai_agent_autopilot_active Whether an autopilot task is currently running (1 for running)")
+            lines.append("# TYPE nuage_ai_agent_autopilot_active gauge")
+            for k in sorted(self.active_autopilots.keys()):
+                lines.append(f"nuage_ai_agent_autopilot_active{{{k}}} {self.active_autopilots[k]}")
 
         if lines:
             lines.append("")
