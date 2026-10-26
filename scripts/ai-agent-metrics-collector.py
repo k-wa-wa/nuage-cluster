@@ -689,6 +689,7 @@ class MetricsCollector:
             model = m_model.group(1)
             cost_key = token_key[: m_type.start()]
             # v4 以降の状態ファイルで万一 cost_usd や task ラベルが欠けていた場合の補完ガード
+            # （トークンキー単体からは brief_task を復元できないため branch へフォールバックする）
             if ',task="' not in cost_key:
                 m_phase = re.search(r'(?:^|,)phase="([^"]+)"', cost_key)
                 m_branch = re.search(r'(?:^|,)branch="([^"]+)"', cost_key)
@@ -1127,6 +1128,9 @@ class MetricsCollector:
                     if not ws_path and meta_ws:
                         ws_path = meta_ws
 
+                # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
+                # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
+                # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
                 if ws_path and branch != "unknown":
                     checked_ws_paths[ws_path] = (
                         get_git_branch_from_worktree(ws_path),
