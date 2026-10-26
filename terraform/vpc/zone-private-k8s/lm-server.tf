@@ -18,8 +18,8 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   }
 
   memory {
-    dedicated = 49152
-    floating  = 49152
+    dedicated = 8192
+    floating  = 8192
   }
 
   initialization {
@@ -35,7 +35,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
     datastore_id = "local-thinpool"
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
-    size         = 200
+    size         = 100
   }
 
   network_device {
@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
 
   hostpci {
     device = "hostpci1"
-    id     = "0000:05:00"
+    id     = "0000:06:00"
     pcie   = true
     xvga   = false
     rombar = true
