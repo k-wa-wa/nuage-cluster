@@ -3,31 +3,52 @@
 ai-agent-metrics-collector.py の単体テスト。
 """
 
+import importlib
 import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
+from io import BytesIO
 from unittest import mock
-import sys
 
 # テスト対象スクリプトのインポート
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
-import importlib
 collector_mod = importlib.import_module("ai-agent-metrics-collector")
 
 normalize_identifier = collector_mod.normalize_identifier
+normalize_branch_name = collector_mod.normalize_branch_name
 normalize_repo_name = collector_mod.normalize_repo_name
 normalize_model_name = collector_mod.normalize_model_name
+get_git_branch_from_worktree = collector_mod.get_git_branch_from_worktree
+extract_task_from_brief = collector_mod.extract_task_from_brief
+extract_pr_number = collector_mod.extract_pr_number
+_read_run_log_steps = collector_mod._read_run_log_steps
+detect_phase = collector_mod.detect_phase
+get_antigravity_conversation_meta = collector_mod.get_antigravity_conversation_meta
+get_antigravity_conversation_repo = collector_mod.get_antigravity_conversation_repo
 MetricsCollector = collector_mod.MetricsCollector
+CURRENT_STATE_VERSION = collector_mod.CURRENT_STATE_VERSION
 
 
-class TestNormalization(unittest.TestCase):
+class TestNormalizationAndExtraction(unittest.TestCase):
     def test_normalize_identifier(self):
         self.assertEqual(normalize_identifier("Claude-Opus-5.5"), "claude-opus-5-5")
         self.assertEqual(normalize_identifier("Gemini 3.8 Flash"), "gemini-3-8-flash")
         self.assertEqual(normalize_identifier(""), "unknown")
         self.assertEqual(normalize_identifier(None), "unknown")
+
+    def test_normalize_branch_name(self):
+        self.assertEqual(normalize_branch_name("refs/heads/bot-wa-wa/bobtail"), "bot-wa-wa/bobtail")
+        self.assertEqual(normalize_branch_name("feature/ai-agent-metrics"), "feature/ai-agent-metrics")
+        self.assertEqual(normalize_branch_name("feature/foo-tmp"), "feature/foo-tmp")
+        self.assertEqual(normalize_branch_name("tmp"), "tmp")
+        self.assertEqual(normalize_branch_name("/tmp"), "tmp")
+        self.assertEqual(normalize_branch_name("HEAD"), "unknown")
+        self.assertEqual(normalize_branch_name("invalid@branch#name"), "invalid-branch-name")
+        self.assertEqual(normalize_branch_name(""), "unknown")
+        self.assertEqual(normalize_branch_name(None), "unknown")
 
     def test_normalize_repo_name(self):
         self.assertEqual(
@@ -79,6 +100,119 @@ class TestNormalization(unittest.TestCase):
         )
         self.assertEqual(normalize_model_name(""), "unknown")
 
+    def test_extract_task_from_brief(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            auto_dir = os.path.join(tmp_dir, ".autopilot")
+            os.makedirs(auto_dir, exist_ok=True)
+            brief_file = os.path.join(auto_dir, "brief.md")
+            with open(brief_file, "w", encoding="utf-8") as f:
+                f.write("# メトリクス抽出機能の「拡張」と\"検証\"\n\n本文...")
+
+            task = extract_task_from_brief(tmp_dir)
+            self.assertEqual(task, 'メトリクス抽出機能の「拡張」と\\"検証\\"')
+
+            # brief.md がない場合
+            self.assertEqual(extract_task_from_brief("/nonexistent/path"), "unknown")
+
+    def test_extract_pr_number(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            auto_dir = os.path.join(tmp_dir, ".autopilot")
+            os.makedirs(auto_dir, exist_ok=True)
+
+            # run.log に PR #57
+            with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+                f.write("[10:00:00] PR #57\n[10:05:00] == done\n")
+            self.assertEqual(extract_pr_number(tmp_dir), "57")
+
+            # result.md に URL 形式
+            with open(os.path.join(auto_dir, "result.md"), "w", encoding="utf-8") as f:
+                f.write("PR: https://github.com/k-wa-wa/nuage-cluster/pull/123\n")
+            self.assertEqual(extract_pr_number(tmp_dir), "123")
+
+            # 複数リポジトリの URL が含まれる場合、指定した repo の URL を優先
+            with open(os.path.join(auto_dir, "result.md"), "w", encoding="utf-8") as f:
+                f.write(
+                    "PR: https://github.com/k-wa-wa/nuage-cluster/pull/123\n"
+                    "後作業: https://github.com/k-wa-wa/nuage-monitoring-stack/pull/999\n"
+                )
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster"), "123")
+
+            # PR 記載なし
+            with tempfile.TemporaryDirectory() as empty_dir:
+                self.assertEqual(extract_pr_number(empty_dir), "none")
+
+    def test_run_log_steps_prefix_matching(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            log_path = os.path.join(tmp_dir, "run.log")
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] == implementing (claude)\n"
+                    "   - コメント内で `== summarizing` に言及した行\n"
+                    "   - `== reviewing` というテキストを含む説明文\n"
+                    "[10:05:00] == fixing (round 1)\n"
+                )
+            steps = _read_run_log_steps(log_path, 1.0)
+            self.assertEqual(steps, ["implement", "fix"])
+
+    def test_detect_phase(self):
+        self.assertEqual(
+            detect_phase("あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"),
+            "implement",
+        )
+        self.assertEqual(
+            detect_phase("あなたはコードレビュアーである。ファイルは一切変更しない。`git diff` をレビューする。"),
+            "review",
+        )
+        self.assertEqual(
+            detect_phase("次のファイルを読み、直すべきものを直す。\n- レビュー結果: .autopilot/review-1-agy.md"),
+            "fix",
+        )
+        # 人間からの追加指示に「レビューする」が含まれていても fix が優先される
+        self.assertEqual(
+            detect_phase(
+                "あなたは自律実行の担当である。\n"
+                "次のファイルを読み、直すべきものを直す。\n"
+                "- 人間からの追加指示: 指摘の箇所をレビューする（最優先）\n"
+                "- レビュー結果: .autopilot/review-2-claude.md\n"
+                "レビューの must は原則採用する。"
+            ),
+            "fix",
+        )
+        self.assertEqual(
+            detect_phase("人間向けの要約を .autopilot/result.md に書く。PR #57 の本文も同じ内容で更新する。"),
+            "summarize",
+        )
+        # 単なる会話や「レビューする」動詞のみでは review と判定されない
+        self.assertEqual(detect_phase("このコードをレビューする計画を立てて"), "unknown")
+        self.assertEqual(detect_phase("何気ない会話"), "unknown")
+
+    def test_get_git_branch_from_worktree(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # 1. 通常リポジトリ (.git がディレクトリ)
+            repo_dir = os.path.join(tmp_dir, "repo")
+            git_dir = os.path.join(repo_dir, ".git")
+            os.makedirs(git_dir, exist_ok=True)
+            with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+                f.write("ref: refs/heads/main\n")
+            self.assertEqual(get_git_branch_from_worktree(repo_dir), "main")
+
+            # 2. git worktree (.git がファイルで gitdir: 指示)
+            main_gitdir = os.path.join(tmp_dir, "main-git", "worktrees", "wt-1")
+            os.makedirs(main_gitdir, exist_ok=True)
+            with open(os.path.join(main_gitdir, "HEAD"), "w", encoding="utf-8") as f:
+                f.write("ref: refs/heads/bot-wa-wa/feature-test\n")
+
+            wt_dir = os.path.join(tmp_dir, "wt-dir")
+            os.makedirs(wt_dir, exist_ok=True)
+            with open(os.path.join(wt_dir, ".git"), "w", encoding="utf-8") as f:
+                f.write(f"gitdir: {main_gitdir}\n")
+
+            self.assertEqual(get_git_branch_from_worktree(wt_dir), "bot-wa-wa/feature-test")
+
+            # 3. /tmp パス
+            self.assertEqual(get_git_branch_from_worktree("/tmp"), "tmp")
+            self.assertEqual(get_git_branch_from_worktree("/home/nixos/.claude/projects/-tmp/session.jsonl"), "tmp")
+
 
 class TestMetricsCollector(unittest.TestCase):
     def setUp(self):
@@ -89,16 +223,20 @@ class TestMetricsCollector(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_claude_collection(self):
-        # モックの Claude ログを作成
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-1.jsonl")
 
         with open(jsonl_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
                 "type": "assistant",
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/test-branch",
                 "message": {
                     "id": "msg-001",
                     "model": "claude-opus-5-5",
@@ -131,24 +269,306 @@ class TestMetricsCollector(unittest.TestCase):
         tokens = counters["tokens"]
         sessions = counters["sessions"]
 
-        self.assertIn('agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"', tokens)
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"'], 100)
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="thinking"'], 10)
-        self.assertEqual(sessions['agent="claude",context="autopilot",repo="nuage-cluster"'], 1)
+        expected_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+        self.assertEqual(tokens[expected_key], 100)
+        thinking_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="thinking"'
+        self.assertEqual(tokens[thinking_key], 10)
+        session_key = 'agent="claude",branch="bot-wa-wa/test-branch",phase="implement",repo="nuage-cluster"'
+        self.assertEqual(sessions[session_key], 1)
+
+    def test_claude_phases(self):
+        # review, fix, summarize 各フェーズで正しくラベルが付与されることのテスト
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+
+        orig_glob = collector_mod.glob.glob
+        try:
+            for idx, (prompt, expected_phase) in enumerate([
+                ("あなたはコードレビュアーである。レビューする。", "review"),
+                ("直すべきものを直す。レビュー結果: .autopilot/review-1-agy.md", "fix"),
+                ("人間向けの要約を .autopilot/result.md に書く。", "summarize"),
+            ]):
+                jsonl_path = os.path.join(project_dir, f"session-phase-{idx}.jsonl")
+                with open(jsonl_path, "w", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "type": "queue-operation",
+                        "content": prompt,
+                    }) + "\n")
+                    f.write(json.dumps({
+                        "type": "assistant",
+                        "entrypoint": "sdk-cli",
+                        "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                        "gitBranch": "bot-wa-wa/phase-branch",
+                        "message": {
+                            "id": f"msg-phase-{idx}",
+                            "model": "claude-opus-5-5",
+                            "usage": {"input_tokens": 10, "output_tokens": 5},
+                        },
+                    }) + "\n")
+
+                collector = MetricsCollector(
+                    state_file=self.state_file,
+                    vm_url="http://localhost:8427",
+                    dry_run=True,
+                )
+
+                collector_mod.glob.glob = lambda p, jp=jsonl_path: [jp] if "claude" in p else []
+                collector.collect_claude()
+
+                tokens = collector.state["counters"]["tokens"]
+                expected_key = f'agent="claude",branch="bot-wa-wa/phase-branch",model="claude-opus-5-5",phase="{expected_phase}",repo="nuage-cluster",type="input"'
+                self.assertIn(expected_key, tokens)
+                self.assertEqual(tokens[expected_key], 10)
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_claude_sdk_unknown_phase(self):
+        # sdk-cli だがプロンプトが定型外（動作確認等の ok）で run.log も無い場合、phase="unknown" になること
+        project_dir = os.path.join(self.test_dir, "projects", "-tmp")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-test-ok.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "Reply with exactly: ok"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/tmp",
+                "gitBranch": "tmp",
+                "message": {
+                    "id": "msg-ok-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 15, "output_tokens": 2},
+                },
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        try:
+            collector = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=True,
+            )
+            collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+            collector.collect_claude()
+
+            tokens = collector.state["counters"]["tokens"]
+            sessions = collector.state["counters"]["sessions"]
+
+            expected_token_key = 'agent="claude",branch="tmp",model="claude-opus-5-5",phase="unknown",repo="tmp",type="input"'
+            self.assertIn(expected_token_key, tokens)
+            self.assertEqual(tokens[expected_token_key], 15)
+
+            # phase="implement" に紛れ込んでいないこと
+            for k in tokens:
+                self.assertNotIn('phase="implement"', k)
+
+            expected_session_key = 'agent="claude",branch="tmp",phase="unknown",repo="tmp"'
+            self.assertIn(expected_session_key, sessions)
+            self.assertEqual(sessions[expected_session_key], 1)
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_claude_tool_result_does_not_change_phase(self):
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-tool-result.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            # 1. 初回の autopilot 実装指示
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-tool",
+                "message": {
+                    "id": "msg-tool-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50, "output_tokens": 20},
+                },
+            }) + "\n")
+            # 2. ツールの実行結果 (type=user, content=list) に別フェーズの文言が含まれる
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "content": "あなたはコードレビュアーである。レビューする。人間向けの要約を .autopilot/result.md に書く。",
+                        }
+                    ]
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-tool",
+                "message": {
+                    "id": "msg-tool-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 60, "output_tokens": 30},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        # すべて implement として集計され、review や summarize に化けないこと
+        impl_key_input = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        impl_key_output = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"'
+        self.assertIn(impl_key_input, tokens)
+        self.assertEqual(tokens[impl_key_input], 110)
+        self.assertIn(impl_key_output, tokens)
+        self.assertEqual(tokens[impl_key_output], 50)
+
+        for k in tokens:
+            self.assertNotIn('phase="review"', k)
+            self.assertNotIn('phase="summarize"', k)
+
+    def test_claude_cli_session_portal_fixed(self):
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-cli.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "attachment",
+                "entrypoint": "cli",
+            }) + "\n")
+            # 窓口セッションでユーザーが「レビューする」と発言
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "cli",
+                "message": {"content": "あなたはコードレビュアーである。レビューする。"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-cli",
+                "message": {
+                    "id": "msg-cli-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 40, "output_tokens": 10},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-cli",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(portal_key_input, tokens)
+        self.assertEqual(tokens[portal_key_input], 40)
+        # offset メタデータの context と phase も portal に固定されること
+        meta = collector.state["claude_offsets"][jsonl_path]
+        self.assertEqual(meta["context"], "portal")
+        self.assertEqual(meta["phase"], "portal")
+
+    def test_claude_cli_with_run_log_remains_portal(self):
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "test-runlog")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] == reviewing (round 1: claude)\n")
+
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test-runlog")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-cli-runlog.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "attachment",
+                "entrypoint": "cli",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "cli",
+                "message": {"content": "進捗どう？"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/feat-runlog",
+                "message": {
+                    "id": "msg-cli-runlog-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 30, "output_tokens": 15},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-runlog",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(portal_key_input, tokens)
+        self.assertEqual(tokens[portal_key_input], 30)
+        # run.log の review に引っ張られないこと
+        for k in tokens:
+            self.assertNotIn('phase="review"', k)
 
     def test_claude_duplicate_message_id_dedup(self):
-        # 同一 message.id を持つ複数行が重複計上されないことのテスト
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-dup.jsonl")
 
         with open(jsonl_path, "w", encoding="utf-8") as f:
-            # 1つの応答の content ブロック (thinking / text / tool_use) が複数行に分かれて同じ id / usage を持つ
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
             for _ in range(3):
                 f.write(json.dumps({
                     "type": "assistant",
                     "entrypoint": "sdk-cli",
                     "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                    "gitBranch": "bot-wa-wa/test-branch",
                     "message": {
                         "id": "msg-dup-123",
                         "model": "claude-opus-5-5",
@@ -173,15 +593,22 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        # 3行あっても 100 / 50 の 1 回分のみ加算されること
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"'], 100)
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="output"'], 50)
+        key_input = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        key_output = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"'
+        self.assertEqual(tokens[key_input], 100)
+        self.assertEqual(tokens[key_output], 50)
 
     def test_antigravity_collection(self):
-        # モックの Antigravity ログを作成
         brain_dir = os.path.join(self.test_dir, "brain", "conv-1", ".system_generated", "logs")
         os.makedirs(brain_dir, exist_ok=True)
         transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        # mock git worktree
+        wt_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feat")
+        git_dir = os.path.join(wt_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feat-branch\n")
 
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
@@ -197,7 +624,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "input_tokens": 1200,
                 "output_tokens": 80,
                 "cache_read_tokens": 500,
-                "content": "ワークスペース /home/nixos/orca/workspaces/nuage-cluster/feat で作業する。",
+                "content": f"ワークスペース {wt_dir} で作業する。",
             }) + "\n")
 
         collector = MetricsCollector(
@@ -217,16 +644,24 @@ class TestMetricsCollector(unittest.TestCase):
         tokens = counters["tokens"]
         sessions = counters["sessions"]
 
-        self.assertIn('agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="input"', tokens)
-        self.assertEqual(tokens['agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="input"'], 1200)
-        self.assertEqual(tokens['agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="output"'], 80)
-        self.assertEqual(sessions['agent="agy",context="autopilot",repo="nuage-cluster"'], 1)
+        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+        self.assertEqual(tokens[expected_key], 1200)
+        out_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="output"'
+        self.assertEqual(tokens[out_key], 80)
+        s_key = 'agent="agy",branch="bot-wa-wa/feat-branch",phase="implement",repo="nuage-cluster"'
+        self.assertEqual(sessions[s_key], 1)
 
     def test_antigravity_incremental_preserves_labels(self):
-        # 差分実行時にも判定済みラベル (repo, model, context) が保持されることのテスト
         brain_dir = os.path.join(self.test_dir, "brain", "conv-inc", ".system_generated", "logs")
         os.makedirs(brain_dir, exist_ok=True)
         transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        wt_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feat")
+        git_dir = os.path.join(wt_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feat-branch\n")
 
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
@@ -241,7 +676,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "type": "PLANNER_RESPONSE",
                 "input_tokens": 10,
                 "output_tokens": 5,
-                "content": "ワークスペース /home/nixos/orca/workspaces/nuage-cluster/feat で作業する。",
+                "content": f"ワークスペース {wt_dir} で作業する。",
             }) + "\n")
 
         collector1 = MetricsCollector(
@@ -258,7 +693,7 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
-        # 追記（モデル変更や自律実行プロンプトを含まない純粋な回答追記）
+        # 追記
         with open(transcript_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({
                 "step_index": 2,
@@ -282,16 +717,11 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector2.state["counters"]["tokens"]
-        expected_key = 'agent="agy",context="autopilot",model="gemini-3-8-flash-high",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="input"'
         self.assertIn(expected_key, tokens)
-        # 1回目 10 + 2回目 20 = 30
         self.assertEqual(tokens[expected_key], 30)
-        # unknown ラベルに入っていないこと
-        unknown_key = 'agent="agy",context="portal",model="unknown",repo="unknown",type="input"'
-        self.assertNotIn(unknown_key, tokens)
 
     def test_file_error_rollback(self):
-        # パース途中でエラーが出たファイルの中間状態がロールバックされ、オフセットも進まないこと
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-err.jsonl")
@@ -307,7 +737,6 @@ class TestMetricsCollector(unittest.TestCase):
                     "usage": {"input_tokens": 100, "output_tokens": 50},
                 },
             }) + "\n")
-            # 壊れた行（usage が辞書でない不正データ等）ではなく、意図的に型エラーを起こす異常値
             f.write('{"type": "assistant", "message": {"id": "msg-err-2", "usage": {"input_tokens": "INVALID_NOT_INT"}}}\n')
 
         collector = MetricsCollector(
@@ -323,21 +752,24 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
-        # エラーが記録されたこと
         self.assertTrue(collector.has_errors)
-        # トークンは途中でロールバックされ 0 件であること
         self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
-        # オフセットも保存されていないこと
         self.assertNotIn(jsonl_path, collector.state["claude_offsets"])
 
     def test_autopilot_runs_collection(self):
-        # モックの autopilot 実行ディレクトリを作成（done, failed: ..., needs-human: ...）
+        # モックの worktree と .autopilot ディレクトリを作成
         auto_dir_done = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-done", ".autopilot")
         os.makedirs(auto_dir_done, exist_ok=True)
         with open(os.path.join(auto_dir_done, "status"), "w", encoding="utf-8") as f:
             f.write("done\n")
         with open(os.path.join(auto_dir_done, "run.log"), "w", encoding="utf-8") as f:
-            f.write("[10:00:00] start impl=claude level=high reviewers=agy base=abcdef from=implement\n")
+            f.write("[10:00:00] start impl=claude level=high reviewers=agy base=abcdef from=implement\n[10:05:00] PR #57\n")
+        with open(os.path.join(auto_dir_done, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 完了したタスクのタイトル\n")
+        git_done = os.path.join(os.path.dirname(auto_dir_done), ".git")
+        os.makedirs(git_done, exist_ok=True)
+        with open(os.path.join(git_done, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/ws-done-branch\n")
 
         auto_dir_failed = os.path.join(self.test_dir, "workspaces", "pechka", "ws-failed", ".autopilot")
         os.makedirs(auto_dir_failed, exist_ok=True)
@@ -345,6 +777,8 @@ class TestMetricsCollector(unittest.TestCase):
             f.write("failed: test execution timed out\n")
         with open(os.path.join(auto_dir_failed, "run.log"), "w", encoding="utf-8") as f:
             f.write("[10:00:00] start impl=agy level=medium reviewers=claude base=123456\n")
+        with open(os.path.join(auto_dir_failed, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 失敗したタスク\n")
 
         auto_dir_human = os.path.join(self.test_dir, "workspaces", "nuage-autopilot5", "ws-human", ".autopilot")
         os.makedirs(auto_dir_human, exist_ok=True)
@@ -352,8 +786,9 @@ class TestMetricsCollector(unittest.TestCase):
             f.write("needs-human: merge conflicts require user intervention\n")
         with open(os.path.join(auto_dir_human, "run.log"), "w", encoding="utf-8") as f:
             f.write("[10:00:00] start impl=claude level=low\n")
+        with open(os.path.join(auto_dir_human, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 人間の判断が必要なタスク\n")
 
-        # 未完了ステータス（集計対象外）
         auto_dir_running = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-running", ".autopilot")
         os.makedirs(auto_dir_running, exist_ok=True)
         with open(os.path.join(auto_dir_running, "status"), "w", encoding="utf-8") as f:
@@ -377,14 +812,18 @@ class TestMetricsCollector(unittest.TestCase):
             os.path.exists = orig_exists
 
         runs = collector.state["counters"]["autopilot_runs"]
-        self.assertEqual(runs.get('impl="claude",level="high",repo="nuage-cluster",result="done"'), 1)
-        self.assertEqual(runs.get('impl="agy",level="medium",repo="pechka",result="failed"'), 1)
-        self.assertEqual(runs.get('impl="claude",level="low",repo="nuage-autopilot5",result="needs-human"'), 1)
-        # 未完了ステータスは含まれないこと
+        expected_done = 'branch="bot-wa-wa/ws-done-branch",impl="claude",level="high",pr="57",repo="nuage-cluster",result="done",task="完了したタスクのタイトル"'
+        self.assertEqual(runs.get(expected_done), 1)
+
+        expected_failed = 'branch="unknown",impl="agy",level="medium",pr="none",repo="pechka",result="failed",task="失敗したタスク"'
+        self.assertEqual(runs.get(expected_failed), 1)
+
+        expected_human = 'branch="unknown",impl="claude",level="low",pr="none",repo="nuage-autopilot5",result="needs-human",task="人間の判断が必要なタスク"'
+        self.assertEqual(runs.get(expected_human), 1)
+
         self.assertEqual(len(runs), 3)
 
     def test_state_file_corruption_raises_error(self):
-        # 破損した JSON が存在する場合に空状態で継続せず RuntimeError で停止すること
         with open(self.state_file, "w", encoding="utf-8") as f:
             f.write("{invalid_json: true, broken")
 
@@ -395,16 +834,76 @@ class TestMetricsCollector(unittest.TestCase):
                 dry_run=True,
             )
 
+    def test_state_migration_to_v3(self):
+        # v1 および v2 形式の状態ファイルが読み込まれたとき v3 にマイグレーションされ、古いカウンタやオフセットがリセットされること
+        v1_data = {
+            "version": 1,
+            "claude_offsets": {"/old/path": 100},
+            "agy_offsets": {"/old/agy": 200},
+            "last_orca_stats_timestamp": 5000,
+            "counters": {
+                "tokens": {'agent="claude",context="autopilot",repo="nuage-cluster"': 1000},
+                "sessions": {},
+                "duration": {},
+                "autopilot_runs": {'impl="claude",level="high",repo="nuage-cluster",result="done"': 1},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(v1_data, f)
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        self.assertEqual(collector.state["version"], CURRENT_STATE_VERSION)
+        self.assertEqual(collector.state["version"], 3)
+        self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector.state["counters"]["autopilot_runs"]), 0)
+        self.assertEqual(len(collector.state["claude_offsets"]), 0)
+
+        # v2 形式（旧コードにより混入した context= キーなどを含む）からの移行
+        v2_data = {
+            "version": 2,
+            "claude_offsets": {"/old/path": {"offset": 100, "repo": "nuage-cluster"}},
+            "agy_offsets": {"/old/agy": {"offset": 200}},
+            "last_orca_stats_timestamp": 5000,
+            "counters": {
+                "tokens": {'agent="claude",context="autopilot",repo="nuage-cluster"': 1000},
+                "sessions": {'agent="claude",context="portal",repo="nuage-cluster"': 1},
+                "duration": {'agent="claude",context="portal",repo="nuage-cluster"': 10.5},
+                "autopilot_runs": {},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(v2_data, f)
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        self.assertEqual(collector2.state["version"], 3)
+        self.assertEqual(len(collector2.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector2.state["counters"]["sessions"]), 0)
+        self.assertEqual(len(collector2.state["counters"]["duration"]), 0)
+        self.assertEqual(len(collector2.state["claude_offsets"]), 0)
+        self.assertEqual(len(collector2.state["agy_offsets"]), 0)
+
     def test_orca_stats_portal_context(self):
-        # worktree に .autopilot があっても Orca ペインのセッション時間は context="portal" になること
         auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-x", ".autopilot")
         os.makedirs(auto_dir, exist_ok=True)
+        wt_path = os.path.dirname(auto_dir)
+        git_dir = os.path.join(wt_path, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/feature-x-branch\n")
 
         orca_stats_file = os.path.join(self.test_dir, "orca-stats.json")
         last_status_file = os.path.join(self.test_dir, "last-status.json")
 
         sk = "test-tab:test-pane"
-        wt_path = os.path.dirname(auto_dir)
 
         with open(last_status_file, "w", encoding="utf-8") as f:
             f.write(json.dumps({
@@ -468,12 +967,9 @@ class TestMetricsCollector(unittest.TestCase):
             builtins.open = orig_open
 
         duration = collector.state["counters"]["duration"]
-        expected_key = 'agent="claude",context="portal",repo="nuage-cluster"'
+        expected_key = 'agent="claude",branch="feature-x-branch",phase="portal",repo="nuage-cluster"'
         self.assertIn(expected_key, duration)
         self.assertEqual(duration[expected_key], 50.0)
-        # context="autopilot" のキーが存在しないこと
-        unexpected_key = 'agent="claude",context="autopilot",repo="nuage-cluster"'
-        self.assertNotIn(unexpected_key, duration)
 
     def test_generate_prometheus_payload(self):
         collector = MetricsCollector(
@@ -482,29 +978,34 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
         collector.state["counters"]["tokens"] = {
-            'agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"': 100,
+            'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"': 100,
         }
         collector.state["counters"]["sessions"] = {
-            'agent="claude",context="autopilot",repo="nuage-cluster"': 1,
+            'agent="claude",branch="main",phase="implement",repo="nuage-cluster"': 1,
         }
 
         payload = collector.generate_prometheus_payload()
         self.assertIn("# TYPE nuage_ai_agent_tokens_total counter", payload)
-        self.assertIn('nuage_ai_agent_tokens_total{agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"} 100', payload)
+        self.assertIn('nuage_ai_agent_tokens_total{agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"} 100', payload)
         self.assertIn("# TYPE nuage_ai_agent_sessions_total counter", payload)
-        self.assertIn('nuage_ai_agent_sessions_total{agent="claude",context="autopilot",repo="nuage-cluster"} 1', payload)
+        self.assertIn('nuage_ai_agent_sessions_total{agent="claude",branch="main",phase="implement",repo="nuage-cluster"} 1', payload)
 
     def test_state_persistence_and_incremental(self):
-        # 状態保存と増分読み取りのテスト
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-inc.jsonl")
 
         with open(jsonl_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
+            f.write(json.dumps({
                 "type": "assistant",
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/inc-branch",
                 "message": {
                     "id": "msg-inc-1",
                     "model": "claude-opus-5-5",
@@ -526,7 +1027,6 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
-        # 状態ファイルが保存されたことの確認
         self.assertTrue(os.path.exists(self.state_file))
 
         # 2行目を追記
@@ -535,6 +1035,7 @@ class TestMetricsCollector(unittest.TestCase):
                 "type": "assistant",
                 "entrypoint": "sdk-cli",
                 "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/inc-branch",
                 "message": {
                     "id": "msg-inc-2",
                     "model": "claude-opus-5-5",
@@ -542,7 +1043,6 @@ class TestMetricsCollector(unittest.TestCase):
                 },
             }) + "\n")
 
-        # collector2 で増分のみパース
         collector2 = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
@@ -555,14 +1055,12 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector2.state["counters"]["tokens"]
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="input"'], 80)
-        self.assertEqual(tokens['agent="claude",context="autopilot",model="claude-opus-5-5",repo="nuage-cluster",type="output"'], 15)
-        # セッション数は 1 のまま増えていないこと
+        key_input = 'agent="claude",branch="bot-wa-wa/inc-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        self.assertEqual(tokens[key_input], 80)
         sessions = collector2.state["counters"]["sessions"]
-        self.assertEqual(sessions['agent="claude",context="autopilot",repo="nuage-cluster"'], 1)
+        self.assertEqual(sessions['agent="claude",branch="bot-wa-wa/inc-branch",phase="implement",repo="nuage-cluster"'], 1)
 
     def test_claude_seen_message_ids_order(self):
-        # seen_message_ids が 500 件を超えた場合に順序が保たれ最新 500 件が残ること
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-order.jsonl")
@@ -573,6 +1071,7 @@ class TestMetricsCollector(unittest.TestCase):
                     "type": "assistant",
                     "entrypoint": "sdk-cli",
                     "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                    "gitBranch": "main",
                     "message": {
                         "id": f"msg-ord-{i:04d}",
                         "model": "claude-opus-5-5",
@@ -596,19 +1095,25 @@ class TestMetricsCollector(unittest.TestCase):
         offset_info = collector.state["claude_offsets"][jsonl_path]
         seen_ids = offset_info["seen_message_ids"]
         self.assertEqual(len(seen_ids), 500)
-        # 最初の 50 件 (0000〜0049) は切り捨てられ、最新 500 件 (0050〜0549) が順番通り残っていること
         self.assertEqual(seen_ids[0], "msg-ord-0050")
         self.assertEqual(seen_ids[-1], "msg-ord-0549")
 
     def test_antigravity_conversation_repo_from_db(self):
-        # conversation_summaries.db から正しくワークスペースのリポジトリ名が引けること
         import sqlite3
         db_path = os.path.join(self.test_dir, "conversation_summaries.db")
+
+        # mock worktree for test-1
+        wt_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "my-branch")
+        git_dir = os.path.join(wt_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/my-feature-branch\n")
+
         with sqlite3.connect(db_path) as conn:
             conn.execute("CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, workspace_uris TEXT)")
             conn.execute(
                 "INSERT INTO conversation_summaries VALUES (?, ?)",
-                ("cid-test-1", '["file:///home/nixos/orca/workspaces/nuage-cluster/my-branch"]'),
+                ("cid-test-1", f'["file://{wt_dir}"]'),
             )
             conn.execute(
                 "INSERT INTO conversation_summaries VALUES (?, ?)",
@@ -618,17 +1123,22 @@ class TestMetricsCollector(unittest.TestCase):
         orig_expanduser = os.path.expanduser
         os.path.expanduser = lambda p: db_path if "conversation_summaries.db" in p else orig_expanduser(p)
         try:
-            repo1 = collector_mod.get_antigravity_conversation_repo("cid-test-1")
+            repo1, branch1, ws1 = collector_mod.get_antigravity_conversation_meta("cid-test-1")
             self.assertEqual(repo1, "nuage-cluster")
-            repo2 = collector_mod.get_antigravity_conversation_repo("cid-test-2")
+            self.assertEqual(branch1, "my-feature-branch")
+            self.assertEqual(ws1, wt_dir)
+
+            repo2, branch2, ws2 = collector_mod.get_antigravity_conversation_meta("cid-test-2")
             self.assertEqual(repo2, "tmp")
-            repo_unknown = collector_mod.get_antigravity_conversation_repo("nonexistent")
+            self.assertEqual(branch2, "tmp")
+
+            repo_unknown, branch_unknown, _ = collector_mod.get_antigravity_conversation_meta("nonexistent")
             self.assertEqual(repo_unknown, "unknown")
+            self.assertEqual(branch_unknown, "unknown")
         finally:
             os.path.expanduser = orig_expanduser
 
     def test_send_failure_does_not_save_state(self):
-        # 送信が例外で失敗したときに状態ファイルが保存されないことのテスト
         collector = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
@@ -640,22 +1150,16 @@ class TestMetricsCollector(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             collector.run()
 
-        # 状態ファイルが作成されていないこと
         self.assertFalse(os.path.exists(self.state_file))
 
     def test_send_to_victoriametrics_http_error(self):
-        # HTTP レスポンスが 2xx 以外または HTTPError のときに RuntimeError で終了することのテスト
         collector = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=False,
         )
 
-        import urllib.error
-        from io import BytesIO
-
-        # 1. HTTPError (例: 403 Forbidden)
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        with mock.patch("urllib.request.urlopen", side_effect=collector_mod.urllib.error.HTTPError(
             url="http://localhost:8427/api/v1/import/prometheus",
             code=403,
             msg="Forbidden",
@@ -666,7 +1170,6 @@ class TestMetricsCollector(unittest.TestCase):
                 collector.send_to_victoriametrics("test_payload 1")
             self.assertIn("HTTP エラー (403)", str(ctx.exception))
 
-        # 2. 予期しないステータスコード (例: 302 Redirect)
         mock_resp = mock.MagicMock()
         mock_resp.status = 302
         mock_resp.__enter__.return_value = mock_resp
@@ -676,12 +1179,10 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertIn("予期しないステータスコード: HTTP 302", str(ctx.exception))
 
     def test_antigravity_portal_not_overwritten_by_skill_reading(self):
-        # portal セッションで .autopilot/brief.md を読んでも context="autopilot" に誤判定されないこと
         brain_dir = os.path.join(self.test_dir, "brain", "conv-portal-1", ".system_generated", "logs")
         os.makedirs(brain_dir, exist_ok=True)
         transcript_path = os.path.join(brain_dir, "transcript.jsonl")
 
-        # 人間からの指示で始まり、途中のツール出力等で .autopilot/brief.md が出現
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
                 "step_index": 0,
@@ -703,7 +1204,6 @@ class TestMetricsCollector(unittest.TestCase):
             vm_url="http://localhost:8427",
             dry_run=True,
         )
-        # last-status.json 由来の portal_cids に登録
         collector.state["portal_cids"]["conv-portal-1"] = True
 
         orig_glob = collector_mod.glob.glob
@@ -714,11 +1214,11 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        self.assertIn('agent="agy",context="portal",model="unknown",repo="unknown",type="input"', tokens)
-        self.assertEqual(tokens['agent="agy",context="portal",model="unknown",repo="unknown",type="input"'], 100)
+        expected_key = 'agent="agy",branch="unknown",model="unknown",phase="portal",repo="unknown",type="input"'
+        self.assertIn(expected_key, tokens)
+        self.assertEqual(tokens[expected_key], 100)
 
     def test_antigravity_repo_not_overwritten_by_content_path(self):
-        # DB から repo が確定した後、本文に別リポジトリのパスが出ても repo が上書きされないこと
         brain_dir = os.path.join(self.test_dir, "brain", "conv-repo-test", ".system_generated", "logs")
         os.makedirs(brain_dir, exist_ok=True)
         transcript_path = os.path.join(brain_dir, "transcript.jsonl")
@@ -744,8 +1244,11 @@ class TestMetricsCollector(unittest.TestCase):
             vm_url="http://localhost:8427",
             dry_run=True,
         )
-        # cid_to_repo で nuage-cluster に紐づけられている
-        collector.state["cid_to_repo"]["conv-repo-test"] = "nuage-cluster"
+        collector.state["cid_to_meta"]["conv-repo-test"] = {
+            "repo": "nuage-cluster",
+            "branch": "main",
+            "worktree": "/path/to/nuage-cluster",
+        }
 
         orig_glob = collector_mod.glob.glob
         collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
@@ -755,11 +1258,108 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        self.assertIn('agent="agy",context="portal",model="unknown",repo="nuage-cluster",type="input"', tokens)
+        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
         self.assertNotIn('repo="pechka"', str(tokens))
 
+    def test_antigravity_portal_not_mistaken_as_autopilot(self):
+        # portal_cids にまだ載っていない窓口会話で「brief の要点を教えて」等の語があっても、
+        # 定型文が無ければ autopilot に化けず portal のままとなること
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-portal-chat", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>この PR の brief の要点を教えて。あとでレビューする予定です。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 120,
+                "output_tokens": 40,
+                "content": "承知いたしました。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector.state["cid_to_meta"]["conv-portal-chat"] = {
+            "repo": "nuage-cluster",
+            "branch": "main",
+            "worktree": "/path/to/nuage-cluster",
+        }
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+        self.assertNotIn('phase="implement"', str(tokens))
+        self.assertNotIn('phase="review"', str(tokens))
+
+    def test_antigravity_run_log_fallback_with_ws_path(self):
+        # 定型文があるがプロンプトからフェーズが特定できない場合、ws_path の run.log からフェーズが引けること
+        wt_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "wt-fallback")
+        auto_dir = os.path.join(wt_dir, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start\n== reviewing\n")
+
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-fallback-test", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。ファイルは一切変更しない。\n詳細な指示は別途与える。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 150,
+                "output_tokens": 30,
+                "content": "確認しました。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector.state["cid_to_meta"]["conv-fallback-test"] = {
+            "repo": "nuage-cluster",
+            "branch": "feature/test",
+            "worktree": wt_dir,
+        }
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        expected_key = 'agent="agy",branch="feature/test",model="unknown",phase="review",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+
     def test_state_cache_pruning(self):
-        # 状態保存時に 1000 件を超えたキャッシュが古い順にトリムされることのテスト
         collector = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
@@ -771,7 +1371,6 @@ class TestMetricsCollector(unittest.TestCase):
 
         collector._save_state()
 
-        # 保存後のファイルを読み込み直して検証
         collector2 = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
@@ -779,13 +1378,11 @@ class TestMetricsCollector(unittest.TestCase):
         )
         self.assertEqual(len(collector2.state["orca_sessions"]), 1000)
         self.assertEqual(len(collector2.state["portal_cids"]), 1000)
-        # 最初の 50 件 (0000〜0049) が削除され、最新 1000 件 (0050〜1049) が残っていること
         self.assertNotIn("sk-0000", collector2.state["orca_sessions"])
         self.assertIn("sk-0050", collector2.state["orca_sessions"])
         self.assertIn("sk-1049", collector2.state["orca_sessions"])
 
     def test_autopilot_run_latest_start(self):
-        # run.log に複数回 start が記録された場合、最新（最後）のものが採用されること
         auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-multi-start", ".autopilot")
         os.makedirs(auto_dir, exist_ok=True)
         with open(os.path.join(auto_dir, "status"), "w", encoding="utf-8") as f:
@@ -812,8 +1409,8 @@ class TestMetricsCollector(unittest.TestCase):
             os.path.exists = orig_exists
 
         runs = collector.state["counters"]["autopilot_runs"]
-        # 最後の impl=agy level=high が採用されること
-        self.assertIn('impl="agy",level="high",repo="nuage-cluster",result="done"', runs)
+        expected_key = 'branch="unknown",impl="agy",level="high",pr="none",repo="nuage-cluster",result="done",task="unknown"'
+        self.assertIn(expected_key, runs)
         self.assertNotIn('impl="claude"', str(runs))
 
 
