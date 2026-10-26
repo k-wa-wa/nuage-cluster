@@ -280,13 +280,7 @@ def detect_phase(content: str, ws_path: str | None = None) -> str:
     if not content:
         content = ""
 
-    # プロンプト文字列の特徴から判定
-    if (
-        "あなたはコードレビュアーである" in content
-        or "コードレビュアー" in content
-        or "レビューする" in content
-    ):
-        return "review"
+    # プロンプト文字列の特徴から判定（fix を review より先に判定し、追加指示内の「レビューする」等による誤判定を防止）
     if (
         "直すべきものを直す" in content
         or "レビュー結果:" in content
@@ -295,6 +289,11 @@ def detect_phase(content: str, ws_path: str | None = None) -> str:
     ):
         return "fix"
     if (
+        "あなたはコードレビュアーである" in content
+        or "コードレビュアー" in content
+    ):
+        return "review"
+    if (
         "人間向けの要約" in content
         or ".autopilot/result.md に書く" in content
         or "要約を .autopilot/result.md" in content
@@ -302,10 +301,11 @@ def detect_phase(content: str, ws_path: str | None = None) -> str:
     ):
         return "summarize"
     if (
-        "あなたは自律実行の担当である" in content
-        or ".autopilot/brief.md の仕様を実装" in content
+        ".autopilot/brief.md の仕様を実装" in content
+        or "仕様を実装し、テストがあれば" in content
         or "自律実行の担当" in content
         or "brief の要点" in content
+        or "あなたは自律実行の担当である" in content
     ):
         return "implement"
 
@@ -372,7 +372,7 @@ def normalize_model_name(raw: str) -> str:
     return normalize_identifier(raw)
 
 
-CURRENT_STATE_VERSION = 2
+CURRENT_STATE_VERSION = 3
 
 
 class MetricsCollector:
@@ -700,14 +700,15 @@ class MetricsCollector:
                 # メタデータの復元
                 repo = prev_meta.get("repo", "unknown")
                 branch = prev_meta.get("branch", "unknown")
-                ws_path = ""
-                if (repo == "unknown" or branch == "unknown") and cid:
+                ws_path = prev_meta.get("ws_path", "")
+                if (repo == "unknown" or branch == "unknown" or not ws_path) and cid:
                     meta_repo, meta_branch, meta_ws = get_antigravity_conversation_meta(cid, cid_map)
                     if repo == "unknown":
                         repo = meta_repo
                     if branch == "unknown":
                         branch = meta_branch
-                    ws_path = meta_ws
+                    if not ws_path and meta_ws:
+                        ws_path = meta_ws
 
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
@@ -750,19 +751,19 @@ class MetricsCollector:
                             context = "portal"
                             phase = "portal"
                         else:
-                            # context 検出: 初回ターン (step_index == 0) の USER_INPUT に autopilot 起動プロンプトがあるかで判定
+                            # context 検出: 初回ターン (step_index == 0) の USER_INPUT に autopilot 固有の定型文がある場合のみ autopilot とする
                             if record.get("step_index") == 0 and record.get("type") == "USER_INPUT":
-                                detected = detect_phase(content)
-                                if detected in ("implement", "review", "fix", "summarize"):
-                                    context = "autopilot"
-                                    phase = detected
-                                elif (
+                                if (
                                     "あなたは自律実行の担当である" in content
                                     or "あなたはコードレビュアーである" in content
                                 ):
                                     context = "autopilot"
-                                    fb = get_phase_from_run_log(ws_path)
-                                    phase = fb if fb in ("implement", "review", "fix", "summarize") else "implement"
+                                    detected = detect_phase(content, ws_path)
+                                    if detected in ("implement", "review", "fix", "summarize"):
+                                        phase = detected
+                                    else:
+                                        fb = get_phase_from_run_log(ws_path)
+                                        phase = fb if fb in ("implement", "review", "fix", "summarize") else "implement"
 
                         # repo および branch 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
                         if repo == "unknown" or branch == "unknown":
@@ -782,6 +783,8 @@ class MetricsCollector:
                                         extracted_br = get_git_branch_from_worktree(full_match_path)
                                         if extracted_br != "unknown":
                                             branch = extracted_br
+                                if not ws_path:
+                                    ws_path = full_match_path
 
                         # トークン取得
                         input_tokens = int(record.get("input_tokens", 0) or 0)
@@ -811,6 +814,7 @@ class MetricsCollector:
                     "offset": new_offset,
                     "repo": repo,
                     "branch": branch,
+                    "ws_path": ws_path,
                     "phase": phase,
                     "context": context,
                     "model": current_model,

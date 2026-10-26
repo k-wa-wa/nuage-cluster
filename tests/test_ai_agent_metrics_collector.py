@@ -145,10 +145,23 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             detect_phase("次のファイルを読み、直すべきものを直す。\n- レビュー結果: .autopilot/review-1-agy.md"),
             "fix",
         )
+        # 人間からの追加指示に「レビューする」が含まれていても fix が優先される
+        self.assertEqual(
+            detect_phase(
+                "あなたは自律実行の担当である。\n"
+                "次のファイルを読み、直すべきものを直す。\n"
+                "- 人間からの追加指示: 指摘の箇所をレビューする（最優先）\n"
+                "- レビュー結果: .autopilot/review-2-claude.md\n"
+                "レビューの must は原則採用する。"
+            ),
+            "fix",
+        )
         self.assertEqual(
             detect_phase("人間向けの要約を .autopilot/result.md に書く。PR #57 の本文も同じ内容で更新する。"),
             "summarize",
         )
+        # 単なる会話や「レビューする」動詞のみでは review と判定されない
+        self.assertEqual(detect_phase("このコードをレビューする計画を立てて"), "unknown")
         self.assertEqual(detect_phase("何気ない会話"), "unknown")
 
     def test_get_git_branch_from_worktree(self):
@@ -744,7 +757,7 @@ class TestMetricsCollector(unittest.TestCase):
             )
 
     def test_state_migration_v1_to_v2(self):
-        # v1 形式の状態ファイルが読み込まれたとき v2 にマイグレーションされ、古いカウンタがリセットされること
+        # v1 および v2 形式の状態ファイルが読み込まれたとき v3 にマイグレーションされ、古いカウンタやオフセットがリセットされること
         v1_data = {
             "version": 1,
             "claude_offsets": {"/old/path": 100},
@@ -767,9 +780,38 @@ class TestMetricsCollector(unittest.TestCase):
         )
 
         self.assertEqual(collector.state["version"], CURRENT_STATE_VERSION)
+        self.assertEqual(collector.state["version"], 3)
         self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
         self.assertEqual(len(collector.state["counters"]["autopilot_runs"]), 0)
         self.assertEqual(len(collector.state["claude_offsets"]), 0)
+
+        # v2 形式（旧コードにより混入した context= キーなどを含む）からの移行
+        v2_data = {
+            "version": 2,
+            "claude_offsets": {"/old/path": {"offset": 100, "repo": "nuage-cluster"}},
+            "agy_offsets": {"/old/agy": {"offset": 200}},
+            "last_orca_stats_timestamp": 5000,
+            "counters": {
+                "tokens": {'agent="claude",context="autopilot",repo="nuage-cluster"': 1000},
+                "sessions": {'agent="claude",context="portal",repo="nuage-cluster"': 1},
+                "duration": {'agent="claude",context="portal",repo="nuage-cluster"': 10.5},
+                "autopilot_runs": {},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(v2_data, f)
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        self.assertEqual(collector2.state["version"], 3)
+        self.assertEqual(len(collector2.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector2.state["counters"]["sessions"]), 0)
+        self.assertEqual(len(collector2.state["counters"]["duration"]), 0)
+        self.assertEqual(len(collector2.state["claude_offsets"]), 0)
+        self.assertEqual(len(collector2.state["agy_offsets"]), 0)
 
     def test_orca_stats_portal_context(self):
         auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-x", ".autopilot")
@@ -1136,6 +1178,103 @@ class TestMetricsCollector(unittest.TestCase):
         expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertNotIn('repo="pechka"', str(tokens))
+
+    def test_antigravity_portal_not_mistaken_as_autopilot(self):
+        # portal_cids にまだ載っていない窓口会話で「brief の要点を教えて」等の語があっても、
+        # 定型文が無ければ autopilot に化けず portal のままとなること
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-portal-chat", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>この PR の brief の要点を教えて。あとでレビューする予定です。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 120,
+                "output_tokens": 40,
+                "content": "承知いたしました。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector.state["cid_to_meta"]["conv-portal-chat"] = {
+            "repo": "nuage-cluster",
+            "branch": "main",
+            "worktree": "/path/to/nuage-cluster",
+        }
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
+        self.assertNotIn('phase="implement"', str(tokens))
+        self.assertNotIn('phase="review"', str(tokens))
+
+    def test_antigravity_run_log_fallback_with_ws_path(self):
+        # 定型文があるがプロンプトからフェーズが特定できない場合、ws_path の run.log からフェーズが引けること
+        wt_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "wt-fallback")
+        auto_dir = os.path.join(wt_dir, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start\n== reviewing\n")
+
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-fallback-test", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。ファイルは一切変更しない。\n詳細な指示は別途与える。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 150,
+                "output_tokens": 30,
+                "content": "確認しました。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector.state["cid_to_meta"]["conv-fallback-test"] = {
+            "repo": "nuage-cluster",
+            "branch": "feature/test",
+            "worktree": wt_dir,
+        }
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [transcript_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        expected_key = 'agent="agy",branch="feature/test",model="unknown",phase="review",repo="nuage-cluster",type="input"'
+        self.assertIn(expected_key, tokens)
 
     def test_state_cache_pruning(self):
         collector = MetricsCollector(
