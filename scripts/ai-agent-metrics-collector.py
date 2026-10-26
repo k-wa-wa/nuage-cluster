@@ -192,23 +192,15 @@ def extract_task_from_brief(ws_path: str) -> str:
 
 def resolve_task_label(
     phase: str,
-    ws_path: str,
     branch: str,
-    brief_task: str | None = None,
+    brief_task: str = "unknown",
 ) -> str:
-    """セッションの phase, ワークスペースパス, branch から task ラベル値を決定"""
+    """セッションの phase, 確定済みの brief_task, branch から task ラベル値を決定"""
     if phase == "portal":
         return "portal"
 
-    if brief_task is not None:
-        task = brief_task
-    elif ws_path and branch and branch != "unknown" and get_git_branch_from_worktree(ws_path) == branch:
-        task = extract_task_from_brief(ws_path)
-    else:
-        task = "unknown"
-
-    if task and task != "unknown":
-        return task
+    if brief_task and brief_task != "unknown":
+        return brief_task
 
     if branch and branch != "unknown":
         return escape_prometheus_label(branch)
@@ -702,7 +694,7 @@ class MetricsCollector:
                 m_branch = re.search(r'(?:^|,)branch="([^"]+)"', cost_key)
                 phase = m_phase.group(1) if m_phase else "unknown"
                 branch = m_branch.group(1) if m_branch else "unknown"
-                task = resolve_task_label(phase=phase, ws_path="", branch=branch, brief_task="unknown")
+                task = resolve_task_label(phase=phase, branch=branch, brief_task="unknown")
                 cost_key = f'{cost_key},task="{task}"'
             norm_token_key = f'{cost_key},type="{token_type}"'
             normalized_tokens[norm_token_key] = normalized_tokens.get(norm_token_key, 0) + int(count)
@@ -1007,7 +999,6 @@ class MetricsCollector:
                         brief_task = branch_brief_tasks.get(branch, "unknown")
                         effective_task = resolve_task_label(
                             phase=effective_phase,
-                            ws_path=ws_path,
                             branch=branch,
                             brief_task=brief_task,
                         )
@@ -1040,7 +1031,6 @@ class MetricsCollector:
                 brief_task = branch_brief_tasks.get(branch, "unknown")
                 effective_task = resolve_task_label(
                     phase=effective_phase,
-                    ws_path=ws_path,
                     branch=branch,
                     brief_task=brief_task,
                 )
@@ -1239,7 +1229,6 @@ class MetricsCollector:
                             brief_task = branch_brief_tasks.get(branch, "unknown")
                             effective_task = resolve_task_label(
                                 phase=phase,
-                                ws_path=ws_path,
                                 branch=branch,
                                 brief_task=brief_task,
                             )
@@ -1278,7 +1267,6 @@ class MetricsCollector:
                 brief_task = branch_brief_tasks.get(branch, "unknown")
                 effective_task = resolve_task_label(
                     phase=phase,
-                    ws_path=ws_path,
                     branch=branch,
                     brief_task=brief_task,
                 )

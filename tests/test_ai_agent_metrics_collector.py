@@ -127,42 +127,33 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             brief_file = os.path.join(auto_dir, "brief.md")
             with open(brief_file, "w", encoding="utf-8") as f:
                 f.write('# 日本語タスク名 "引用" と \\パス\\ 連携\n\n本文\n')
-            git_dir = os.path.join(tmp_dir, ".git")
-            os.makedirs(git_dir, exist_ok=True)
-            with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
-                f.write("ref: refs/heads/bot-wa-wa/feat\n")
+            brief_task = extract_task_from_brief(tmp_dir)
 
-            # 1. phase == "portal" の場合は brief.md が存在しても "portal" となること
+            # 1. phase == "portal" の場合は brief_task が存在しても "portal" となること
             self.assertEqual(
-                resolve_task_label(phase="portal", ws_path=tmp_dir, branch="bot-wa-wa/feat"),
+                resolve_task_label(phase="portal", branch="bot-wa-wa/feat", brief_task=brief_task),
                 "portal",
             )
 
-            # 2. phase != "portal" でワークスペースのブランチと branch が一致し brief.md が存在する場合は日本語タスク名（エスケープ済み）となること
+            # 2. phase != "portal" で確定済みの brief_task が存在する場合は日本語タスク名（エスケープ済み）となること
             self.assertEqual(
-                resolve_task_label(phase="implement", ws_path=tmp_dir, branch="bot-wa-wa/feat"),
+                resolve_task_label(phase="implement", branch="bot-wa-wa/feat", brief_task=brief_task),
                 '日本語タスク名 \\"引用\\" と \\\\パス\\\\ 連携',
             )
 
-            # 2b. ワークスペースの現在のブランチと branch が食い違う場合は brief.md を使わず branch にフォールバックすること
+            # 3. brief_task が未確定（"unknown"）の場合は branch にフォールバックされること
             self.assertEqual(
-                resolve_task_label(phase="implement", ws_path=tmp_dir, branch="feature/old-branch"),
-                "feature/old-branch",
-            )
-
-            # 3. brief.md が存在しない場合は branch にフォールバックされること
-            self.assertEqual(
-                resolve_task_label(phase="implement", ws_path="/nonexistent/ws", branch="bot-wa-wa/fallback-branch"),
+                resolve_task_label(phase="implement", branch="bot-wa-wa/fallback-branch", brief_task="unknown"),
                 "bot-wa-wa/fallback-branch",
             )
 
-            # 4. brief.md も存在せず branch も不明な場合は "unknown" となること
+            # 4. brief_task も未確定で branch も不明な場合は "unknown" となること
             self.assertEqual(
-                resolve_task_label(phase="review", ws_path="/nonexistent/ws", branch="unknown"),
+                resolve_task_label(phase="review", branch="unknown", brief_task="unknown"),
                 "unknown",
             )
             self.assertEqual(
-                resolve_task_label(phase="review", ws_path="", branch=""),
+                resolve_task_label(phase="review", branch="", brief_task=""),
                 "unknown",
             )
 
