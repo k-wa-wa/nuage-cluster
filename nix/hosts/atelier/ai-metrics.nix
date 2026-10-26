@@ -34,10 +34,6 @@ in
       ConditionUser = user;
     };
 
-    environment = {
-      AUTOPILOT_RATES = ratesFile;
-    };
-
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.python3}/bin/python3 ${collectorScript} --rates-file ${ratesFile}";

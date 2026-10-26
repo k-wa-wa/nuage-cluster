@@ -388,6 +388,8 @@ EFFORT_AND_VARIANT_SUFFIX_RE = re.compile(
     r"-(?:high|medium|low|minimal|standard|light|max|xhigh|thinking|latest|\d{8})$"
 )
 
+VALID_RATE_KEYS = {"input", "output", "cache_read", "cache_creation"}
+
 
 def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
     """
@@ -432,6 +434,8 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
             val_str = v.strip().strip("'\"")
             if not key or not val_str:
                 raise ValueError(f"行 {line_no}: 単価のキーまたは値が空である: {raw_line}")
+            if key not in VALID_RATE_KEYS:
+                raise ValueError(f"行 {line_no}: 未知の単価項目キーである ({key})")
             try:
                 val = float(val_str)
             except ValueError as e:
@@ -506,8 +510,12 @@ def format_usd(val: float) -> str:
     return s
 
 
+_LOGGED_DEV_RATES_FALLBACK = False
+
+
 def default_rates_file() -> str:
     """利用可能な既定の単価定義ファイルパスを判定"""
+    global _LOGGED_DEV_RATES_FALLBACK
     env_path = os.environ.get("AUTOPILOT_RATES")
     if env_path:
         return env_path
@@ -518,6 +526,12 @@ def default_rates_file() -> str:
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nix", "hosts", "atelier", "rates.yaml")
     )
     if os.path.exists(repo_path):
+        if not _LOGGED_DEV_RATES_FALLBACK:
+            _LOGGED_DEV_RATES_FALLBACK = True
+            print(
+                f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 情報: {etc_path} が存在しないため、開発用の単価定義を使用する: {repo_path}",
+                file=sys.stderr,
+            )
         return repo_path
     return etc_path
 
@@ -579,6 +593,9 @@ class MetricsCollector:
         unpriced_models: set[str] | None = None,
     ) -> float:
         """トークン増分から USD コストを算出（100万トークンあたり単価）"""
+        if input_tokens <= 0 and output_tokens <= 0 and cache_read <= 0 and cache_creation <= 0:
+            return 0.0
+
         model_rates = self._resolve_model_rates(model)
         if model_rates is None:
             if unpriced_models is not None:
@@ -608,7 +625,7 @@ class MetricsCollector:
             token_type = m_type.group(1)
             model = m_model.group(1)
             cost_key = token_key[: m_type.start()]
-            if token_type == "thinking":
+            if token_type == "thinking" or int(count) <= 0:
                 continue
             inc = self.calculate_cost_usd(
                 model=model,
@@ -861,16 +878,17 @@ class MetricsCollector:
                                 key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
-                        cost_inc = self.calculate_cost_usd(
-                            model=model,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            cache_read=cache_read,
-                            cache_creation=cache_creation,
-                            unpriced_models=temp_unpriced_models,
-                        )
-                        cost_key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}"'
-                        temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
+                        if input_tokens > 0 or output_tokens > 0 or cache_read > 0 or cache_creation > 0:
+                            cost_inc = self.calculate_cost_usd(
+                                model=model,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                cache_read=cache_read,
+                                cache_creation=cache_creation,
+                                unpriced_models=temp_unpriced_models,
+                            )
+                            cost_key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}"'
+                            temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
                 effective_phase = "portal" if (is_cli or context == "portal") else phase
                 effective_context = "portal" if (is_cli or context == "portal") else ("autopilot" if is_sdk else context)
@@ -1040,17 +1058,13 @@ class MetricsCollector:
                         input_tokens = int(record.get("input_tokens", 0) or 0)
                         output_tokens = int(record.get("output_tokens", 0) or 0)
                         cache_read = int(record.get("cache_read_tokens", 0) or 0)
-                        cache_creation = int(record.get("cache_creation_tokens", 0) or 0)
 
-                        if input_tokens > 0 or output_tokens > 0 or cache_read > 0 or cache_creation > 0:
-                            token_items = [
+                        if input_tokens > 0 or output_tokens > 0 or cache_read > 0:
+                            for token_type, count in [
                                 ("input", input_tokens),
                                 ("output", output_tokens),
                                 ("cache_read", cache_read),
-                            ]
-                            if cache_creation > 0:
-                                token_items.append(("cache_creation", cache_creation))
-                            for token_type, count in token_items:
+                            ]:
                                 key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
@@ -1059,7 +1073,6 @@ class MetricsCollector:
                                 input_tokens=input_tokens,
                                 output_tokens=output_tokens,
                                 cache_read=cache_read,
-                                cache_creation=cache_creation,
                                 unpriced_models=temp_unpriced_models,
                             )
                             cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}"'

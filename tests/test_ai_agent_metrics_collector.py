@@ -1447,6 +1447,10 @@ class TestMetricsCollector(unittest.TestCase):
             parse_rates_yaml("model-a:\n  input: not_a_float\n")
         with self.assertRaises(ValueError):
             parse_rates_yaml("model-a:\n  input: -5.0\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  cache-read: 1.5\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  outptu: 75.0\n")
         with self.assertRaises(RuntimeError):
             load_rates("/nonexistent/rates.yaml")
 
@@ -1618,6 +1622,45 @@ class TestMetricsCollector(unittest.TestCase):
 
         payload = collector.generate_prometheus_payload()
         self.assertIn(f"nuage_ai_agent_cost_usd_total{{{cost_key}}} 0.0", payload)
+
+    def test_zero_token_synthetic_model_does_not_warn(self):
+        # Claude Code の <synthetic> メッセージ等でトークンがすべて 0 の場合は未定義モデル警告を出さないこと
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-synthetic.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "main",
+                "message": {
+                    "id": "msg-syn-1",
+                    "model": "<synthetic>",
+                    "usage": {
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            with mock.patch.object(collector, "warn", wraps=collector.warn) as mock_warn:
+                collector.collect_claude()
+                mock_warn.assert_not_called()
+        finally:
+            collector_mod.glob.glob = orig_glob
 
     def test_cost_incremental_consistency_and_rate_change_protection(self):
         # 1. 差分集計の整合性（1回目＋2回目の増分集計結果が正確であること）
