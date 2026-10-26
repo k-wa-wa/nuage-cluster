@@ -1451,6 +1451,12 @@ class TestMetricsCollector(unittest.TestCase):
             parse_rates_yaml("model-a:\n  cache-read: 1.5\n")
         with self.assertRaises(ValueError):
             parse_rates_yaml("model-a:\n  outptu: 75.0\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-empty:\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  input: 1.0\nmodel-a:\n  output: 2.0\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  input: 1.0\n  input: 2.0\n")
         with self.assertRaises(RuntimeError):
             load_rates("/nonexistent/rates.yaml")
 
@@ -1776,6 +1782,14 @@ class TestMetricsCollector(unittest.TestCase):
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=True,
+            rates={
+                "claude-opus-5-5": {
+                    "input": 15.00,
+                    "output": 75.00,
+                    "cache_read": 1.50,
+                    "cache_creation": 18.75,
+                }
+            },
         )
         cost_key = 'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"'
         # 100,000 * 15 / 1M ($1.50) + 20,000 * 75 / 1M ($1.50) = $3.00 (thinking は除外)
@@ -1802,6 +1816,16 @@ class TestMetricsCollector(unittest.TestCase):
                 2.0,
                 places=8,
             )
+
+        with mock.patch.object(collector_mod, "default_rates_file", wraps=collector_mod.default_rates_file) as mock_def:
+            collector_explicit = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=True,
+                rates_file=custom_rates_path,
+            )
+            mock_def.assert_not_called()
+            self.assertEqual(collector_explicit.rates_file, custom_rates_path)
 
 
 if __name__ == "__main__":

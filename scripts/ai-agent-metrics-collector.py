@@ -422,8 +422,10 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
             model_key = stripped[:-1].strip().strip("'\"")
             if not model_key:
                 raise ValueError(f"行 {line_no}: モデル名が空である")
+            if model_key in rates:
+                raise ValueError(f"行 {line_no}: モデル定義が重複している ({model_key})")
             current_model = model_key
-            rates.setdefault(current_model, {})
+            rates[current_model] = {}
         else:
             if current_model is None:
                 raise ValueError(f"行 {line_no}: モデル定義より前に単価項目が記述されている: {raw_line}")
@@ -436,6 +438,8 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
                 raise ValueError(f"行 {line_no}: 単価のキーまたは値が空である: {raw_line}")
             if key not in VALID_RATE_KEYS:
                 raise ValueError(f"行 {line_no}: 未知の単価項目キーである ({key})")
+            if key in rates[current_model]:
+                raise ValueError(f"行 {line_no}: 単価項目キーが重複している ({current_model}.{key})")
             try:
                 val = float(val_str)
             except ValueError as e:
@@ -443,6 +447,10 @@ def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
             if val < 0:
                 raise ValueError(f"行 {line_no}: 単価に負の値は指定できない ({val})")
             rates[current_model][key] = val
+
+    for model_key, model_rates in rates.items():
+        if not model_rates:
+            raise ValueError(f"モデル '{model_key}' に単価項目が定義されていない")
 
     return rates
 
@@ -555,8 +563,12 @@ class MetricsCollector:
         self.verbose = verbose
         self.has_errors = False
         self._warned_unpriced_models: set[str] = set()
-        self.rates_file = rates_file or default_rates_file()
-        self.rates = rates if rates is not None else load_rates(self.rates_file)
+        if rates is not None:
+            self.rates_file = rates_file or ""
+            self.rates = rates
+        else:
+            self.rates_file = rates_file or default_rates_file()
+            self.rates = load_rates(self.rates_file)
         self.state = self._load_state()
 
     def log(self, msg: str):
@@ -1437,7 +1449,7 @@ def main():
     )
     parser.add_argument(
         "--rates-file",
-        default=default_rates_file(),
+        default=None,
         help="モデル単価定義ファイルのパス (既定: $AUTOPILOT_RATES または /etc/autopilot5/rates.yaml)",
     )
     parser.add_argument(
