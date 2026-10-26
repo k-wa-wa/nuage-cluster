@@ -27,4 +27,13 @@
       rocmPackages.clr.icd
     ];
   };
+
+  # 本番推論エンジンとして Strata (Qwen3.8-Flash-Next 125B MoE) を有効化する。
+  # 既存の LiteLLM / k8s 連携に影響を与えないよう、ポート 8080 およびモデル名 qwen3.8-27b を引き継ぐ。
+  # services.llama-cpp は strata.nix 側で自動的に無効化される。
+  services.strata = {
+    enable = true;
+    port = 8080;
+    modelName = "qwen3.8-27b";
+  };
 }
