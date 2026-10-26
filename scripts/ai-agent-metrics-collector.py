@@ -62,10 +62,16 @@ def normalize_branch_name(val: str, default: str = "unknown") -> str:
     val = val.strip()
     if val.startswith("refs/heads/"):
         val = val[len("refs/heads/") :]
-    if val in ("tmp", "/tmp") or val.endswith("-tmp"):
+    if val in ("tmp", "/tmp"):
         return "tmp"
+    if val == "HEAD":
+        return default
     val = re.sub(r"[^a-zA-Z0-9_\-\./]+", "-", val)
     val = val.strip("-")
+    if val in ("tmp", "/tmp"):
+        return "tmp"
+    if val == "HEAD":
+        return default
     return val or default
 
 
@@ -192,28 +198,85 @@ def extract_pr_number(ws_path: str) -> str:
     if not os.path.exists(auto_dir):
         return "none"
 
-    files = [
-        os.path.join(auto_dir, "result.md"),
-        os.path.join(auto_dir, "run.log"),
-    ]
+    result_path = os.path.join(auto_dir, "result.md")
+    run_log_path = os.path.join(auto_dir, "run.log")
 
+    url_pattern = re.compile(r"https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)")
     pr_pattern = re.compile(r"(?:PR\s*#|pull/|pulls/)(\d+)")
 
-    for path in files:
-        if os.path.exists(path):
+    # 1. gh pr create の出力 URL (https://github.com/.../pull/N) を最優先
+    for p in (result_path, run_log_path):
+        if os.path.exists(p):
             try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                    matches = url_pattern.findall(content)
+                    if matches:
+                        return matches[-1]
+            except Exception:
+                pass
+
+    # 2. URL がない場合、PR #N などの表記を抽出
+    for p in (result_path, run_log_path):
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()
                     matches = pr_pattern.findall(content)
                     if matches:
                         return matches[-1]
             except Exception:
                 pass
+
     return "none"
 
 
+@functools.lru_cache(maxsize=32)
+def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
+    """run.log から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
+    steps = []
+    try:
+        with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                m = re.search(r"==\s*(implementing|reviewing|fixing|summarizing)", line)
+                if m:
+                    step = m.group(1)
+                    step_map = {
+                        "implementing": "implement",
+                        "reviewing": "review",
+                        "fixing": "fix",
+                        "summarizing": "summarize",
+                    }
+                    steps.append(step_map.get(step, "unknown"))
+    except Exception:
+        pass
+    return steps
+
+
+def get_phase_from_run_log(ws_path: str) -> str:
+    """ワークスペースの .autopilot/run.log から最新ステップを取得"""
+    if not ws_path:
+        return "unknown"
+    if ws_path.startswith("file://"):
+        ws_path = ws_path[len("file://") :]
+
+    auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
+    run_log = os.path.join(auto_dir, "run.log")
+    if not os.path.exists(run_log):
+        return "unknown"
+
+    try:
+        mtime = os.path.getmtime(run_log)
+        steps = _read_run_log_steps(run_log, mtime)
+        if steps:
+            return steps[-1]
+    except Exception:
+        pass
+    return "unknown"
+
+
 def detect_phase(content: str, ws_path: str | None = None) -> str:
-    """プロンプト内容および .autopilot/run.log から作業フェーズ (implement/review/fix/summarize) を判定"""
+    """プロンプト内容から作業フェーズ (implement/review/fix/summarize) を判定"""
     if not content:
         content = ""
 
@@ -245,29 +308,6 @@ def detect_phase(content: str, ws_path: str | None = None) -> str:
         or "brief の要点" in content
     ):
         return "implement"
-
-    # ws_path があれば run.log のステップから判定
-    if ws_path:
-        auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
-        run_log = os.path.join(auto_dir, "run.log")
-        if os.path.exists(run_log):
-            try:
-                with open(run_log, "r", encoding="utf-8", errors="replace") as f:
-                    lines = f.readlines()
-                for line in reversed(lines):
-                    m = re.search(r"==\s*(implementing|reviewing|fixing|summarizing)", line)
-                    if m:
-                        step = m.group(1)
-                        if step == "implementing":
-                            return "implement"
-                        if step == "reviewing":
-                            return "review"
-                        if step == "fixing":
-                            return "fix"
-                        if step == "summarizing":
-                            return "summarize"
-            except Exception:
-                pass
 
     return "unknown"
 
@@ -453,8 +493,12 @@ class MetricsCollector:
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
                 branch = prev_meta.get("branch") or get_git_branch_from_worktree(path)
-                context = prev_meta.get("context", "portal")
-                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "implement")
+                prev_entrypoint = prev_meta.get("entrypoint", "")
+                is_cli = (prev_entrypoint == "cli")
+                is_sdk = (prev_entrypoint == "sdk-cli")
+                context = "portal" if is_cli else prev_meta.get("context", "portal")
+                phase = "portal" if is_cli else (prev_meta.get("phase") or ("portal" if context == "portal" else "implement"))
+                phase_locked = (phase in ("implement", "review", "fix", "summarize") and context == "autopilot") or is_cli
                 saved_model = prev_meta.get("model", "unknown")
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
@@ -468,6 +512,7 @@ class MetricsCollector:
                         raw_line = f.readline()
                         if not raw_line:
                             break
+                        # 不完全な行は次回に回す
                         if not raw_line.endswith(b"\n"):
                             f.seek(line_start)
                             break
@@ -479,6 +524,20 @@ class MetricsCollector:
                         except (json.JSONDecodeError, UnicodeDecodeError):
                             continue
 
+                        # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
+                        entrypoint = record.get("entrypoint")
+                        if entrypoint == "cli":
+                            is_cli = True
+                            context = "portal"
+                            phase = "portal"
+                            phase_locked = True
+                        elif entrypoint == "sdk-cli":
+                            is_sdk = True
+                            context = "autopilot"
+                            if phase == "portal":
+                                phase = "unknown"
+                                phase_locked = False
+
                         cwd = record.get("cwd", "")
                         if cwd:
                             extracted_repo = normalize_repo_name(cwd)
@@ -488,37 +547,46 @@ class MetricsCollector:
                             if extracted_branch != "unknown":
                                 branch = extracted_branch
 
-                        # record 自体の gitBranch を優先利用
+                        # record 自体の gitBranch を利用（HEAD や無効値以外）
                         rec_branch = record.get("gitBranch", "")
-                        if rec_branch:
-                            branch = normalize_branch_name(rec_branch)
+                        if rec_branch and rec_branch != "HEAD":
+                            norm_br = normalize_branch_name(rec_branch)
+                            if norm_br != "unknown":
+                                branch = norm_br
 
-                        # ユーザープロンプトからフェーズを判定
-                        prompt_content = ""
-                        if record.get("type") == "user":
-                            msg = record.get("message")
-                            if isinstance(msg, dict):
-                                prompt_content = str(msg.get("content", ""))
-                            elif isinstance(msg, str):
-                                prompt_content = msg
-                        elif record.get("type") == "queue-operation":
-                            prompt_content = str(record.get("content", ""))
+                        # ユーザープロンプトからフェーズを判定（autopilot の初回指示のみ）
+                        # 窓口セッション (cli) は portal に固定し、上書きさせない
+                        if not is_cli and not phase_locked:
+                            prompt_content = ""
+                            if record.get("type") == "user":
+                                msg = record.get("message")
+                                if isinstance(msg, dict):
+                                    content_val = msg.get("content")
+                                    # ツールの結果 (list) は無視し、文字列の指示のみを対象とする
+                                    if isinstance(content_val, str):
+                                        prompt_content = content_val
+                                elif isinstance(msg, str):
+                                    prompt_content = msg
+                            elif record.get("type") == "queue-operation":
+                                content_val = record.get("content")
+                                if isinstance(content_val, str):
+                                    prompt_content = content_val
 
-                        if prompt_content:
-                            detected = detect_phase(prompt_content, cwd or path)
-                            if detected in ("implement", "review", "fix", "summarize"):
-                                context = "autopilot"
-                                phase = detected
+                            if prompt_content:
+                                detected = detect_phase(prompt_content)
+                                if detected in ("implement", "review", "fix", "summarize"):
+                                    context = "autopilot"
+                                    phase = detected
+                                    phase_locked = True
+                                elif is_sdk:
+                                    fb_phase = get_phase_from_run_log(cwd or path)
+                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                        phase = fb_phase
+                                        context = "autopilot"
+                                        phase_locked = True
 
-                        # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
-                        entrypoint = record.get("entrypoint", "")
-                        if entrypoint == "sdk-cli":
-                            context = "autopilot"
-                            if phase == "portal":
-                                phase = "implement"
-
-                        if context == "portal":
-                            phase = "portal"
+                        effective_phase = "portal" if (is_cli or context == "portal") else (phase if phase != "unknown" else "implement")
+                        effective_context = "portal" if (is_cli or context == "portal") else "autopilot"
 
                         # トークン使用量のパース
                         msg = record.get("message") or {}
@@ -526,7 +594,7 @@ class MetricsCollector:
                         if not usage or not isinstance(usage, dict):
                             continue
 
-                        # 重複カウント防止
+                        # 重複カウント防止: 1 つの応答の複数行に同じ message.id / requestId と usage が付与される
                         mid = msg.get("id") or record.get("requestId")
                         if mid:
                             if mid in seen_ids:
@@ -558,11 +626,15 @@ class MetricsCollector:
                             ("thinking", thinking),
                         ]:
                             if count > 0 or token_type in ("input", "output"):
-                                key = f'agent="claude",branch="{branch}",model="{model}",phase="{phase}",repo="{repo}",type="{token_type}"'
+                                key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
+                effective_phase = "portal" if (is_cli or context == "portal") else (phase if phase != "unknown" else "implement")
+                effective_context = "portal" if (is_cli or context == "portal") else "autopilot"
+
+                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 if is_new_session and new_offset > 0:
-                    s_key = f'agent="claude",branch="{branch}",phase="{phase}",repo="{repo}"'
+                    s_key = f'agent="claude",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
                 for k, v in temp_counters.items():
@@ -570,13 +642,15 @@ class MetricsCollector:
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
+                # seen_message_ids は直近 500 件に制限して肥大化を防止する（順序を保持）
                 recent_ids = list(seen_ids.keys())[-500:]
                 offsets[path] = {
                     "offset": new_offset,
                     "repo": repo,
                     "branch": branch,
-                    "phase": phase,
-                    "context": context,
+                    "phase": effective_phase,
+                    "context": effective_context,
+                    "entrypoint": "cli" if is_cli else ("sdk-cli" if is_sdk else prev_entrypoint),
                     "model": saved_model,
                     "seen_message_ids": recent_ids,
                 }
@@ -651,6 +725,7 @@ class MetricsCollector:
                         raw_line = f.readline()
                         if not raw_line:
                             break
+                        # 不完全な行は次回に回す
                         if not raw_line.endswith(b"\n"):
                             f.seek(line_start)
                             break
@@ -670,12 +745,14 @@ class MetricsCollector:
                             current_model = normalize_model_name(m_model.group(1))
 
                         # context および phase 検出
+                        # last-status.json の portal に載っている conversation は常に portal を維持
                         if cid and cid in portal_cids:
                             context = "portal"
                             phase = "portal"
                         else:
+                            # context 検出: 初回ターン (step_index == 0) の USER_INPUT に autopilot 起動プロンプトがあるかで判定
                             if record.get("step_index") == 0 and record.get("type") == "USER_INPUT":
-                                detected = detect_phase(content, ws_path)
+                                detected = detect_phase(content)
                                 if detected in ("implement", "review", "fix", "summarize"):
                                     context = "autopilot"
                                     phase = detected
@@ -684,9 +761,10 @@ class MetricsCollector:
                                     or "あなたはコードレビュアーである" in content
                                 ):
                                     context = "autopilot"
-                                    phase = detected if detected != "unknown" else "implement"
+                                    fb = get_phase_from_run_log(ws_path)
+                                    phase = fb if fb in ("implement", "review", "fix", "summarize") else "implement"
 
-                        # repo および branch 検出: 未特定の場合のみ content 中のパスから抽出
+                        # repo および branch 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
                         if repo == "unknown" or branch == "unknown":
                             m_ws = re.search(r"((?:/[^/\s\'\"]+)*?/(?:orca/)?workspaces/([^/\s\'\"]+)(?:/([^/\s\'\"]+))?)", content)
                             if m_ws:
@@ -719,6 +797,7 @@ class MetricsCollector:
                                 key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
+                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 if is_new_session and new_offset > 0:
                     s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
@@ -778,10 +857,11 @@ class MetricsCollector:
                         s_entry["repo"] = repo
                     if branch != "unknown":
                         s_entry["branch"] = branch
+                    # Orca UI 上のペインは人間との対話窓口（portal）である
                     s_entry["context"] = "portal"
                     s_entry["phase"] = "portal"
 
-                    # Antigravity の conversation_id との対応
+                    # Antigravity の conversation_id との対応、および portal CID の記録
                     provider_session = entry.get("providerSession", {})
                     if provider_session.get("key") == "conversation_id":
                         cid = provider_session.get("id")
@@ -822,6 +902,7 @@ class MetricsCollector:
                 ev_type = ev.get("type")
                 ev_at = ev.get("at", 0)
 
+                # start イベントで sessionKey と worktree を記録
                 if ev_type == "agent_start":
                     meta = ev.get("meta", {})
                     sk = meta.get("sessionKey", "")
@@ -891,8 +972,10 @@ class MetricsCollector:
                 with open(status_file, "r", encoding="utf-8") as f:
                     raw_status = f.read().strip()
 
+                # status ファイルは "done", "failed: <理由>", "needs-human: <理由>" 形式で書かれる
                 result_type = raw_status.split(":", 1)[0].strip()
 
+                # 完了ステータスのみ集計対象とする
                 if result_type not in ("done", "failed", "needs-human"):
                     continue
 
@@ -913,6 +996,7 @@ class MetricsCollector:
                                 impl = normalize_identifier(m_start.group(1))
                                 level = normalize_identifier(m_start.group(2))
 
+                # パスから repo を判定
                 ws_dir = os.path.dirname(d)
                 repo = normalize_repo_name(d)
                 branch = get_git_branch_from_worktree(ws_dir)

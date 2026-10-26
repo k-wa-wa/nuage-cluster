@@ -41,8 +41,10 @@ class TestNormalizationAndExtraction(unittest.TestCase):
     def test_normalize_branch_name(self):
         self.assertEqual(normalize_branch_name("refs/heads/bot-wa-wa/bobtail"), "bot-wa-wa/bobtail")
         self.assertEqual(normalize_branch_name("feature/ai-agent-metrics"), "feature/ai-agent-metrics")
+        self.assertEqual(normalize_branch_name("feature/foo-tmp"), "feature/foo-tmp")
         self.assertEqual(normalize_branch_name("tmp"), "tmp")
         self.assertEqual(normalize_branch_name("/tmp"), "tmp")
+        self.assertEqual(normalize_branch_name("HEAD"), "unknown")
         self.assertEqual(normalize_branch_name("invalid@branch#name"), "invalid-branch-name")
         self.assertEqual(normalize_branch_name(""), "unknown")
         self.assertEqual(normalize_branch_name(None), "unknown")
@@ -285,6 +287,184 @@ class TestMetricsCollector(unittest.TestCase):
                 self.assertEqual(tokens[expected_key], 10)
         finally:
             collector_mod.glob.glob = orig_glob
+
+    def test_claude_tool_result_does_not_change_phase(self):
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-tool-result.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            # 1. 初回の autopilot 実装指示
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-tool",
+                "message": {
+                    "id": "msg-tool-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50, "output_tokens": 20},
+                },
+            }) + "\n")
+            # 2. ツールの実行結果 (type=user, content=list) に別フェーズの文言が含まれる
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "content": "あなたはコードレビュアーである。レビューする。人間向けの要約を .autopilot/result.md に書く。",
+                        }
+                    ]
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-tool",
+                "message": {
+                    "id": "msg-tool-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 60, "output_tokens": 30},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        # すべて implement として集計され、review や summarize に化けないこと
+        impl_key_input = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        impl_key_output = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"'
+        self.assertIn(impl_key_input, tokens)
+        self.assertEqual(tokens[impl_key_input], 110)
+        self.assertIn(impl_key_output, tokens)
+        self.assertEqual(tokens[impl_key_output], 50)
+
+        for k in tokens:
+            self.assertNotIn('phase="review"', k)
+            self.assertNotIn('phase="summarize"', k)
+
+    def test_claude_cli_session_portal_fixed(self):
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-cli.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "attachment",
+                "entrypoint": "cli",
+            }) + "\n")
+            # 窓口セッションでユーザーが「レビューする」と発言
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "cli",
+                "message": {"content": "あなたはコードレビュアーである。レビューする。"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/feat-cli",
+                "message": {
+                    "id": "msg-cli-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 40, "output_tokens": 10},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-cli",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(portal_key_input, tokens)
+        self.assertEqual(tokens[portal_key_input], 40)
+        # offset メタデータの context と phase も portal に固定されること
+        meta = collector.state["claude_offsets"][jsonl_path]
+        self.assertEqual(meta["context"], "portal")
+        self.assertEqual(meta["phase"], "portal")
+
+    def test_claude_cli_with_run_log_remains_portal(self):
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "test-runlog")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] == reviewing (round 1: claude)\n")
+
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test-runlog")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-cli-runlog.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "attachment",
+                "entrypoint": "cli",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "cli",
+                "message": {"content": "進捗どう？"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/feat-runlog",
+                "message": {
+                    "id": "msg-cli-runlog-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 30, "output_tokens": 15},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-runlog",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertIn(portal_key_input, tokens)
+        self.assertEqual(tokens[portal_key_input], 30)
+        # run.log の review に引っ張られないこと
+        for k in tokens:
+            self.assertNotIn('phase="review"', k)
 
     def test_claude_duplicate_message_id_dedup(self):
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
