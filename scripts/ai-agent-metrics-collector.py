@@ -183,6 +183,21 @@ def extract_task_from_brief(ws_path: str) -> str:
     return "unknown"
 
 
+AUTOPILOT_START_LINE_RE = re.compile(r"^(?:\[[^\]]*\]\s*)?start\s+impl=(\S+)\s+level=(\S+)")
+
+
+def _extract_latest_run_log_content(content: str) -> str:
+    """run.log の内容から最後の 'start impl=' 行より後のテキストのみを抽出する"""
+    lines = content.splitlines(keepends=True)
+    last_start_idx = None
+    for idx, line in enumerate(lines):
+        if AUTOPILOT_START_LINE_RE.match(line):
+            last_start_idx = idx
+    if last_start_idx is not None:
+        return "".join(lines[last_start_idx + 1 :])
+    return content
+
+
 def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "none") -> str:
     """ワークスペースの .autopilot/run.log または result.md から PR 番号を抽出"""
     if not ws_path:
@@ -197,6 +212,23 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
     result_path = os.path.join(auto_dir, "result.md")
     run_log_path = os.path.join(auto_dir, "run.log")
 
+    sources: list[str] = []
+    if os.path.exists(result_path):
+        try:
+            with open(result_path, "r", encoding="utf-8", errors="replace") as f:
+                sources.append(f.read())
+        except Exception:
+            pass
+    if os.path.exists(run_log_path):
+        try:
+            with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
+                sources.append(_extract_latest_run_log_content(f.read()))
+        except Exception:
+            pass
+
+    if not sources:
+        return default
+
     repo_url_pattern = None
     if repo and repo != "unknown":
         repo_url_pattern = re.compile(rf"https://github\.com/[^/\s]+/{re.escape(repo)}/pull/(\d+)")
@@ -205,40 +237,22 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
 
     # 1. 該当リポジトリの URL があれば最優先
     if repo_url_pattern:
-        for p in (result_path, run_log_path):
-            if os.path.exists(p):
-                try:
-                    with open(p, "r", encoding="utf-8", errors="replace") as f:
-                        content = f.read()
-                        matches = repo_url_pattern.findall(content)
-                        if matches:
-                            return matches[-1]
-                except Exception:
-                    pass
+        for content in sources:
+            matches = repo_url_pattern.findall(content)
+            if matches:
+                return matches[-1]
 
     # 2. 一般的な gh pr create の出力 URL (https://github.com/.../pull/N) を優先
-    for p in (result_path, run_log_path):
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                    matches = url_pattern.findall(content)
-                    if matches:
-                        return matches[-1]
-            except Exception:
-                pass
+    for content in sources:
+        matches = url_pattern.findall(content)
+        if matches:
+            return matches[-1]
 
     # 3. URL がない場合、PR #N などの表記を抽出
-    for p in (result_path, run_log_path):
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                    matches = pr_pattern.findall(content)
-                    if matches:
-                        return matches[-1]
-            except Exception:
-                pass
+    for content in sources:
+        matches = pr_pattern.findall(content)
+        if matches:
+            return matches[-1]
 
     return default
 
@@ -315,7 +329,7 @@ def get_running_autopilot_pid(auto_dir: str) -> int | None:
 
 
 def extract_autopilot_impl_and_level(auto_dir: str, raw_status: str = "") -> tuple[str, str]:
-    """ワークスペースの .autopilot/run.log または status から (impl, level) を抽出"""
+    """ワークスペースの .autopilot/run.log または status から稼働中タスクの (impl, level) を抽出"""
     impl = "unknown"
     level = "unknown"
     run_log_file = os.path.join(auto_dir, "run.log")
@@ -323,7 +337,7 @@ def extract_autopilot_impl_and_level(auto_dir: str, raw_status: str = "") -> tup
         try:
             with open(run_log_file, "r", encoding="utf-8", errors="replace") as f:
                 for line in f:
-                    m_start = re.search(r"start\s+impl=(\S+)\s+level=(\S+)", line)
+                    m_start = AUTOPILOT_START_LINE_RE.match(line)
                     if m_start:
                         raw_impl = m_start.group(1).split(":", 1)[0]
                         impl = normalize_identifier(raw_impl)
@@ -1428,8 +1442,17 @@ class MetricsCollector:
                 if prev_record and prev_record.get("status") == raw_status and prev_record.get("mtime") == status_mtime:
                     continue
 
-                # run.log から impl, level を抽出（最新の start 行を採用）
-                impl, level = extract_autopilot_impl_and_level(d, first_line)
+                # run.log から impl, level を抽出（最新の start 行を採用、既存仕様の値を維持）
+                impl = "unknown"
+                level = "unknown"
+                run_log_file = os.path.join(d, "run.log")
+                if os.path.exists(run_log_file):
+                    with open(run_log_file, "r", encoding="utf-8", errors="replace") as f:
+                        for line in f:
+                            m_start = AUTOPILOT_START_LINE_RE.match(line)
+                            if m_start:
+                                impl = normalize_identifier(m_start.group(1))
+                                level = normalize_identifier(m_start.group(2))
 
                 # パスから repo を判定
                 ws_dir = os.path.dirname(d)

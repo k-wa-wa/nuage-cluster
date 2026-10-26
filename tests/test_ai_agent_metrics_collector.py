@@ -145,6 +145,25 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                 )
             self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster"), "123")
 
+            # ワークスペースを使い回した場合: 最後の start impl= 行より前の過去 run の PR は拾わない
+            os.remove(os.path.join(auto_dir, "result.md"))
+            with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+                f.write(
+                    "[23:27:23] start impl=agy level=high reviewers=claude base=13e10339 from=implement\n"
+                    "- PR: https://github.com/k-wa-wa/nuage-cluster/pull/60\n"
+                    "[23:42:28] PR #60\n"
+                    "[00:29:32] == needs-human: 修正ループが上限に達した\n"
+                    "[00:14:24] start impl=agy level=high reviewers=claude base=1cfde718 from=implement\n"
+                    "[00:14:24] == implementing (agy)\n"
+                )
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster", default="unknown"), "unknown")
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster"), "none")
+
+            # 新しい run で PR #65 が作成されたら、過去 run の URL (#60) ではなく #65 を返す
+            with open(os.path.join(auto_dir, "run.log"), "a", encoding="utf-8") as f:
+                f.write("[00:20:00] PR #65\n")
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster", default="unknown"), "65")
+
             # PR 記載なし
             with tempfile.TemporaryDirectory() as empty_dir:
                 self.assertEqual(extract_pr_number(empty_dir), "none")
@@ -2055,6 +2074,77 @@ class TestMetricsCollector(unittest.TestCase):
             payload2 = collector.generate_prometheus_payload()
             self.assertNotIn("nuage_ai_agent_autopilot_active", payload2)
             self.assertIn("nuage_ai_agent_autopilot_runs_total{", payload2)
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.exists = orig_exists
+
+    def test_autopilot_reused_workspace_pr_and_impl_compat(self):
+        # ワークスペースを使い回した際、未作成の PR に前回の PR 番号が付かないこと（active / runs_total 両方）
+        # およびモデル指定付き impl の runs_total 後方互換性を検証する
+        ws = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-reused")
+        auto_dir = os.path.join(ws, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        git_dir = os.path.join(ws, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feature-second-task\n")
+
+        pid_file = os.path.join(auto_dir, "run.pid")
+        status_file = os.path.join(auto_dir, "status")
+        run_log_file = os.path.join(auto_dir, "run.log")
+        result_file = os.path.join(auto_dir, "result.md")
+
+        with open(pid_file, "w", encoding="utf-8") as f:
+            f.write(f"{os.getpid()}\n")
+        with open(status_file, "w", encoding="utf-8") as f:
+            f.write("implementing (claude)\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 2回目のタスク\n")
+        with open(run_log_file, "w", encoding="utf-8") as f:
+            f.write(
+                "[23:27:23] start impl=agy level=high reviewers=claude base=13e10339 from=implement\n"
+                "- PR: https://github.com/k-wa-wa/nuage-cluster/pull/60\n"
+                "[23:42:28] PR #60\n"
+                "[00:29:32] == done\n"
+                "[00:14:24] start impl=claude:claude-opus-5-5@high level=standard reviewers=agy base=1cfde718 from=implement\n"
+                "[00:14:24] == implementing (claude)\n"
+            )
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        orig_exists = os.path.exists
+        collector_mod.glob.glob = lambda p: [auto_dir] if "autopilot" in p else []
+        os.path.exists = lambda p: True if p == "/home/nixos/orca/workspaces" else orig_exists(p)
+        try:
+            # 1. 稼働中 (PR 未作成): 前回の #60 ではなく pr="unknown" になり、impl="claude" になること
+            collector.collect_autopilot_runs()
+            expected_active_key = (
+                'branch="bot-wa-wa/feature-second-task",impl="claude",level="standard",'
+                'phase="implementing",pr="unknown",repo="nuage-cluster",task="2回目のタスク"'
+            )
+            self.assertEqual(collector.active_autopilots, {expected_active_key: 1})
+
+            # 2. PR 未作成のまま failed で終了した場合: runs_total でも pr="none" になり、
+            #    impl は既存仕様通り "claude-claude-opus-5-5-high" が維持されること
+            os.remove(pid_file)
+            with open(status_file, "w", encoding="utf-8") as f:
+                f.write("failed: 実装担当が異常終了した\n")
+            with open(result_file, "w", encoding="utf-8") as f:
+                f.write("要約は書かれなかった。結果: failed: 実装担当が異常終了した\n詳細は .autopilot/run.log を読むこと。\n")
+
+            collector.collect_autopilot_runs()
+            self.assertEqual(collector.active_autopilots, {})
+            runs = collector.state["counters"]["autopilot_runs"]
+            expected_run_key = (
+                'branch="bot-wa-wa/feature-second-task",impl="claude-claude-opus-5-5-high",level="standard",'
+                'pr="none",repo="nuage-cluster",result="failed",task="2回目のタスク"'
+            )
+            self.assertEqual(runs, {expected_run_key: 1})
         finally:
             collector_mod.glob.glob = orig_glob
             os.path.exists = orig_exists
