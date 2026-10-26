@@ -127,6 +127,10 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             brief_file = os.path.join(auto_dir, "brief.md")
             with open(brief_file, "w", encoding="utf-8") as f:
                 f.write('# 日本語タスク名 "引用" と \\パス\\ 連携\n\n本文\n')
+            git_dir = os.path.join(tmp_dir, ".git")
+            os.makedirs(git_dir, exist_ok=True)
+            with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+                f.write("ref: refs/heads/bot-wa-wa/feat\n")
 
             # 1. phase == "portal" の場合は brief.md が存在しても "portal" となること
             self.assertEqual(
@@ -134,10 +138,16 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                 "portal",
             )
 
-            # 2. phase != "portal" で brief.md が存在する場合は日本語タスク名（エスケープ済み）となること
+            # 2. phase != "portal" でワークスペースのブランチと branch が一致し brief.md が存在する場合は日本語タスク名（エスケープ済み）となること
             self.assertEqual(
                 resolve_task_label(phase="implement", ws_path=tmp_dir, branch="bot-wa-wa/feat"),
                 '日本語タスク名 \\"引用\\" と \\\\パス\\\\ 連携',
+            )
+
+            # 2b. ワークスペースの現在のブランチと branch が食い違う場合は brief.md を使わず branch にフォールバックすること
+            self.assertEqual(
+                resolve_task_label(phase="implement", ws_path=tmp_dir, branch="feature/old-branch"),
+                "feature/old-branch",
             )
 
             # 3. brief.md が存在しない場合は branch にフォールバックされること
@@ -917,7 +927,14 @@ class TestMetricsCollector(unittest.TestCase):
         v3_data = {
             "version": 3,
             "claude_offsets": {"/old/path": {"offset": 100, "repo": "nuage-cluster"}},
-            "agy_offsets": {"/old/agy": {"offset": 200}},
+            "agy_offsets": {
+                "/home/nixos/.gemini/antigravity-cli/brain/cid-v3-agy/.system_generated/logs/transcript.jsonl": {
+                    "offset": 200,
+                    "repo": "nuage-cluster",
+                    "branch": "feature/v3-branch",
+                    "ws_path": "/home/nixos/orca/workspaces/nuage-cluster/v3-ws",
+                }
+            },
             "last_orca_stats_timestamp": 5000,
             "counters": {
                 "tokens": {'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"': 1000},
@@ -942,6 +959,14 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(len(collector2.state["counters"]["duration"]), 0)
         self.assertEqual(len(collector2.state["claude_offsets"]), 0)
         self.assertEqual(len(collector2.state["agy_offsets"]), 0)
+        self.assertEqual(
+            collector2.state["cid_to_meta"].get("cid-v3-agy"),
+            {
+                "repo": "nuage-cluster",
+                "branch": "feature/v3-branch",
+                "worktree": "/home/nixos/orca/workspaces/nuage-cluster/v3-ws",
+            },
+        )
 
     def test_orca_stats_portal_context(self):
         auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-x", ".autopilot")
@@ -2061,6 +2086,194 @@ class TestMetricsCollector(unittest.TestCase):
             4.5,
             places=8,
         )
+
+    def test_reused_workspace_branch_mismatch_does_not_use_current_brief(self):
+        # 使い回したワークスペースで、過去の別ブランチのセッションが現在の brief.md のタスク名で記録されないこと
+        ws_reused = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-ai-agent-ledger")
+        auto_dir = os.path.join(ws_reused, ".autopilot")
+        git_dir = os.path.join(ws_reused, ".git")
+        os.makedirs(auto_dir, exist_ok=True)
+        os.makedirs(git_dir, exist_ok=True)
+
+        # まず旧ブランチ (feature/ai-agent-ledger) で稼働していた時点の状態を作る
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/feature/ai-agent-ledger\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 旧タスク: メインフレーム勘定系の基盤構築\n")
+
+        project_dir = os.path.join(
+            self.test_dir,
+            "projects",
+            "-home-nixos-orca-workspaces-nuage-cluster-feature-ai-agent-ledger",
+        )
+        os.makedirs(project_dir, exist_ok=True)
+
+        # セッション1: 旧ブランチ当時に一度収集されたセッション (prev_meta に旧 brief_task が保存されるケース)
+        old_saved_jsonl = os.path.join(project_dir, "old-saved.jsonl")
+        with open(old_saved_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-saved-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        collector1 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+        collector_mod.glob.glob = lambda p: [old_saved_jsonl] if "claude" in p else []
+        try:
+            collector1.collect_claude()
+            collector1._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        old_saved_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="旧タスク: メインフレーム勘定系の基盤構築"'
+        self.assertIn(old_saved_cost_key, collector1.state["counters"]["cost_usd"])
+        self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][old_saved_cost_key], 3.0, places=8)
+
+        # ワークスペースが新しいブランチ (bot-wa-wa/feature-ai-agent-task-metadata) に使い回され、brief.md が書き換わる
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feature-ai-agent-task-metadata\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 新タスク: 日本語タスク名 (task) ラベル連携\n")
+
+        # セッション1 (old_saved_jsonl) に追記が発生した場合でも、新しい brief で上書きされず旧タスク名が維持されること
+        with open(old_saved_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-saved-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50_000, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        # セッション2: 状態リセット後や新規再集計として offset=0 から読まれる過去ブランチのセッション
+        # (現在のワークスペースのブランチと gitBranch が不一致 -> 現在の brief を使わず branch にフォールバック)
+        old_rescan_jsonl = os.path.join(project_dir, "old-rescan.jsonl")
+        with open(old_rescan_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-rescan-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 200_000, "output_tokens": 40_000},
+                },
+            }) + "\n")
+
+        # セッション3: 現在のブランチと一致するセッション (-> 現在の brief の新タスク名が使われる)
+        current_jsonl = os.path.join(project_dir, "current.jsonl")
+        with open(current_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "bot-wa-wa/feature-ai-agent-task-metadata",
+                "message": {
+                    "id": "msg-current-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+
+        # セッション4: Antigravity で記録上の branch がワークスペースの現在ブランチと食い違うケース
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-old-agy", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        old_agy_transcript = os.path.join(brain_dir, "transcript.jsonl")
+        with open(old_agy_transcript, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 100_000,
+                "output_tokens": 25_000,
+                "content": f"ワークスペース {ws_reused} を確認した。",
+            }) + "\n")
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector2.state["cid_to_meta"]["conv-old-agy"] = {
+            "repo": "nuage-cluster",
+            "branch": "feature/ai-agent-ledger",
+            "worktree": ws_reused,
+        }
+
+        def mock_glob2(p):
+            if "claude" in p:
+                return [old_saved_jsonl, old_rescan_jsonl, current_jsonl]
+            if "antigravity" in p:
+                return [old_agy_transcript]
+            return []
+
+        collector_mod.glob.glob = mock_glob2
+        try:
+            collector2.collect_claude()
+            collector2.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        costs2 = collector2.state["counters"]["cost_usd"]
+        tokens2 = collector2.state["counters"]["tokens"]
+
+        # 1. old_saved_jsonl の追記分は「旧タスク」のまま加算されること ($3.0 + $1.5 = $4.5)
+        self.assertAlmostEqual(costs2[old_saved_cost_key], 4.5, places=8)
+        self.assertEqual(tokens2[f'{old_saved_cost_key},type="input"'], 150_000)
+
+        # 2. old_rescan_jsonl は現在の brief とブランチが不一致のため branch ("feature/ai-agent-ledger") にフォールバックされること
+        old_rescan_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="feature/ai-agent-ledger"'
+        self.assertIn(old_rescan_cost_key, costs2)
+        self.assertAlmostEqual(costs2[old_rescan_cost_key], 6.0, places=8)
+        self.assertEqual(tokens2[f'{old_rescan_cost_key},type="input"'], 200_000)
+
+        # 誤って旧ブランチの記録に「新タスク」が付与されていないこと
+        wrong_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="新タスク: 日本語タスク名 (task) ラベル連携"'
+        self.assertNotIn(wrong_cost_key, costs2)
+
+        # 3. current_jsonl はブランチが一致するため「新タスク」が付与されること
+        current_cost_key = 'agent="claude",branch="bot-wa-wa/feature-ai-agent-task-metadata",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="新タスク: 日本語タスク名 (task) ラベル連携"'
+        self.assertIn(current_cost_key, costs2)
+        self.assertAlmostEqual(costs2[current_cost_key], 3.0, places=8)
+
+        # 4. Antigravity の不一致ブランチも branch にフォールバックされ「新タスク」が付与されないこと
+        old_agy_cost_key = 'agent="agy",branch="feature/ai-agent-ledger",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="feature/ai-agent-ledger"'
+        self.assertIn(old_agy_cost_key, costs2)
+        self.assertAlmostEqual(costs2[old_agy_cost_key], 0.02, places=8)
 
 
 if __name__ == "__main__":
