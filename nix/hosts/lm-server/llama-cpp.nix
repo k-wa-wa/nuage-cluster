@@ -5,10 +5,7 @@ let
   # Qwen3.8-27B は 64 層中 16 層のみ full attention のため KV キャッシュが小さく、
   # UD-IQ4_XS (14.3GB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.9GB)。
   # IQ4_XS は UD-Q3_K_XL (13.1GB) と生成速度が同等以上で、重みの精度が高い。
-  # Qwen3.8-Flash-Next (125B MoE) は 48GB RAM 常駐モードにおいて実測 21〜23 tok/s で
-  # 動作することが検証されたが、量子化歪みや Thinking ループ等の課題により本採用は見送られた
-  # （検証記録および退避資材は docs/ideas/strata/ を参照）。
-  # 現行の既定運用としては単一 GPU に全層常駐し安定している 27B dense モデルを採用している。
+  # Qwen3.8-Flash-Next (125B MoE) は最小でも 75GB のメモリが必要なため載らない。
   modelName = "qwen3.8-27b";
   model = llamaCppPkgs.fetchurl {
     name = "Qwen3.8-27B-UD-IQ4_XS.gguf";
@@ -58,9 +55,8 @@ in
       # (実測 14 → 21〜27 tok/s)。VRAM を約 1.2GB 追加で使う。
       "--spec-type"
       "draft-mtp"
-      # 当初 8GB RAM 構成時、プロンプトキャッシュ (既定 8GiB) とコンテキストチェックポイント
-      # (既定 32 個) をホスト RAM に貯めると 60K 級コンテキストで OOM kill されたため上限を設けた。
-      # 現在は 48GB に拡張されているが、メモリ浪費を抑え安定稼働を確保するため設定を継続している。
+      # VM の RAM は 8GB しかなく、プロンプトキャッシュ (既定 8GiB) とコンテキストチェックポイント
+      # (既定 32 個) をホスト RAM に貯めると 60K 級のコンテキストで OOM kill される。
       "--cache-ram"
       "2048"
       "--ctx-checkpoints"
