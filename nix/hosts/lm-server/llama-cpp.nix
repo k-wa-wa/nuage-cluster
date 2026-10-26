@@ -1,4 +1,9 @@
-{ llamaCppPkgs, ... }:
+{
+  llamaCppPkgs,
+  config,
+  lib,
+  ...
+}:
 
 let
   # GPU (Radeon RX 7600 XT, gfx1102, VRAM 16GB) に全層を載せられるサイズを選ぶ。
@@ -78,5 +83,7 @@ in
   # ROCm の HIP Graph を無効化する。MTP の投機的デコードと長いコンテキスト (60K 級) の組み合わせで、
   # 2 回目以降のリクエストの hipGraphExecUpdate 内で SEGV することを再現確認した
   # (llama-cpp b10408 / ROCm 7.2.3)。無効化しても生成速度の低下は見られない。
-  systemd.services.llama-cpp.environment.GGML_CUDA_DISABLE_GRAPHS = "1";
+  systemd.services.llama-cpp = lib.mkIf config.services.llama-cpp.enable {
+    environment.GGML_CUDA_DISABLE_GRAPHS = "1";
+  };
 }
