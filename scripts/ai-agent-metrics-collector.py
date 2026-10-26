@@ -4,6 +4,7 @@ AI Agent 使用量メトリクスの収集と VictoriaMetrics 連携スクリプ
 
 Orca および autopilot で稼働した AI Agent (Claude Code, Antigravity) の
 使用量（トークン数、セッション時間、autopilot 実行実績）を集計し、
+作業コンテキスト（branch, phase, task, pr）を付与して
 Prometheus exposition format で VictoriaMetrics へ送信する。
 """
 
@@ -54,6 +55,20 @@ def normalize_identifier(val: str, default: str = "unknown") -> str:
     return val or default
 
 
+def normalize_branch_name(val: str, default: str = "unknown") -> str:
+    """ブランチ名用文字列の正規化（英数字・ハイフン・アンダースコア・スラッシュ・ドットを許可）"""
+    if not val:
+        return default
+    val = val.strip()
+    if val.startswith("refs/heads/"):
+        val = val[len("refs/heads/") :]
+    if val in ("tmp", "/tmp") or val.endswith("-tmp"):
+        return "tmp"
+    val = re.sub(r"[^a-zA-Z0-9_\-\./]+", "-", val)
+    val = val.strip("-")
+    return val or default
+
+
 def normalize_repo_name(raw: str) -> str:
     """ワークスペースパスやプロジェクト名からリポジトリ名を抽出して正規化"""
     if not raw:
@@ -88,15 +103,193 @@ def normalize_repo_name(raw: str) -> str:
     return normalize_identifier(raw)
 
 
-def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) -> str:
-    """conversation_summaries.db およびキャッシュから conversation_id に紐づくワークスペースの repo 名を取得"""
-    if not cid:
+def get_git_branch_from_worktree(path: str) -> str:
+    """指定されたパス（worktree またはその配下）から git HEAD のブランチ名を取得"""
+    if not path:
         return "unknown"
+    if path.startswith("file://"):
+        path = path[len("file://") :]
+    if (
+        "/projects/-tmp/" in path
+        or path.endswith("-tmp")
+        or path == "/tmp"
+        or path == "tmp"
+        or path.endswith("/tmp")
+    ):
+        return "tmp"
+
+    curr = os.path.abspath(path)
+    for _ in range(6):
+        dot_git = os.path.join(curr, ".git")
+        if os.path.exists(dot_git):
+            try:
+                head_path = None
+                if os.path.isdir(dot_git):
+                    head_path = os.path.join(dot_git, "HEAD")
+                elif os.path.isfile(dot_git):
+                    with open(dot_git, "r", encoding="utf-8") as f:
+                        line = f.readline().strip()
+                        if line.startswith("gitdir:"):
+                            gitdir = line[len("gitdir:") :].strip()
+                            if not os.path.isabs(gitdir):
+                                gitdir = os.path.normpath(os.path.join(curr, gitdir))
+                            head_path = os.path.join(gitdir, "HEAD")
+                if head_path and os.path.exists(head_path):
+                    with open(head_path, "r", encoding="utf-8") as f:
+                        content = f.readline().strip()
+                        if content.startswith("ref: refs/heads/"):
+                            branch = content[len("ref: refs/heads/") :].strip()
+                            return normalize_branch_name(branch)
+                        elif content:
+                            return normalize_branch_name(content[:8])
+            except Exception:
+                pass
+            break
+        parent = os.path.dirname(curr)
+        if parent == curr:
+            break
+        curr = parent
+
+    return "unknown"
+
+
+def extract_task_from_brief(ws_path: str) -> str:
+    """ワークスペースの .autopilot/brief.md からタスク名（1行目見出し）を抽出"""
+    if not ws_path:
+        return "unknown"
+    if ws_path.startswith("file://"):
+        ws_path = ws_path[len("file://") :]
+
+    auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
+    brief_path = os.path.join(auto_dir, "brief.md")
+    if not os.path.exists(brief_path):
+        brief_path = os.path.join(ws_path, "brief.md")
+        if not os.path.exists(brief_path):
+            return "unknown"
+
+    try:
+        with open(brief_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# "):
+                    title = line[2:].strip()
+                    title = re.sub(r"[\r\n\t]+", " ", title)
+                    title = title.replace("\\", "\\\\").replace('"', '\\"')
+                    return title or "unknown"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def extract_pr_number(ws_path: str) -> str:
+    """ワークスペースの .autopilot/run.log または result.md から PR 番号を抽出"""
+    if not ws_path:
+        return "none"
+    if ws_path.startswith("file://"):
+        ws_path = ws_path[len("file://") :]
+
+    auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
+    if not os.path.exists(auto_dir):
+        return "none"
+
+    files = [
+        os.path.join(auto_dir, "result.md"),
+        os.path.join(auto_dir, "run.log"),
+    ]
+
+    pr_pattern = re.compile(r"(?:PR\s*#|pull/|pulls/)(\d+)")
+
+    for path in files:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                    matches = pr_pattern.findall(content)
+                    if matches:
+                        return matches[-1]
+            except Exception:
+                pass
+    return "none"
+
+
+def detect_phase(content: str, ws_path: str | None = None) -> str:
+    """プロンプト内容および .autopilot/run.log から作業フェーズ (implement/review/fix/summarize) を判定"""
+    if not content:
+        content = ""
+
+    # プロンプト文字列の特徴から判定
+    if (
+        "あなたはコードレビュアーである" in content
+        or "コードレビュアー" in content
+        or "レビューする" in content
+    ):
+        return "review"
+    if (
+        "直すべきものを直す" in content
+        or "レビュー結果:" in content
+        or "レビューの must" in content
+        or "直すものが無ければ" in content
+    ):
+        return "fix"
+    if (
+        "人間向けの要約" in content
+        or ".autopilot/result.md に書く" in content
+        or "要約を .autopilot/result.md" in content
+        or "PR の本文も同じ内容で" in content
+    ):
+        return "summarize"
+    if (
+        "あなたは自律実行の担当である" in content
+        or ".autopilot/brief.md の仕様を実装" in content
+        or "自律実行の担当" in content
+        or "brief の要点" in content
+    ):
+        return "implement"
+
+    # ws_path があれば run.log のステップから判定
+    if ws_path:
+        auto_dir = ws_path if os.path.basename(ws_path) == ".autopilot" else os.path.join(ws_path, ".autopilot")
+        run_log = os.path.join(auto_dir, "run.log")
+        if os.path.exists(run_log):
+            try:
+                with open(run_log, "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                for line in reversed(lines):
+                    m = re.search(r"==\s*(implementing|reviewing|fixing|summarizing)", line)
+                    if m:
+                        step = m.group(1)
+                        if step == "implementing":
+                            return "implement"
+                        if step == "reviewing":
+                            return "review"
+                        if step == "fixing":
+                            return "fix"
+                        if step == "summarizing":
+                            return "summarize"
+            except Exception:
+                pass
+
+    return "unknown"
+
+
+def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) -> tuple[str, str, str]:
+    """conversation_summaries.db およびキャッシュから (repo, branch, worktree) を取得"""
+    if not cid:
+        return "unknown", "unknown", ""
     if cached_map and cid in cached_map:
-        return cached_map[cid]
+        cached = cached_map[cid]
+        if isinstance(cached, dict):
+            return (
+                cached.get("repo", "unknown"),
+                cached.get("branch", "unknown"),
+                cached.get("worktree", ""),
+            )
+        elif isinstance(cached, str):
+            return cached, "unknown", ""
+
     db_path = os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db")
     if not os.path.exists(db_path):
-        return "unknown"
+        return "unknown", "unknown", ""
     try:
         with sqlite3.connect(db_path) as conn:
             row = conn.execute(
@@ -107,14 +300,22 @@ def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) 
                 try:
                     uris = json.loads(row[0])
                     if isinstance(uris, list) and uris:
-                        repo = normalize_repo_name(uris[0])
-                        if repo != "unknown":
-                            return repo
+                        uri = uris[0]
+                        ws_path = uri[len("file://") :] if uri.startswith("file://") else uri
+                        repo = normalize_repo_name(uri)
+                        branch = get_git_branch_from_worktree(ws_path)
+                        return repo, branch, ws_path
                 except json.JSONDecodeError:
                     pass
     except Exception:
         pass
-    return "unknown"
+    return "unknown", "unknown", ""
+
+
+def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) -> str:
+    """conversation_summaries.db およびキャッシュから conversation_id に紐づくワークスペースの repo 名を取得"""
+    repo, _, _ = get_antigravity_conversation_meta(cid, cached_map)
+    return repo
 
 
 def normalize_model_name(raw: str) -> str:
@@ -129,6 +330,9 @@ def normalize_model_name(raw: str) -> str:
         combined = f"{base}-{level}" if level else base
         return normalize_identifier(combined)
     return normalize_identifier(raw)
+
+
+CURRENT_STATE_VERSION = 2
 
 
 class MetricsCollector:
@@ -152,24 +356,38 @@ class MetricsCollector:
         self.has_errors = True
 
     def _load_state(self) -> dict:
-        """状態ファイルの読み込み"""
+        """状態ファイルの読み込みとスキーママイグレーション"""
         if os.path.exists(self.state_file):
             try:
                 with open(self.state_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, dict):
+                        if data.get("version", 1) < CURRENT_STATE_VERSION:
+                            self.log(f"状態ファイルをバージョン {CURRENT_STATE_VERSION} へマイグレーション")
+                            data["version"] = CURRENT_STATE_VERSION
+                            data["claude_offsets"] = {}
+                            data["agy_offsets"] = {}
+                            data["last_orca_stats_timestamp"] = 0
+                            data["autopilot_runs"] = {}
+                            data["counters"] = {
+                                "tokens": {},
+                                "sessions": {},
+                                "duration": {},
+                                "autopilot_runs": {},
+                            }
                         return data
                     raise ValueError(f"状態ファイルの内容が辞書型ではない: {type(data)}")
             except Exception as e:
                 raise RuntimeError(f"状態ファイル読み込み失敗 ({self.state_file}): {e}") from e
         return {
-            "version": 1,
+            "version": CURRENT_STATE_VERSION,
             "claude_offsets": {},
             "agy_offsets": {},
             "last_orca_stats_timestamp": 0,
             "orca_sessions": {},
             "portal_cids": {},
             "cid_to_repo": {},
+            "cid_to_meta": {},
             "autopilot_runs": {},
             "counters": {
                 "tokens": {},
@@ -186,7 +404,7 @@ class MetricsCollector:
             return
 
         # 辞書キャッシュの肥大化防止（直近 1000 件に制限）
-        for key in ("orca_sessions", "portal_cids", "cid_to_repo", "autopilot_runs"):
+        for key in ("orca_sessions", "portal_cids", "cid_to_repo", "cid_to_meta", "autopilot_runs"):
             d = self.state.get(key)
             if isinstance(d, dict) and len(d) > 1000:
                 keys_to_remove = list(d.keys())[:-1000]
@@ -234,7 +452,9 @@ class MetricsCollector:
 
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
+                branch = prev_meta.get("branch") or get_git_branch_from_worktree(path)
                 context = prev_meta.get("context", "portal")
+                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "implement")
                 saved_model = prev_meta.get("model", "unknown")
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
@@ -249,7 +469,6 @@ class MetricsCollector:
                         if not raw_line:
                             break
                         if not raw_line.endswith(b"\n"):
-                            # 不完全な行は次回に回す
                             f.seek(line_start)
                             break
                         new_offset = f.tell()
@@ -260,16 +479,46 @@ class MetricsCollector:
                         except (json.JSONDecodeError, UnicodeDecodeError):
                             continue
 
-                        # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
-                        entrypoint = record.get("entrypoint", "")
-                        if entrypoint == "sdk-cli":
-                            context = "autopilot"
-
                         cwd = record.get("cwd", "")
                         if cwd:
                             extracted_repo = normalize_repo_name(cwd)
                             if extracted_repo != "unknown":
                                 repo = extracted_repo
+                            extracted_branch = get_git_branch_from_worktree(cwd)
+                            if extracted_branch != "unknown":
+                                branch = extracted_branch
+
+                        # record 自体の gitBranch を優先利用
+                        rec_branch = record.get("gitBranch", "")
+                        if rec_branch:
+                            branch = normalize_branch_name(rec_branch)
+
+                        # ユーザープロンプトからフェーズを判定
+                        prompt_content = ""
+                        if record.get("type") == "user":
+                            msg = record.get("message")
+                            if isinstance(msg, dict):
+                                prompt_content = str(msg.get("content", ""))
+                            elif isinstance(msg, str):
+                                prompt_content = msg
+                        elif record.get("type") == "queue-operation":
+                            prompt_content = str(record.get("content", ""))
+
+                        if prompt_content:
+                            detected = detect_phase(prompt_content, cwd or path)
+                            if detected in ("implement", "review", "fix", "summarize"):
+                                context = "autopilot"
+                                phase = detected
+
+                        # context 判定: Claude Code では autopilot 実行時は entrypoint が sdk-cli になる
+                        entrypoint = record.get("entrypoint", "")
+                        if entrypoint == "sdk-cli":
+                            context = "autopilot"
+                            if phase == "portal":
+                                phase = "implement"
+
+                        if context == "portal":
+                            phase = "portal"
 
                         # トークン使用量のパース
                         msg = record.get("message") or {}
@@ -277,7 +526,7 @@ class MetricsCollector:
                         if not usage or not isinstance(usage, dict):
                             continue
 
-                        # 重複カウント防止: 1 つの応答の複数行に同じ message.id / requestId と usage が付与される
+                        # 重複カウント防止
                         mid = msg.get("id") or record.get("requestId")
                         if mid:
                             if mid in seen_ids:
@@ -309,24 +558,24 @@ class MetricsCollector:
                             ("thinking", thinking),
                         ]:
                             if count > 0 or token_type in ("input", "output"):
-                                key = f'agent="claude",context="{context}",model="{model}",repo="{repo}",type="{token_type}"'
+                                key = f'agent="claude",branch="{branch}",model="{model}",phase="{phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
                 if is_new_session and new_offset > 0:
-                    s_key = f'agent="claude",context="{context}",repo="{repo}"'
+                    s_key = f'agent="claude",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 for k, v in temp_counters.items():
                     counters[k] = counters.get(k, 0) + v
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
-                # seen_message_ids は直近 500 件に制限して肥大化を防止する（順序を保持）
                 recent_ids = list(seen_ids.keys())[-500:]
                 offsets[path] = {
                     "offset": new_offset,
                     "repo": repo,
+                    "branch": branch,
+                    "phase": phase,
                     "context": context,
                     "model": saved_model,
                     "seen_message_ids": recent_ids,
@@ -371,16 +620,25 @@ class MetricsCollector:
 
                 m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
                 cid = m_cid.group(1) if m_cid else ""
-                cid_map = self.state.get("cid_to_repo", {})
+                cid_map = self.state.get("cid_to_meta") or self.state.get("cid_to_repo", {})
                 portal_cids = self.state.get("portal_cids", {})
 
-                # 前回のパース状態からメタデータを復元
+                # メタデータの復元
                 repo = prev_meta.get("repo", "unknown")
-                if repo == "unknown" and cid:
-                    repo = get_antigravity_conversation_repo(cid, cid_map)
+                branch = prev_meta.get("branch", "unknown")
+                ws_path = ""
+                if (repo == "unknown" or branch == "unknown") and cid:
+                    meta_repo, meta_branch, meta_ws = get_antigravity_conversation_meta(cid, cid_map)
+                    if repo == "unknown":
+                        repo = meta_repo
+                    if branch == "unknown":
+                        branch = meta_branch
+                    ws_path = meta_ws
+
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
                     context = "portal"
+                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "implement")
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
@@ -411,31 +669,41 @@ class MetricsCollector:
                         if m_model:
                             current_model = normalize_model_name(m_model.group(1))
 
-                        # context 検出: 初回ターン (step_index == 0) の USER_INPUT に autopilot 起動プロンプトがあるかで判定
-                        # last-status.json の portal に載っている conversation は常に portal を維持
-                        if not (cid and cid in portal_cids):
+                        # context および phase 検出
+                        if cid and cid in portal_cids:
+                            context = "portal"
+                            phase = "portal"
+                        else:
                             if record.get("step_index") == 0 and record.get("type") == "USER_INPUT":
-                                if (
+                                detected = detect_phase(content, ws_path)
+                                if detected in ("implement", "review", "fix", "summarize"):
+                                    context = "autopilot"
+                                    phase = detected
+                                elif (
                                     "あなたは自律実行の担当である" in content
                                     or "あなたはコードレビュアーである" in content
                                 ):
                                     context = "autopilot"
+                                    phase = detected if detected != "unknown" else "implement"
 
-                        # repo 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
-                        if repo == "unknown":
-                            if cid:
-                                repo = get_antigravity_conversation_repo(cid, cid_map)
-                            if repo == "unknown":
-                                m_repo = re.search(r"/home/nixos/orca/workspaces/([a-zA-Z0-9_\-]+)", content)
-                                if m_repo:
-                                    candidate = m_repo.group(1)
-                                    if candidate not in ("repo", "workspace", "name"):
+                        # repo および branch 検出: 未特定の場合のみ content 中のパスから抽出
+                        if repo == "unknown" or branch == "unknown":
+                            m_ws = re.search(r"((?:/[^/\s\'\"]+)*?/(?:orca/)?workspaces/([^/\s\'\"]+)(?:/([^/\s\'\"]+))?)", content)
+                            if m_ws:
+                                full_match_path = m_ws.group(1)
+                                candidate = m_ws.group(2)
+                                if candidate not in ("repo", "workspace", "name"):
+                                    if repo == "unknown":
                                         for known in get_candidate_repos():
                                             if candidate.startswith(known):
                                                 repo = known
                                                 break
                                         else:
                                             repo = normalize_identifier(candidate)
+                                    if branch == "unknown":
+                                        extracted_br = get_git_branch_from_worktree(full_match_path)
+                                        if extracted_br != "unknown":
+                                            branch = extracted_br
 
                         # トークン取得
                         input_tokens = int(record.get("input_tokens", 0) or 0)
@@ -448,14 +716,13 @@ class MetricsCollector:
                                 ("output", output_tokens),
                                 ("cache_read", cache_read),
                             ]:
-                                key = f'agent="agy",context="{context}",model="{current_model}",repo="{repo}",type="{token_type}"'
+                                key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
                 if is_new_session and new_offset > 0:
-                    s_key = f'agent="agy",context="{context}",repo="{repo}"'
+                    s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 for k, v in temp_counters.items():
                     counters[k] = counters.get(k, 0) + v
                 for k, v in temp_sessions.items():
@@ -464,6 +731,8 @@ class MetricsCollector:
                 offsets[path] = {
                     "offset": new_offset,
                     "repo": repo,
+                    "branch": branch,
+                    "phase": phase,
                     "context": context,
                     "model": current_model,
                 }
@@ -472,7 +741,7 @@ class MetricsCollector:
                 self.error(f"Antigravity ログ処理失敗 ({path}): {e}")
 
     def update_active_sessions(self):
-        """last-status.json から稼働中ペインの sessionKey -> {agent, repo, context} および Antigravity portal CID を更新蓄積"""
+        """last-status.json から稼働中ペインの情報を更新蓄積"""
         home = os.path.expanduser("~")
         last_status_path = os.path.join(home, ".config", "orca", "agent-hooks", "last-status.json")
         if not os.path.exists(last_status_path):
@@ -480,7 +749,8 @@ class MetricsCollector:
 
         orca_sessions = self.state.setdefault("orca_sessions", {})
         portal_cids = self.state.setdefault("portal_cids", {})
-        cid_map = self.state.setdefault("cid_to_repo", {})
+        cid_to_repo = self.state.setdefault("cid_to_repo", {})
+        cid_to_meta = self.state.setdefault("cid_to_meta", {})
 
         try:
             with open(last_status_path, "r", encoding="utf-8") as f:
@@ -499,25 +769,31 @@ class MetricsCollector:
                     wt = entry.get("worktreeId", "")
                     wt_path = wt.split("::")[-1] if "::" in wt else wt
                     repo = normalize_repo_name(wt_path) if wt_path else "unknown"
-
-                    # Orca UI 上のペインは人間との対話窓口（portal）である
-                    context = "portal"
+                    branch = get_git_branch_from_worktree(wt_path) if wt_path else "unknown"
 
                     s_entry = orca_sessions.setdefault(pane_key, {})
                     if agent_name != "unknown":
                         s_entry["agent"] = agent_name
                     if repo != "unknown":
                         s_entry["repo"] = repo
-                    s_entry["context"] = context
+                    if branch != "unknown":
+                        s_entry["branch"] = branch
+                    s_entry["context"] = "portal"
+                    s_entry["phase"] = "portal"
 
-                    # Antigravity の conversation_id と repo の対応、および portal CID の記録
+                    # Antigravity の conversation_id との対応
                     provider_session = entry.get("providerSession", {})
                     if provider_session.get("key") == "conversation_id":
                         cid = provider_session.get("id")
                         if cid:
                             portal_cids[cid] = True
                             if repo != "unknown":
-                                cid_map[cid] = repo
+                                cid_to_repo[cid] = repo
+                            cid_to_meta[cid] = {
+                                "repo": repo,
+                                "branch": branch,
+                                "worktree": wt_path,
+                            }
         except Exception as e:
             self.warn(f"last-status.json 読み取り警告: {e}")
 
@@ -546,7 +822,6 @@ class MetricsCollector:
                 ev_type = ev.get("type")
                 ev_at = ev.get("at", 0)
 
-                # start イベントで sessionKey と worktree を記録
                 if ev_type == "agent_start":
                     meta = ev.get("meta", {})
                     sk = meta.get("sessionKey", "")
@@ -556,9 +831,13 @@ class MetricsCollector:
                         s_entry = orca_sessions.setdefault(sk, {})
                         if wt_path:
                             repo = normalize_repo_name(wt_path)
+                            branch = get_git_branch_from_worktree(wt_path)
                             if repo != "unknown":
                                 s_entry["repo"] = repo
+                            if branch != "unknown":
+                                s_entry["branch"] = branch
                         s_entry["context"] = "portal"
+                        s_entry["phase"] = "portal"
 
                 if ev_at <= last_ts:
                     continue
@@ -577,9 +856,10 @@ class MetricsCollector:
                     session_info = orca_sessions.get(sk, {})
                     agent = session_info.get("agent", "unknown")
                     repo = session_info.get("repo", "unknown")
-                    context = "portal"
+                    branch = session_info.get("branch", "unknown")
+                    phase = "portal"
 
-                    key = f'agent="{agent}",context="{context}",repo="{repo}"'
+                    key = f'agent="{agent}",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_duration[key] = round(temp_duration.get(key, 0.0) + duration_sec, 3)
 
             for k, v in temp_duration.items():
@@ -611,10 +891,8 @@ class MetricsCollector:
                 with open(status_file, "r", encoding="utf-8") as f:
                     raw_status = f.read().strip()
 
-                # status ファイルは "done", "failed: <理由>", "needs-human: <理由>" 形式で書かれる
                 result_type = raw_status.split(":", 1)[0].strip()
 
-                # 完了ステータスのみ集計対象とする
                 if result_type not in ("done", "failed", "needs-human"):
                     continue
 
@@ -635,10 +913,13 @@ class MetricsCollector:
                                 impl = normalize_identifier(m_start.group(1))
                                 level = normalize_identifier(m_start.group(2))
 
-                # パスから repo を判定
+                ws_dir = os.path.dirname(d)
                 repo = normalize_repo_name(d)
+                branch = get_git_branch_from_worktree(ws_dir)
+                task = extract_task_from_brief(ws_dir)
+                pr = extract_pr_number(ws_dir)
 
-                key = f'impl="{impl}",level="{level}",repo="{repo}",result="{result_type}"'
+                key = f'branch="{branch}",impl="{impl}",level="{level}",pr="{pr}",repo="{repo}",result="{result_type}",task="{task}"'
                 runs_counter[key] = runs_counter.get(key, 0) + 1
 
                 recorded_runs[d] = {
