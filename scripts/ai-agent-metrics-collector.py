@@ -384,16 +384,215 @@ def normalize_model_name(raw: str) -> str:
     return normalize_identifier(raw)
 
 
+EFFORT_AND_VARIANT_SUFFIX_RE = re.compile(
+    r"-(?:high|medium|low|minimal|standard|light|max|xhigh|thinking|latest|\d{8})$"
+)
+
+VALID_RATE_KEYS = {"input", "output", "cache_read", "cache_creation"}
+
+
+def parse_rates_yaml(content: str) -> dict[str, dict[str, float]]:
+    """
+    外部ライブラリ (PyYAML) に依存せず、2階層のモデル単価定義 YAML をパースする。
+    書式:
+      model-name:
+        input: 15.00
+        output: 75.00
+        cache_read: 1.50
+        cache_creation: 18.75
+    """
+    rates: dict[str, dict[str, float]] = {}
+    normalized_models: dict[str, str] = {}
+    current_model: str | None = None
+    current_indent: int | None = None
+
+    for line_no, raw_line in enumerate(content.splitlines(), start=1):
+        # コメント除去
+        line_without_comment = raw_line.split("#", 1)[0].rstrip()
+        if not line_without_comment.strip():
+            continue
+
+        indent = len(line_without_comment) - len(line_without_comment.lstrip(" "))
+        stripped = line_without_comment.strip()
+
+        if "\t" in line_without_comment[:indent]:
+            raise ValueError(f"行 {line_no}: インデントにタブ文字は使用できない")
+
+        if indent == 0:
+            if not stripped.endswith(":") or ":" in stripped[:-1]:
+                raise ValueError(f"行 {line_no}: トップレベルのモデル定義が不正: {raw_line}")
+            model_key = stripped[:-1].strip().strip("'\"")
+            if not model_key:
+                raise ValueError(f"行 {line_no}: モデル名が空である")
+            if model_key in rates:
+                raise ValueError(f"行 {line_no}: モデル定義が重複している ({model_key})")
+            norm_model_key = normalize_identifier(model_key)
+            if norm_model_key in normalized_models:
+                raise ValueError(
+                    f"行 {line_no}: 正規化後のモデル名が '{normalized_models[norm_model_key]}' と重複している ({model_key})"
+                )
+            normalized_models[norm_model_key] = model_key
+            current_model = model_key
+            current_indent = None
+            rates[current_model] = {}
+        else:
+            if current_model is None:
+                raise ValueError(f"行 {line_no}: モデル定義より前に単価項目が記述されている: {raw_line}")
+            if current_indent is None:
+                current_indent = indent
+            elif indent != current_indent:
+                raise ValueError(f"行 {line_no}: インデント幅が揃っていない: {raw_line}")
+            if ":" not in stripped:
+                raise ValueError(f"行 {line_no}: キーと値の区切り ':' が存在しない: {raw_line}")
+            k, v = stripped.split(":", 1)
+            key = k.strip().strip("'\"")
+            val_str = v.strip().strip("'\"")
+            if not key or not val_str:
+                raise ValueError(f"行 {line_no}: 単価のキーまたは値が空である: {raw_line}")
+            if key not in VALID_RATE_KEYS:
+                raise ValueError(f"行 {line_no}: 未知の単価項目キーである ({key})")
+            if key in rates[current_model]:
+                raise ValueError(f"行 {line_no}: 単価項目キーが重複している ({current_model}.{key})")
+            try:
+                val = float(val_str)
+            except ValueError as e:
+                raise ValueError(f"行 {line_no}: 単価が数値ではない ({val_str})") from e
+            if val < 0:
+                raise ValueError(f"行 {line_no}: 単価に負の値は指定できない ({val})")
+            rates[current_model][key] = val
+
+    for model_key, model_rates in rates.items():
+        if not model_rates:
+            raise ValueError(f"モデル '{model_key}' に単価項目が定義されていない")
+
+    return rates
+
+
+def load_rates(path: str) -> dict[str, dict[str, float]]:
+    """指定されたパスから rates.yaml を読み込んでパースする"""
+    if not path or not os.path.exists(path):
+        raise RuntimeError(f"単価定義ファイルが存在しない: {path}")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return parse_rates_yaml(content)
+    except Exception as e:
+        raise RuntimeError(f"単価定義ファイル読み込み失敗 ({path}): {e}") from e
+
+
+def build_rate_norm_map(rates: dict[str, dict[str, float]]) -> dict[str, str]:
+    """rates キーの正規化マップを構築（例: gemini-3.8-flash -> gemini-3-8-flash）"""
+    norm_map: dict[str, str] = {}
+    for k in rates:
+        norm_map[k.lower()] = k
+        norm_map[normalize_identifier(k)] = k
+    return norm_map
+
+
+def match_model_rate_key(
+    model: str,
+    rates: dict[str, dict[str, float]],
+    norm_map: dict[str, str] | None = None,
+) -> str | None:
+    """
+    モデル名（例: gemini-3-8-flash-high, claude-opus-5-5-low, Gemini 3.8 Flash (High)）を正規化し、
+    rates 辞書内の対応するモデルキー（例: gemini-3.8-flash, claude-opus-5-5）を返す。
+    未定義の場合は None を返す。
+    """
+    if not model or not rates:
+        return None
+
+    raw = model.strip()
+    if not raw or raw == "unknown":
+        return None
+
+    if raw in rates:
+        return raw
+
+    if norm_map is None:
+        norm_map = build_rate_norm_map(rates)
+
+    base_raw = raw.split("@", 1)[0].strip()
+    candidate = normalize_model_name(base_raw)
+    if candidate in norm_map:
+        return norm_map[candidate]
+
+    # 末尾の effort サフィックス (-high, -medium, -low 等) や日付サフィックス (-YYYYMMDD) を段階的に除去して照合
+    curr = candidate
+    while True:
+        next_curr = EFFORT_AND_VARIANT_SUFFIX_RE.sub("", curr)
+        if next_curr == curr or not next_curr:
+            break
+        curr = next_curr
+        if curr in norm_map:
+            return norm_map[curr]
+
+    return None
+
+
+def format_usd(val: float) -> str:
+    """USD コスト値を Prometheus 出力用の浮動小数点文字列に整形"""
+    rounded = round(float(val), 10)
+    if rounded == 0.0:
+        return "0.0"
+    s = f"{rounded:.10f}".rstrip("0")
+    if s.endswith("."):
+        s += "0"
+    return s
+
+
+_LOGGED_DEV_RATES_FALLBACK = False
+
+
+def default_rates_file() -> str:
+    """利用可能な既定の単価定義ファイルパスを判定 ($AUTOPILOT_RATES -> /etc/autopilot5/rates.yaml -> リポジトリ内の nix/hosts/atelier/rates.yaml)"""
+    global _LOGGED_DEV_RATES_FALLBACK
+    env_path = os.environ.get("AUTOPILOT_RATES")
+    if env_path:
+        return env_path
+    etc_path = "/etc/autopilot5/rates.yaml"
+    if os.path.exists(etc_path):
+        return etc_path
+    repo_path = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nix", "hosts", "atelier", "rates.yaml")
+    )
+    if os.path.exists(repo_path):
+        if not _LOGGED_DEV_RATES_FALLBACK:
+            _LOGGED_DEV_RATES_FALLBACK = True
+            print(
+                f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 情報: {etc_path} が存在しないため、開発用の単価定義を使用する: {repo_path}",
+                file=sys.stderr,
+            )
+        return repo_path
+    return etc_path
+
+
 CURRENT_STATE_VERSION = 3
 
 
 class MetricsCollector:
-    def __init__(self, state_file: str, vm_url: str, dry_run: bool = False, verbose: bool = False):
+    def __init__(
+        self,
+        state_file: str,
+        vm_url: str,
+        dry_run: bool = False,
+        verbose: bool = False,
+        rates_file: str | None = None,
+        rates: dict[str, dict[str, float]] | None = None,
+    ):
         self.state_file = state_file
         self.vm_url = vm_url.rstrip("/")
         self.dry_run = dry_run
         self.verbose = verbose
         self.has_errors = False
+        self._warned_unpriced_models: set[str] = set()
+        if rates is not None:
+            self.rates_file = rates_file or ""
+            self.rates = rates
+        else:
+            self.rates_file = rates_file or default_rates_file()
+            self.rates = load_rates(self.rates_file)
+        self._rate_norm_map = build_rate_norm_map(self.rates)
         self.state = self._load_state()
 
     def log(self, msg: str):
@@ -406,6 +605,73 @@ class MetricsCollector:
     def error(self, msg: str):
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] エラー: {msg}", file=sys.stderr)
         self.has_errors = True
+
+    def _warn_unpriced_model(self, model: str):
+        """単価未定義モデルの警告を出力（同一インスタンス内での重複出力を抑制）"""
+        if model not in self._warned_unpriced_models:
+            self._warned_unpriced_models.add(model)
+            self.warn(f"単価未定義のモデル: {model} (コストを 0 として扱う)")
+
+    def _resolve_model_rates(self, model: str) -> dict[str, float] | None:
+        """モデル名から対応する単価辞書を取得"""
+        rate_key = match_model_rate_key(model, self.rates, norm_map=self._rate_norm_map)
+        if rate_key is None:
+            return None
+        return self.rates.get(rate_key)
+
+    def calculate_cost_usd(
+        self,
+        model: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cache_read: int = 0,
+        cache_creation: int = 0,
+        unpriced_models: set[str] | None = None,
+    ) -> float:
+        """トークン増分から USD コストを算出（100万トークンあたり単価）"""
+        if input_tokens <= 0 and output_tokens <= 0 and cache_read <= 0 and cache_creation <= 0:
+            return 0.0
+
+        model_rates = self._resolve_model_rates(model)
+        if model_rates is None:
+            if unpriced_models is not None:
+                unpriced_models.add(model)
+            else:
+                self._warn_unpriced_model(model)
+            return 0.0
+
+        cost = (
+            input_tokens * float(model_rates.get("input", 0.0))
+            + output_tokens * float(model_rates.get("output", 0.0))
+            + cache_read * float(model_rates.get("cache_read", 0.0))
+            + cache_creation * float(model_rates.get("cache_creation", 0.0))
+        ) / 1_000_000.0
+        return round(cost, 10)
+
+    def _backfill_cost_from_tokens(self, state_data: dict):
+        """cost_usd 未導入の状態ファイルから初回読み込み時に既存の tokens 実績から初期コストを算出"""
+        counters = state_data.setdefault("counters", {})
+        tokens = counters.get("tokens", {})
+        cost_usd: dict[str, float] = {}
+        for token_key, count in tokens.items():
+            m_type = re.search(r',type="([^"]+)"$', token_key)
+            m_model = re.search(r'(?:^|,)model="([^"]+)"', token_key)
+            if not m_type or not m_model:
+                continue
+            token_type = m_type.group(1)
+            model = m_model.group(1)
+            cost_key = token_key[: m_type.start()]
+            if token_type == "thinking" or int(count) <= 0:
+                continue
+            inc = self.calculate_cost_usd(
+                model=model,
+                input_tokens=int(count) if token_type == "input" else 0,
+                output_tokens=int(count) if token_type == "output" else 0,
+                cache_read=int(count) if token_type == "cache_read" else 0,
+                cache_creation=int(count) if token_type == "cache_creation" else 0,
+            )
+            cost_usd[cost_key] = round(cost_usd.get(cost_key, 0.0) + inc, 10)
+        counters["cost_usd"] = cost_usd
 
     def _load_state(self) -> dict:
         """状態ファイルの読み込みとスキーママイグレーション"""
@@ -423,10 +689,13 @@ class MetricsCollector:
                             data["autopilot_runs"] = {}
                             data["counters"] = {
                                 "tokens": {},
+                                "cost_usd": {},
                                 "sessions": {},
                                 "duration": {},
                                 "autopilot_runs": {},
                             }
+                        elif "cost_usd" not in data.get("counters", {}):
+                            self._backfill_cost_from_tokens(data)
                         return data
                     raise ValueError(f"状態ファイルの内容が辞書型ではない: {type(data)}")
             except Exception as e:
@@ -443,6 +712,7 @@ class MetricsCollector:
             "autopilot_runs": {},
             "counters": {
                 "tokens": {},
+                "cost_usd": {},
                 "sessions": {},
                 "duration": {},
                 "autopilot_runs": {},
@@ -476,6 +746,7 @@ class MetricsCollector:
         files = glob.glob(os.path.join(home, ".claude", "projects", "*", "*.jsonl"))
         offsets = self.state.setdefault("claude_offsets", {})
         counters = self.state.setdefault("counters", {}).setdefault("tokens", {})
+        costs = self.state.setdefault("counters", {}).setdefault("cost_usd", {})
         sessions = self.state.setdefault("counters", {}).setdefault("sessions", {})
 
         for path in files:
@@ -515,6 +786,8 @@ class MetricsCollector:
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
                 temp_counters = {}
+                temp_costs = {}
+                temp_unpriced_models: set[str] = set()
                 temp_sessions = {}
 
                 with open(path, "rb") as f:
@@ -641,6 +914,18 @@ class MetricsCollector:
                                 key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
+                        if input_tokens > 0 or output_tokens > 0 or cache_read > 0 or cache_creation > 0:
+                            cost_inc = self.calculate_cost_usd(
+                                model=model,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                cache_read=cache_read,
+                                cache_creation=cache_creation,
+                                unpriced_models=temp_unpriced_models,
+                            )
+                            cost_key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}"'
+                            temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
+
                 effective_phase = "portal" if (is_cli or context == "portal") else phase
                 effective_context = "portal" if (is_cli or context == "portal") else ("autopilot" if is_sdk else context)
 
@@ -649,8 +934,12 @@ class MetricsCollector:
                     s_key = f'agent="claude",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
+                for um in sorted(temp_unpriced_models):
+                    self._warn_unpriced_model(um)
                 for k, v in temp_counters.items():
                     counters[k] = counters.get(k, 0) + v
+                for k, v in temp_costs.items():
+                    costs[k] = round(costs.get(k, 0.0) + v, 10)
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
@@ -678,6 +967,7 @@ class MetricsCollector:
         )
         offsets = self.state.setdefault("agy_offsets", {})
         counters = self.state.setdefault("counters", {}).setdefault("tokens", {})
+        costs = self.state.setdefault("counters", {}).setdefault("cost_usd", {})
         sessions = self.state.setdefault("counters", {}).setdefault("sessions", {})
 
         for path in files:
@@ -729,6 +1019,8 @@ class MetricsCollector:
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
+                temp_costs = {}
+                temp_unpriced_models: set[str] = set()
                 temp_sessions = {}
 
                 with open(path, "rb") as f:
@@ -812,13 +1104,27 @@ class MetricsCollector:
                                 key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
+                            cost_inc = self.calculate_cost_usd(
+                                model=current_model,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                cache_read=cache_read,
+                                unpriced_models=temp_unpriced_models,
+                            )
+                            cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}"'
+                            temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
+
                 # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 if is_new_session and new_offset > 0:
                     s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
 
+                for um in sorted(temp_unpriced_models):
+                    self._warn_unpriced_model(um)
                 for k, v in temp_counters.items():
                     counters[k] = counters.get(k, 0) + v
+                for k, v in temp_costs.items():
+                    costs[k] = round(costs.get(k, 0.0) + v, 10)
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
@@ -1044,7 +1350,15 @@ class MetricsCollector:
             for k in sorted(token_data.keys()):
                 lines.append(f"nuage_ai_agent_tokens_total{{{k}}} {token_data[k]}")
 
-        # 2. sessions
+        # 2. cost_usd
+        cost_data = counters.get("cost_usd", {})
+        if cost_data:
+            lines.append("# HELP nuage_ai_agent_cost_usd_total Total cost in USD used by AI agents")
+            lines.append("# TYPE nuage_ai_agent_cost_usd_total counter")
+            for k in sorted(cost_data.keys()):
+                lines.append(f"nuage_ai_agent_cost_usd_total{{{k}}} {format_usd(cost_data[k])}")
+
+        # 3. sessions
         session_data = counters.get("sessions", {})
         if session_data:
             lines.append("# HELP nuage_ai_agent_sessions_total Total sessions started by AI agents")
@@ -1052,7 +1366,7 @@ class MetricsCollector:
             for k in sorted(session_data.keys()):
                 lines.append(f"nuage_ai_agent_sessions_total{{{k}}} {session_data[k]}")
 
-        # 3. duration
+        # 4. duration
         duration_data = counters.get("duration", {})
         if duration_data:
             lines.append("# HELP nuage_ai_agent_session_duration_seconds_total Total duration of AI agent sessions in seconds")
@@ -1060,7 +1374,7 @@ class MetricsCollector:
             for k in sorted(duration_data.keys()):
                 lines.append(f"nuage_ai_agent_session_duration_seconds_total{{{k}}} {duration_data[k]}")
 
-        # 4. autopilot runs
+        # 5. autopilot runs
         runs_data = counters.get("autopilot_runs", {})
         if runs_data:
             lines.append("# HELP nuage_ai_agent_autopilot_runs_total Total autopilot runs by result")
@@ -1158,6 +1472,11 @@ def main():
         help="状態ファイルの保存パス",
     )
     parser.add_argument(
+        "--rates-file",
+        default=None,
+        help="モデル単価定義ファイルのパス (既定: $AUTOPILOT_RATES -> /etc/autopilot5/rates.yaml -> リポジトリ内の nix/hosts/atelier/rates.yaml)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="VictoriaMetrics への送信を行わず、生成メトリクスを標準出力に表示する",
@@ -1175,6 +1494,7 @@ def main():
         vm_url=args.vm_url,
         dry_run=args.dry_run,
         verbose=args.verbose,
+        rates_file=args.rates_file,
     )
     collector.run()
 

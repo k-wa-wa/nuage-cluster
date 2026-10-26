@@ -7,8 +7,12 @@
 let
   user = "nixos";
   collectorScript = ../../../scripts/ai-agent-metrics-collector.py;
+  ratesFile = "/etc/autopilot5/rates.yaml";
 in
 {
+  # モデルごとの USD 単価定義ファイルを /etc/autopilot5/rates.yaml に配置する。
+  environment.etc."autopilot5/rates.yaml".source = ./rates.yaml;
+
   systemd.user.timers.ai-agent-metrics-collector = {
     description = "AI Agent 使用量メトリクス定期収集タイマー";
     wantedBy = [ "timers.target" ];
@@ -32,7 +36,7 @@ in
 
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.python3}/bin/python3 ${collectorScript}";
+      ExecStart = "${pkgs.python3}/bin/python3 ${collectorScript} --rates-file ${ratesFile}";
     };
   };
 }
