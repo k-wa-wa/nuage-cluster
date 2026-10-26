@@ -18,9 +18,10 @@ AMD Radeon RX 7600 XT（Navi 33 / `gfx1102`、16GB VRAM）および 48GB/64GB RA
 - これにより、初回プロンプト処理（TTFT）は 5,239 ms から **1,410 ms (46.8 tok/s)** へ 3.7 倍高速化し、トークン生成速度も **21.2〜22.9 tok/s（ピーク 23.5 tok/s）** を記録した。
 - 現行の単一 GPU 全層常駐モデル `Qwen3.8-27B`（実測 22.41 tok/s）と同等の生成速度で 125B 級 MoE モデルが稼働することを実証した。
 
-### 2.3 PLE 行キャッシュ拡大による初動 SSD I/O の劇的改善
-- PLE（Predictive Layer Expert）行キャッシュを既定値の 1,048,576 行（約 90MB）から **50,000,000 行（約 4.2GB）** へ拡大した（`pleRowCache = 50000000`）。
-- N-gram テーブルの SSD ランダムアクセスを大幅に削減し、初回プロンプト処理時の I/O ボトルネックを劇的に改善した。
+### 2.3 PLE 行キャッシュ拡大による初動 SSD I/O の改善
+- PLE N-gram テーブル行キャッシュを既定値の 1,048,576 行（約 90MB）から **50,000,000 行（約 4.2GiB）** へ拡大した（`pleRowCache = 50000000`）。
+- N-gram テーブルの SSD ランダムアクセスを大幅に削減し、初回プロンプト処理時の I/O ボトルネックを抑制する設定とした。
+- なお、PLE 行キャッシュ拡大単体での改善前後数値（TTFT や I/O 待ち率の単体分離実測）は未計測であり、本実績は RAM 48GB 常駐化および直挿し PCIe 帯域確保と併せた総合環境における安定動作・初動レスポンス改善としての知見である。
 
 ## 3. 採用見送りの根本理由
 
@@ -66,22 +67,38 @@ AMD Radeon RX 7600 XT（Navi 33 / `gfx1102`、16GB VRAM）および 48GB/64GB RA
 本ディレクトリに保管されているモジュールおよびパッケージ定義を用いて、Strata を NixOS 上で再稼働させる手順：
 
 ### 6.1 NixOS 設定への組み込み
-本ディレクトリの `strata.nix` を NixOS 設定に取り込む：
 
-```nix
-imports = [
-  ./docs/ideas/strata/strata.nix
-];
+Nix Flake のルートは `nix/` であるため、本ディレクトリの資材を `nix/hosts/lm-server/` 配下に戻して設定を行う：
 
-services.strata = {
-  enable = true;
-  package = pkgs.callPackage ./docs/ideas/strata/pkgs/strata.nix { };
-  port = 8085;
-  resident = true;
-  pleRowCache = 50000000;
-  pleIo = "direct";
-};
-```
+1. **資材の復元配置**:
+   ```bash
+   cp docs/ideas/strata/strata.nix nix/hosts/lm-server/strata.nix
+   cp -r docs/ideas/strata/pkgs nix/hosts/lm-server/pkgs
+   ```
+
+2. **`nix/hosts/lm-server/configuration.nix` への組み込み**:
+   ```nix
+   imports = [
+     ./hardware-configuration.nix
+     ./llama-cpp.nix
+     ./strata.nix
+   ];
+
+   services.strata = {
+     enable = true;
+     # ポートとモデル名の整合性（重要）:
+     # Kubernetes 側（LiteLLM / external-service）はポート 8080 かつ openai/qwen3.8-27b を参照している。
+     # 既存クライアントの設定を変えずにインプレースで切り替える場合は以下のように揃える：
+     port = 8080;
+     modelName = "qwen3.8-27b";
+     resident = true;
+     pleRowCache = 50000000;
+     pleIo = "direct";
+   };
+   ```
+   > [!NOTE]
+   > `services.strata.enable = true` を設定すると、`strata.nix` 内で `services.llama-cpp.enable = lib.mkForce false;` が働き、同一 GPU (16GB VRAM) を競合することなく排他起動する。
+   > ポートを Strata 既定値（8085 / `qwen3.8-flash-next`）のまま動かす場合は、Kubernetes 側の `manifests/apps/litellm/base/config.yaml` および `manifests/apps/external-service/base/lm-server.yaml` を GitOps で更新すること。
 
 ### 6.2 モデル GGUF のダウンロード
 `/var/lib/strata/models/IQ2_XS` に Shard 1 および Shard 2 を配置する：

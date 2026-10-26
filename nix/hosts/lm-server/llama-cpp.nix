@@ -1,20 +1,14 @@
-{
-  llamaCppPkgs,
-  config,
-  lib,
-  ...
-}:
+{ llamaCppPkgs, ... }:
 
 let
   # GPU (Radeon RX 7600 XT, gfx1102, VRAM 16GB) に全層を載せられるサイズを選ぶ。
   # Qwen3.8-27B は 64 層中 16 層のみ full attention のため KV キャッシュが小さく、
   # UD-IQ4_XS (14.3 GB / 13.3 GiB) + MTP + 64K コンテキスト (KV キャッシュ q4_0) で VRAM に収まる (実測 15.5 GiB / 約 16.6 GB)。
   # IQ4_XS は UD-Q3_K_XL (13.1GB) と生成速度が同等以上で、重みの精度が高い。
-  # Qwen3.8-Flash-Next (125B MoE) は 48GB RAM 常駐モード（services.strata）において
-  # 実測 21〜23 tok/s で動作することが検証済みであるが、現行の既定運用としては
-  # 単一 GPU に全層常駐し安定している 27B dense モデルを採用している。
-  # なお、services.strata とは同一 GPU (VRAM 約 15.5 GiB) を奪い合うため排他関係にある
-  # （strata 有効化時に本サービスは自動で無効化される）。
+  # Qwen3.8-Flash-Next (125B MoE) は 48GB RAM 常駐モードにおいて実測 21〜23 tok/s で
+  # 動作することが検証されたが、量子化歪みや Thinking ループ等の課題により本採用は見送られた
+  # （検証記録および退避資材は docs/ideas/strata/ を参照）。
+  # 現行の既定運用としては単一 GPU に全層常駐し安定している 27B dense モデルを採用している。
   modelName = "qwen3.8-27b";
   model = llamaCppPkgs.fetchurl {
     name = "Qwen3.8-27B-UD-IQ4_XS.gguf";
@@ -83,7 +77,5 @@ in
   # ROCm の HIP Graph を無効化する。MTP の投機的デコードと長いコンテキスト (60K 級) の組み合わせで、
   # 2 回目以降のリクエストの hipGraphExecUpdate 内で SEGV することを再現確認した
   # (llama-cpp b10408 / ROCm 7.2.3)。無効化しても生成速度の低下は見られない。
-  systemd.services.llama-cpp = lib.mkIf config.services.llama-cpp.enable {
-    environment.GGML_CUDA_DISABLE_GRAPHS = "1";
-  };
+  systemd.services.llama-cpp.environment.GGML_CUDA_DISABLE_GRAPHS = "1";
 }

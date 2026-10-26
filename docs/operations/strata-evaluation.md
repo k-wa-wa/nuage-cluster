@@ -1,5 +1,9 @@
 # Strata 0.2 による Qwen3.8-Flash-Next 動作検証と性能評価
 
+> [!NOTE]
+> 本検証後、コーディングエージェント（Aider / Claude Code）との実用適合性検証において、2bit 極限圧縮（IQ2_XS）による量子化歪みや Thinking モデル特有の思考ループ等の課題が判明したため、本番採用は見送られた。
+> Strata の NixOS モジュールおよびパッケージ等の全資材は `docs/ideas/strata/` へ退避・保管されている。本ドキュメントは当時のハードウェア性能・ボトルネック逆算の検証記録として保持している。再訪手順や知見まとめは `docs/ideas/strata/README.md` を参照すること。
+
 ## 1. 概要と目的
 
 `lm-server` において、推論エンジン「Strata 0.2」および超大規模 MoE モデル「Qwen3.8-Flash-Next（125B MoE / 6B active）」を導入し、現行の `Qwen3.8-27B`（実測 21〜27 tok/s）を超える推論能力と高速生成（目標 40〜60 tok/s）が実現可能かを実機検証・環境整備した記録である。
@@ -36,7 +40,7 @@
 - `rocmPackages.clr` (Clang 22.0.0, hipClang), `rocmPackages.hipblas`, `rocmPackages.hipblaslt`, `rocmPackages.rocblas` を用いた環境において、`-DCMAKE_HIP_ARCHITECTURES=gfx1102` を指定した CMake / Ninja ビルドの configure が正常に通ることを確認した。
 - `find_package(hipblas)` および `find_package(hipblaslt)` が正常に解決され、`roc::hipblaslt` がリンク対象として検出されることを確認した。
 - ただし、上流の `CMakeLists.txt` には `install` ルールが定義されておらず、また HIP カーネルのフルコンパイル完了とリンク動作確認までは未完了である。
-- そのため、実機検証および再現可能な Nix パッケージ化にあたっては、`gfx1102`（Navi 33）向けコードオブジェクトが同梱された公式 prebuilt リリース（`rx7900`）を採用し、NixOS の autoPatchelf を適用した derivation (`nix/hosts/lm-server/pkgs/strata.nix`) として整備した。
+- そのため、実機検証および再現可能な Nix パッケージ化にあたっては、`gfx1102`（Navi 33）向けコードオブジェクトが同梱された公式 prebuilt リリース（`rx7900`）を採用し、NixOS の autoPatchelf を適用した derivation（現在は `docs/ideas/strata/pkgs/strata.nix` に退避済み）として整備した。
 
 ### 3.2 サーバー構成と実機推論の動作確認
 - 推論エンジンバイナリ `strata` の `--serve` オプションは stdin/stdout 経由で 1 行ずつ要求を処理する IPC モードであり、直接 systemd サービスとして起動すると stdin が `/dev/null` となり EOF で終了を繰り返す。
@@ -137,20 +141,20 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
    - 一方で、CPU アーキテクチャの刷新（Cezanne APU ダイからデスクトップ向け Vermeer への移行、Infinity Fabric および IOMMU / DMA レイテンシの向上）により同期オーバーヘッドが低減（推定 約 18〜19 ms → 12〜15 ms）すれば、ハードウェアの地力として約 30〜33 tok/s 前後まで向上する余地がある。
    - さらに仕様 3 が見込む **35〜45+ tok/s**（1 トークンあたり約 22〜28 ms）への到達には、PCIe 4.0 の倍増した帯域（13〜14 GB/s）のヘッドルームを活かし、次層のエキスパート転送を GPU 計算と並行して先行実行する「非同期プリフェッチ・オーバーラップ最適化」や、複数エキスパートの一括 DMA による同期回数の削減といったソフトウェア・ランタイム側の最適化を重ねることが条件となる。本検証構成は、そうした最適化や将来のハードウェア換装を受け止められる十分な拡張性を実証している。
 
-## 6. 結論と本番運用の推奨
+## 6. 結論と運用の知見（※検証当時の記録。現在は docs/ideas/strata/ へ退避済み）
 
 1. **動作検証の結論**:
    - Strata 0.2 による `Qwen3.8-Flash-Next` の起動、OpenAI 互換 API による推論リクエスト、および 48GB RAM / 16GB VRAM 枠内での安定稼働を実機で実証した。
    - 48GB RAM 常駐モードと直挿し GPU により、トークン生成速度は実測 **21.2〜22.9 tok/s（ピーク 23.5 tok/s）**、初回応答 TTFT は **1,410 ms (46.8 tok/s)** を達成した。
    - 現行 27B 密モデル（22.41 tok/s）と同等の応答速度を維持しながら、125B 級の高度な知能と長文推論品質を単一 16GB GPU のコンシューマ環境で OOM なく発揮できることを確認した。
-2. **本番運用の推奨と切り替え方針**:
-   - **運用方針**: VM は 1 台のまま共存運用とし、デフォルトは安定運用の現行 `llama-cpp`（27B）を維持しつつ、フラグ 1 つ（`services.strata.enable = true`）で 125B MoE 常駐モードへ安全に切り替えられる構成とする。
-   - **排他制御**: `strata.nix` に実装済みの排他制御（`conflicts = [ "llama-cpp.service" ]` および `services.llama-cpp.enable = lib.mkForce false`）により、同一 GPU (16GB VRAM) の競合なく安全に排他起動する。
-   - **切り替え時の注意点**:
+2. **当時の切り替え方針と運用上の注意点（参考記録）**:
+   - **運用方針**: 当初は VM は 1 台のまま共存運用とし、デフォルトは安定運用の現行 `llama-cpp`（27B）を維持しつつ、フラグ 1 つ（`services.strata.enable = true`）で 125B MoE 常駐モードへ安全に切り替えられる構成を検討した。
+   - **その後の見送りと退避**: その後のコーディングエージェント実用検証において、IQ2_XS の量子化歪みおよび Thinking ループの発生により実務適用が困難と判明したため、本番構成は `llama-cpp` 単一構成に復元され、Strata モジュールは `docs/ideas/strata/` に退避された。
+   - **切り替え時の注意点（再導入時の参考）**:
      1. **事前資材の配置確認**: `/var/lib/strata/models/IQ2_XS` に GGUF モデル（約 63.4 GiB）および `/var/lib/strata/packs/iq2_xs` に pack（約 1.5 GiB）が事前に生成・配置されていることを確認する。資材が無い状態で有効化するとサービスが起動失敗を繰り返し、`Restart=always` で 10 秒ごとの再起動ループに陥る。
      2. **ポートとモデル名の整合性確保**:
         - 現行の Kubernetes 側（`manifests/apps/litellm/base/config.yaml` および `manifests/apps/external-service/base/lm-server.yaml`）は、ポート `8080` かつモデル名 `openai/qwen3.8-27b` を参照している。
-        - Strata の既定値はポート `8085`、モデル名 `qwen3.8-flash-next` であるため、既存クライアントへの影響を避けてインプレースで切り替える場合は、`nix/hosts/lm-server/configuration.nix` で以下のようにポートとモデル名を揃える：
+        - Strata の既定値はポート `8085`、モデル名 `qwen3.8-flash-next` であるため、既存クライアントへの影響を避けてインプレースで切り替える場合は、`docs/ideas/strata/README.md` に記載の通り、設定でポートとモデル名を揃える：
           ```nix
           services.strata = {
             enable = true;
@@ -159,7 +163,7 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
           };
           ```
           （あるいは、LiteLLM / external-service 側の設定をポート 8085 / `openai/qwen3.8-flash-next` に合わせて GitOps で更新する）
-     3. **有効化と排他起動**: `services.strata.enable = true` を設定することで、モジュール側で `services.llama-cpp.enable` は自動的に `lib.mkForce false` で無効化され、同一 GPU (16GB VRAM) を奪い合うことなく安全に排他起動する。
+     3. **排他起動**: `strata.nix` には `conflicts = [ "llama-cpp.service" ]` および `services.llama-cpp.enable = lib.mkForce false` による排他無効化が実装されており、同一 GPU (16GB VRAM) を奪い合うことなく排他起動する設計となっている。
 3. **実機上の検証資材の扱いとバックアップへの影響**:
    - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 63.4 GiB、pack 約 1.5 GiB、計約 64.9 GiB）は、現状ルートディスク（200GB）の空き容量が約 96 GiB あり、ローカルディスク容量面では即座の問題はない。
    - ただし、`terraform/vpc/zone-private-k8s/lm-server.tf` に定義されている Proxmox Backup Server (PBS) への日次スナップショットバックアップ (`lm_server_backup`) において、これらの資材により PBS 上で約 65GB 分のバックアップストレージ消費が発生する（PBS のチャンク重複排除により日次の増分差分は抑えられるが、ベースデータとして保持される）。
