@@ -13,7 +13,7 @@ AMD Radeon RX 7600 XT（Navi 33 / `gfx1102`、16GB VRAM）および 48GB/64GB RA
 - ホスト RAM を 48GB に拡張し、`resident = true`（`--mmap-experts` 削除）を適用したことで、全エキスパート（約 33.02 GiB）を物理 RAM に完全常駐させた。
 - ディスクからのオンデマンド読み出しが完全ゼロ（0%）となり、プロセス常駐メモリ約 35.8 GiB、システム全体で約 40.7GB を常駐させて OOM なく安定稼働した。
 
-### 2.2 推論速度 20〜30 tok/s の達成
+### 2.2 推論速度 約 21〜23 tok/s の達成
 - GPU をマザーボード直挿しスロットへ切り替え、PCIe 3.0 x8 フル帯域（実測 6.703 GB/s）を確保した。
 - これにより、初回プロンプト処理（TTFT）は 5,239 ms から **1,410 ms (46.8 tok/s)** へ 3.7 倍高速化し、トークン生成速度も **21.2〜22.9 tok/s（ピーク 23.5 tok/s）** を記録した。
 - 現行の単一 GPU 全層常駐モデル `Qwen3.8-27B`（実測 22.41 tok/s）と同等の生成速度で 125B 級 MoE モデルが稼働することを実証した。
@@ -102,6 +102,17 @@ Nix Flake のルートは `nix/` であるため、本ディレクトリの資�
    > `services.strata.enable = true` を設定すると、`strata.nix` 内で `services.llama-cpp.enable = lib.mkForce false;` が働き、同一 GPU (16GB VRAM) を競合することなく排他起動する。
    > ポートを Strata 既定値（8085 / `qwen3.8-flash-next`）のまま動かす場合は、Kubernetes 側の `manifests/apps/litellm/base/config.yaml` および `manifests/apps/external-service/base/lm-server.yaml` を GitOps で更新すること。
 
+3. **`nix/hosts/lm-server/llama-cpp.nix` のガード追加**:
+   `nix/hosts/lm-server/llama-cpp.nix` 末尾の HIP Graph 無効化設定 (`systemd.services.llama-cpp.environment.GGML_CUDA_DISABLE_GRAPHS`) は無条件に記述されている。Strata 有効化時に `ExecStart` のない空の `llama-cpp.service` ユニットが生成されるのを防ぐため、`lib.mkIf config.services.llama-cpp.enable` で囲む（または設定をコメントアウトする）：
+   ```nix
+   # 先頭の引数に config, lib を追加: { llamaCppPkgs, config, lib, ... }:
+
+   # 末尾の environment 設定をガードで囲む
+   systemd.services.llama-cpp = lib.mkIf config.services.llama-cpp.enable {
+     environment.GGML_CUDA_DISABLE_GRAPHS = "1";
+   };
+   ```
+
 ### 6.2 モデル GGUF のダウンロード
 `/var/lib/strata/models/IQ2_XS` に Shard 1 および Shard 2 を配置する：
 
@@ -126,4 +137,4 @@ strata-pack \
 ```
 
 ### 6.4 関連ドキュメント
-- ハードウェアプロファイルや詳細なレイテンシ内訳、ボトルネック逆算モデルについては `docs/operations/strata-evaluation.md` を参照すること。
+- ハードウェアプロファイルや詳細なレイテンシ内訳、ボトルネック逆算モデルについては同ディレクトリの [evaluation.md](./evaluation.md) を参照すること。

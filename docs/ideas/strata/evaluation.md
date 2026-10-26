@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > 本検証後、コーディングエージェント（Aider / Claude Code）との実用適合性検証において、2bit 極限圧縮（IQ2_XS）による量子化歪みや Thinking モデル特有の思考ループ等の課題が判明したため、本番採用は見送られた。
-> Strata の NixOS モジュールおよびパッケージ等の全資材は `docs/ideas/strata/` へ退避・保管されている。本ドキュメントは当時のハードウェア性能・ボトルネック逆算の検証記録として保持している。再訪手順や知見まとめは `docs/ideas/strata/README.md` を参照すること。
+> 本ドキュメントを含む Strata の NixOS モジュール・パッケージ等の全資材は本ディレクトリ (`docs/ideas/strata/`) へ退避・集約されている。本ドキュメントは当時のハードウェア性能・ボトルネック逆算の検証記録として保持している。再訪手順や知見まとめは同ディレクトリの [README.md](./README.md) を参照すること。
 
 ## 1. 概要と目的
 
@@ -154,7 +154,7 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
      1. **事前資材の配置確認**: `/var/lib/strata/models/IQ2_XS` に GGUF モデル（約 63.4 GiB）および `/var/lib/strata/packs/iq2_xs` に pack（約 1.5 GiB）が事前に生成・配置されていることを確認する。資材が無い状態で有効化するとサービスが起動失敗を繰り返し、`Restart=always` で 10 秒ごとの再起動ループに陥る。
      2. **ポートとモデル名の整合性確保**:
         - 現行の Kubernetes 側（`manifests/apps/litellm/base/config.yaml` および `manifests/apps/external-service/base/lm-server.yaml`）は、ポート `8080` かつモデル名 `openai/qwen3.8-27b` を参照している。
-        - Strata の既定値はポート `8085`、モデル名 `qwen3.8-flash-next` であるため、既存クライアントへの影響を避けてインプレースで切り替える場合は、`docs/ideas/strata/README.md` に記載の通り、設定でポートとモデル名を揃える：
+        - Strata の既定値はポート `8085`、モデル名 `qwen3.8-flash-next` であるため、既存クライアントへの影響を避けてインプレースで切り替える場合は、[README.md](./README.md) に記載の通り、設定でポートとモデル名を揃える：
           ```nix
           services.strata = {
             enable = true;
