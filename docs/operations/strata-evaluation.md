@@ -82,6 +82,7 @@
   - ホスト RAM を 48GB に拡張したことで、`--mmap-experts` を外し、全エキスパート（約 33.02 GiB）を物理 RAM に完全常駐させる「常駐モード」を適用した。
   - OS 上で 47 GiB 認識され、起動前 available は約 45 GiB を確保。プロセスが全エキスパート 33.02 GiB を物理メモリ上に確保した状態でもシステム全体で数 GiB の余裕を維持し、OOM の懸念なく安定稼働した。
   - 全エキスパートが RAM に常駐しているため、ディスクからの読み出しは一切発生せず、ストレージ I/O 待ちは完全ゼロ（0%）となった。
+  - なお、ホスト RAM が不足している場合、エンジンは自動的に mmap フォールバックに切り替わる。常駐が正しく機能しているかは、`/var/log/strata/strata-engine.log`（または `journalctl -u strata`）に `expert arena: resident` が出力されていることで確認できる。
 - **GPU VRAM**:
   - KV キャッシュを `q4_0`、KV streaming を `20480`、VRAM エキスパートキャッシュを `auto`（8,616 スロット、約 11.53 GiB）に配分することで、合計 **15.39 GiB** となり、16GB の VRAM に完全に収容された。
 
@@ -96,11 +97,11 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
    # Shard 1 (36.5 GiB / 39.2 GB)
    aria2c -s 8 -x 8 -k 1M -c "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/main/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf"
    # Shard 2 (26.8 GiB / 28.8 GB)
-   aria2c -s 8 -x 8 -k 1M -c "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
+   aria2c -s 8 -x 8 -k 1M -c "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/main/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf"
    ```
 
 2. **Pack の抽出・生成**:
-   `strata.nix` パッケージ同梱の `strata-pack` ツールを用いて、GGUF から pack (`dense.bin` および tokenizer) を作成する。`strata-pack` は Strata 有効化時に `environment.systemPackages` 経由で PATH に入る。有効化前に実行する場合はビルド済み Nix store パス（`/nix/store/...-strata-0.2.6/bin/strata-pack`）またはパッケージ同梱のスクリプト直接実行（`python3 /var/lib/strata/serve/tools/iq_pack.py`）を使用する。
+   `strata.nix` パッケージ同梱の `strata-pack` ツールを用いて、GGUF から pack (`dense.bin` および tokenizer) を作成する。`strata-pack` は Strata 有効化時に `environment.systemPackages` 経由で PATH に入る。有効化前に実行する場合はビルド済み Nix store パス（`/nix/store/...-strata-0.2.6/bin/strata-pack`）またはパッケージ同梱のスクリプト直接実行（`python3 <strata-pkg>/share/strata/tools/iq_pack.py`）を使用する。
    ```bash
    strata-pack \
      --gguf /var/lib/strata/models/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf \
@@ -116,17 +117,22 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
 
 1. **ストレージ I/O 待ちの完全解消（48GB RAM 常駐化）**:
    - 32GB RAM / mmap モードでは、VRAM キャッシュから漏れたエキスパート参照において仮想ディスク (`/dev/vda2`) からのオンデマンド読み出しが発生し、ストレージ I/O 待ちが全生成時間の約 54%（100 トークン生成時、総時間 9,297 ms 中 5,040.2 ms）を占有していた。
-   - この I/O 待ちにより、計算上は約 23.5 tok/s 出せる能力がありながら、見かけの生成速度が約 10.8 tok/s に半減していた。
-   - 48GB RAM への拡張および常駐モード（`--mmap-experts` 削除）により、全エキスパート（33.02 GiB）が物理メモリに常駐したことで、ディスク I/O 待ちは完全ゼロ（0%）となった。
+   - 当時のプロファイリングにおいて、このストレージ読み出し待ち（5,040.2 ms）を除いた純粋な処理時間（4,256.8 ms）から算出された見かけの計算速度は約 23.5 tok/s 相当であったが、この残り時間にはライザー経由（3.2 GB/s）の PCIe 転送遅延が依然として重畳しており、実測生成速度は約 10.8 tok/s に制約されていた。
+   - 48GB RAM への拡張および常駐モード（`--mmap-experts` 削除）により、全エキスパート（33.02 GiB）が物理メモリに常駐したことで、ディスクからの読み出しは完全ゼロ（0%）となり、ストレージ I/O ボトルネックは完全に解消された。
 2. **ハードウェアの物理的理論上限（PCIe 3.0 x8）への到達**:
    - GPU をマザーボード直挿しスロットへ切り替えたことで、PCIe 転送帯域は 3.2 GB/s（ライザー側スロット）から **6.703 GB/s（PCIe 3.0 x8 フル帯域）** へと約 2.1 倍に向上した。
    - サーバーホストの CPU である AMD Ryzen 5 5500 は Cezanne アーキテクチャ（APU 由来ダイ）を採用しており、CPU の物理仕様として PCIe 3.0 が上限となる。
-   - 125B MoE（6B active）において、VRAM キャッシュから漏れたエキスパート（約 12〜15%）をホスト RAM から GPU VRAM へ転送する際の帯域（6.7 GB/s）および転送レイテンシから逆算すると、計算上 **約 23〜25 tok/s** がハードウェア環境における物理的理論上限となる。
+   - **PCIe 3.0 x8 転送遅延からの逆算**:
+     - Qwen3.8-Flash-Next（125B MoE / 6B active）において、全エキスパートは約 33.02 GiB（8,616 スロット、1 エキスパートあたり約 1.37 MiB）である。
+     - VRAM エキスパートキャッシュ（8,616 スロット、約 11.53 GiB）のヒット率は実測 84.5〜87.8% であり、残りの約 12.2〜15.5% のエキスパートはホスト RAM から PCIe 経由でオンデマンド転送される。
+     - 1 トークン生成（投機的デコードのドラフト検証ステップを含む）において、平均して約 20〜25 個のエキスパート（約 27〜35 MiB）のミスヒット転送が発生する。
+     - PCIe 3.0 x8（実効帯域 6.703 GB/s）において、この約 27〜35 MiB を DMA 転送する所要時間は、転送起動レイテンシや同期オーバーヘッドを含めて 1 トークンあたり約 20〜25 ms を要する。
+     - これに GPU 内部での推論計算時間（アテンション、密層、GEMM 計算等で約 15〜20 ms/tok）が合算されるため、1 トークンあたりの最小処理時間は約 40〜44 ms（1,000 ms / 40〜44 ms ≒ **約 23〜25 tok/s**）がハードウェア環境における物理的理論上限となる。
    - 最新検証で達成した **21.2〜22.9 tok/s（ピーク 23.5 tok/s）** は、この物理的理論上限の限界までハードウェア性能を引き出した結果である。
    - これにより、パラメータ規模が約 4.6 倍大きい 125B 級 MoE モデル（Sonnet / Opus 級の推論能力）を、現行 27B 密モデルと同等の速度で実用稼働させる環境が整った。
 3. **将来展望（PCIe 4.0 CPU 換装によるさらなる拡張性）**:
-   - マザーボードおよび GPU（Radeon RX 7600 XT）自体は PCIe 4.0 に対応しているため、将来的に CPU を PCIe 4.0 対応モデル（Ryzen 5 5600 や Ryzen 9 5900XT 等の Vermeer ダイ）に換装した場合、PCIe 帯域は PCIe 4.0 x8 相当の **13〜14 GB/s** へ倍増する。
-   - ホスト RAM からのエキスパート転送遅延が半減することで、当初目標としていた **35〜45+ tok/s** の超高速推論に到達できる高い拡張性を有している。
+   - マザーボード（`docs/hardware-inventory.md` 記載の ASRock X570S PG Riptide）および GPU（Radeon RX 7600 XT）自体は PCIe 4.0 に対応しているため、将来的に CPU を PCIe 4.0 対応モデル（Ryzen 5 5600 や Ryzen 9 5900XT 等の Vermeer ダイ）に換装した場合、PCIe 帯域は PCIe 4.0 x8 相当の **13〜14 GB/s** へ倍増する。
+   - ホスト RAM からのエキスパート転送遅延が半減（約 20〜25 ms → 約 10〜12 ms）することで、当初目標としていた **35〜45+ tok/s** の超高速推論に到達できる高い拡張性を有している。
 
 ## 6. 結論と本番運用の推奨
 
@@ -152,6 +158,6 @@ Strata による Qwen3.8-Flash-Next の環境構築は以下の手順で実施�
           （あるいは、LiteLLM / external-service 側の設定をポート 8085 / `openai/qwen3.8-flash-next` に合わせて GitOps で更新する）
      3. **有効化と排他起動**: `services.strata.enable = true` を設定することで、モジュール側で `services.llama-cpp.enable` は自動的に `lib.mkForce false` で無効化され、同一 GPU (16GB VRAM) を奪い合うことなく安全に排他起動する。
 3. **実機上の検証資材の扱いとバックアップへの影響**:
-   - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 63.4 GiB、pack 約 1.5 GiB、計約 64.9 GiB）は、現状ルートディスク（200GB）の空き容量が約 96GB あり、ローカルディスク容量面では即座の問題はない。
+   - 実機 `/var/lib/strata` に配置された検証用資材（モデルファイル約 63.4 GiB、pack 約 1.5 GiB、計約 64.9 GiB）は、現状ルートディスク（200GB）の空き容量が約 96 GiB あり、ローカルディスク容量面では即座の問題はない。
    - ただし、`terraform/vpc/zone-private-k8s/lm-server.tf` に定義されている Proxmox Backup Server (PBS) への日次スナップショットバックアップ (`lm_server_backup`) において、これらの資材により PBS 上で約 65GB 分のバックアップストレージ消費が発生する（PBS のチャンク重複排除により日次の増分差分は抑えられるが、ベースデータとして保持される）。
    - そのため、Strata を長期間運用に供しない場合や PBS のストレージ容量を節約したい場合は、`/var/lib/strata` 配下の資材を削除することを推奨する。
