@@ -62,10 +62,6 @@ def normalize_branch_name(val: str, default: str = "unknown") -> str:
     val = val.strip()
     if val.startswith("refs/heads/"):
         val = val[len("refs/heads/") :]
-    if val in ("tmp", "/tmp"):
-        return "tmp"
-    if val == "HEAD":
-        return default
     val = re.sub(r"[^a-zA-Z0-9_\-\./]+", "-", val)
     val = val.strip("-")
     if val in ("tmp", "/tmp"):
@@ -187,7 +183,7 @@ def extract_task_from_brief(ws_path: str) -> str:
     return "unknown"
 
 
-def extract_pr_number(ws_path: str) -> str:
+def extract_pr_number(ws_path: str, repo: str | None = None) -> str:
     """ワークスペースの .autopilot/run.log または result.md から PR 番号を抽出"""
     if not ws_path:
         return "none"
@@ -201,10 +197,26 @@ def extract_pr_number(ws_path: str) -> str:
     result_path = os.path.join(auto_dir, "result.md")
     run_log_path = os.path.join(auto_dir, "run.log")
 
+    repo_url_pattern = None
+    if repo and repo != "unknown":
+        repo_url_pattern = re.compile(rf"https://github\.com/[^/\s]+/{re.escape(repo)}/pull/(\d+)")
     url_pattern = re.compile(r"https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)")
     pr_pattern = re.compile(r"(?:PR\s*#|pull/|pulls/)(\d+)")
 
-    # 1. gh pr create の出力 URL (https://github.com/.../pull/N) を最優先
+    # 1. 該当リポジトリの URL があれば最優先
+    if repo_url_pattern:
+        for p in (result_path, run_log_path):
+            if os.path.exists(p):
+                try:
+                    with open(p, "r", encoding="utf-8", errors="replace") as f:
+                        content = f.read()
+                        matches = repo_url_pattern.findall(content)
+                        if matches:
+                            return matches[-1]
+                except Exception:
+                    pass
+
+    # 2. 一般的な gh pr create の出力 URL (https://github.com/.../pull/N) を優先
     for p in (result_path, run_log_path):
         if os.path.exists(p):
             try:
@@ -216,7 +228,7 @@ def extract_pr_number(ws_path: str) -> str:
             except Exception:
                 pass
 
-    # 2. URL がない場合、PR #N などの表記を抽出
+    # 3. URL がない場合、PR #N などの表記を抽出
     for p in (result_path, run_log_path):
         if os.path.exists(p):
             try:
@@ -238,7 +250,7 @@ def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
     try:
         with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
-                m = re.search(r"==\s*(implementing|reviewing|fixing|summarizing)", line)
+                m = re.search(r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing)", line)
                 if m:
                     step = m.group(1)
                     step_map = {
@@ -275,7 +287,7 @@ def get_phase_from_run_log(ws_path: str) -> str:
     return "unknown"
 
 
-def detect_phase(content: str, ws_path: str | None = None) -> str:
+def detect_phase(content: str) -> str:
     """プロンプト内容から作業フェーズ (implement/review/fix/summarize) を判定"""
     if not content:
         content = ""
@@ -497,7 +509,7 @@ class MetricsCollector:
                 is_cli = (prev_entrypoint == "cli")
                 is_sdk = (prev_entrypoint == "sdk-cli")
                 context = "portal" if is_cli else prev_meta.get("context", "portal")
-                phase = "portal" if is_cli else (prev_meta.get("phase") or ("portal" if context == "portal" else "implement"))
+                phase = "portal" if is_cli else (prev_meta.get("phase") or ("portal" if context == "portal" else "unknown"))
                 phase_locked = (phase in ("implement", "review", "fix", "summarize") and context == "autopilot") or is_cli
                 saved_model = prev_meta.get("model", "unknown")
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
@@ -585,8 +597,8 @@ class MetricsCollector:
                                         context = "autopilot"
                                         phase_locked = True
 
-                        effective_phase = "portal" if (is_cli or context == "portal") else (phase if phase != "unknown" else "implement")
-                        effective_context = "portal" if (is_cli or context == "portal") else "autopilot"
+                        effective_phase = "portal" if (is_cli or context == "portal") else phase
+                        effective_context = "portal" if (is_cli or context == "portal") else ("autopilot" if is_sdk else context)
 
                         # トークン使用量のパース
                         msg = record.get("message") or {}
@@ -629,8 +641,8 @@ class MetricsCollector:
                                 key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
-                effective_phase = "portal" if (is_cli or context == "portal") else (phase if phase != "unknown" else "implement")
-                effective_context = "portal" if (is_cli or context == "portal") else "autopilot"
+                effective_phase = "portal" if (is_cli or context == "portal") else phase
+                effective_context = "portal" if (is_cli or context == "portal") else ("autopilot" if is_sdk else context)
 
                 # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 if is_new_session and new_offset > 0:
@@ -713,7 +725,7 @@ class MetricsCollector:
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
                     context = "portal"
-                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "implement")
+                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "unknown")
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
@@ -758,12 +770,12 @@ class MetricsCollector:
                                     or "あなたはコードレビュアーである" in content
                                 ):
                                     context = "autopilot"
-                                    detected = detect_phase(content, ws_path)
+                                    detected = detect_phase(content)
                                     if detected in ("implement", "review", "fix", "summarize"):
                                         phase = detected
                                     else:
                                         fb = get_phase_from_run_log(ws_path)
-                                        phase = fb if fb in ("implement", "review", "fix", "summarize") else "implement"
+                                        phase = fb if fb in ("implement", "review", "fix", "summarize") else "unknown"
 
                         # repo および branch 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
                         if repo == "unknown" or branch == "unknown":
@@ -1005,7 +1017,7 @@ class MetricsCollector:
                 repo = normalize_repo_name(d)
                 branch = get_git_branch_from_worktree(ws_dir)
                 task = extract_task_from_brief(ws_dir)
-                pr = extract_pr_number(ws_dir)
+                pr = extract_pr_number(ws_dir, repo=repo)
 
                 key = f'branch="{branch}",impl="{impl}",level="{level}",pr="{pr}",repo="{repo}",result="{result_type}",task="{task}"'
                 runs_counter[key] = runs_counter.get(key, 0) + 1

@@ -24,6 +24,7 @@ normalize_model_name = collector_mod.normalize_model_name
 get_git_branch_from_worktree = collector_mod.get_git_branch_from_worktree
 extract_task_from_brief = collector_mod.extract_task_from_brief
 extract_pr_number = collector_mod.extract_pr_number
+_read_run_log_steps = collector_mod._read_run_log_steps
 detect_phase = collector_mod.detect_phase
 get_antigravity_conversation_meta = collector_mod.get_antigravity_conversation_meta
 get_antigravity_conversation_repo = collector_mod.get_antigravity_conversation_repo
@@ -128,9 +129,30 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                 f.write("PR: https://github.com/k-wa-wa/nuage-cluster/pull/123\n")
             self.assertEqual(extract_pr_number(tmp_dir), "123")
 
+            # 複数リポジトリの URL が含まれる場合、指定した repo の URL を優先
+            with open(os.path.join(auto_dir, "result.md"), "w", encoding="utf-8") as f:
+                f.write(
+                    "PR: https://github.com/k-wa-wa/nuage-cluster/pull/123\n"
+                    "後作業: https://github.com/k-wa-wa/nuage-monitoring-stack/pull/999\n"
+                )
+            self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster"), "123")
+
             # PR 記載なし
             with tempfile.TemporaryDirectory() as empty_dir:
                 self.assertEqual(extract_pr_number(empty_dir), "none")
+
+    def test_run_log_steps_prefix_matching(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            log_path = os.path.join(tmp_dir, "run.log")
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] == implementing (claude)\n"
+                    "   - コメント内で `== summarizing` に言及した行\n"
+                    "   - `== reviewing` というテキストを含む説明文\n"
+                    "[10:05:00] == fixing (round 1)\n"
+                )
+            steps = _read_run_log_steps(log_path, 1.0)
+            self.assertEqual(steps, ["implement", "fix"])
 
     def test_detect_phase(self):
         self.assertEqual(
@@ -298,6 +320,57 @@ class TestMetricsCollector(unittest.TestCase):
                 expected_key = f'agent="claude",branch="bot-wa-wa/phase-branch",model="claude-opus-5-5",phase="{expected_phase}",repo="nuage-cluster",type="input"'
                 self.assertIn(expected_key, tokens)
                 self.assertEqual(tokens[expected_key], 10)
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_claude_sdk_unknown_phase(self):
+        # sdk-cli だがプロンプトが定型外（動作確認等の ok）で run.log も無い場合、phase="unknown" になること
+        project_dir = os.path.join(self.test_dir, "projects", "-tmp")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-test-ok.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "Reply with exactly: ok"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/tmp",
+                "gitBranch": "tmp",
+                "message": {
+                    "id": "msg-ok-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 15, "output_tokens": 2},
+                },
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        try:
+            collector = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=True,
+            )
+            collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+            collector.collect_claude()
+
+            tokens = collector.state["counters"]["tokens"]
+            sessions = collector.state["counters"]["sessions"]
+
+            expected_token_key = 'agent="claude",branch="tmp",model="claude-opus-5-5",phase="unknown",repo="tmp",type="input"'
+            self.assertIn(expected_token_key, tokens)
+            self.assertEqual(tokens[expected_token_key], 15)
+
+            # phase="implement" に紛れ込んでいないこと
+            for k in tokens:
+                self.assertNotIn('phase="implement"', k)
+
+            expected_session_key = 'agent="claude",branch="tmp",phase="unknown",repo="tmp"'
+            self.assertIn(expected_session_key, sessions)
+            self.assertEqual(sessions[expected_session_key], 1)
         finally:
             collector_mod.glob.glob = orig_glob
 
@@ -485,6 +558,11 @@ class TestMetricsCollector(unittest.TestCase):
         jsonl_path = os.path.join(project_dir, "session-dup.jsonl")
 
         with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
             for _ in range(3):
                 f.write(json.dumps({
                     "type": "assistant",
@@ -756,7 +834,7 @@ class TestMetricsCollector(unittest.TestCase):
                 dry_run=True,
             )
 
-    def test_state_migration_v1_to_v2(self):
+    def test_state_migration_to_v3(self):
         # v1 および v2 形式の状態ファイルが読み込まれたとき v3 にマイグレーションされ、古いカウンタやオフセットがリセットされること
         v1_data = {
             "version": 1,
@@ -918,6 +996,11 @@ class TestMetricsCollector(unittest.TestCase):
         jsonl_path = os.path.join(project_dir, "session-inc.jsonl")
 
         with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
             f.write(json.dumps({
                 "type": "assistant",
                 "entrypoint": "sdk-cli",
