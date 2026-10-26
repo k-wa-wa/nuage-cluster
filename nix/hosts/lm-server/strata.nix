@@ -124,7 +124,7 @@ in
     resident = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "全エキスパート（約 33GiB）を RAM に完全常駐させるかどうか。true の場合は --mmap-experts を外して物理メモリに常駐させ、ディスク I/O 待ちを 0 にして高速推論を行う。RAM が 48GB 未満などで不足する場合は false（mmap 有効）にする。なお、RAM 不足時はエンジンが警告を出して自動的に mmap フォールバックを行うため、常駐が正しく機能しているかは strata-engine.log に `expert arena: resident` が出力されていることで確認できる。";
+      description = "全エキスパート（約 33GiB）を RAM に完全常駐させるかどうか。true の場合は --mmap-experts を外して物理メモリに常駐させ、ディスク I/O 待ちを 0 にして高速推論を行う。RAM が 48GB 未満などで不足する場合は false（mmap 有効）にする。なお、RAM 不足時はエンジンが警告を出して自動的に mmap フォールバックを行うため、常駐が正しく機能しているかは /var/lib/strata/strata-engine.log に `expert arena: resident` が出力されていることで確認できる。";
     };
   };
 
