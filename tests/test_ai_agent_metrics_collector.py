@@ -28,6 +28,10 @@ _read_run_log_steps = collector_mod._read_run_log_steps
 detect_phase = collector_mod.detect_phase
 get_antigravity_conversation_meta = collector_mod.get_antigravity_conversation_meta
 get_antigravity_conversation_repo = collector_mod.get_antigravity_conversation_repo
+parse_rates_yaml = collector_mod.parse_rates_yaml
+load_rates = collector_mod.load_rates
+match_model_rate_key = collector_mod.match_model_rate_key
+format_usd = collector_mod.format_usd
 MetricsCollector = collector_mod.MetricsCollector
 CURRENT_STATE_VERSION = collector_mod.CURRENT_STATE_VERSION
 
@@ -754,6 +758,7 @@ class TestMetricsCollector(unittest.TestCase):
 
         self.assertTrue(collector.has_errors)
         self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector.state["counters"]["cost_usd"]), 0)
         self.assertNotIn(jsonl_path, collector.state["claude_offsets"])
 
     def test_autopilot_runs_collection(self):
@@ -1412,6 +1417,348 @@ class TestMetricsCollector(unittest.TestCase):
         expected_key = 'branch="unknown",impl="agy",level="high",pr="none",repo="nuage-cluster",result="done",task="unknown"'
         self.assertIn(expected_key, runs)
         self.assertNotIn('impl="claude"', str(runs))
+
+    def test_parse_and_load_rates_yaml(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        rates = load_rates(repo_rates_path)
+
+        self.assertIn("claude-opus-5-5", rates)
+        self.assertEqual(rates["claude-opus-5-5"]["input"], 15.0)
+        self.assertEqual(rates["claude-opus-5-5"]["output"], 75.0)
+        self.assertEqual(rates["claude-opus-5-5"]["cache_read"], 1.5)
+        self.assertEqual(rates["claude-opus-5-5"]["cache_creation"], 18.75)
+
+        self.assertIn("gemini-3.8-flash", rates)
+        self.assertEqual(rates["gemini-3.8-flash"]["input"], 0.10)
+        self.assertEqual(rates["gemini-3.8-flash"]["output"], 0.40)
+        self.assertEqual(rates["gemini-3.8-flash"]["cache_read"], 0.025)
+
+        self.assertIn("gemini-4-argon", rates)
+        self.assertIn("gpt-oss-120b", rates)
+        self.assertIn("claude-sonnet-5-5", rates)
+        self.assertIn("claude-haiku-5-5", rates)
+
+        # 不正な YAML のエラーハンドリング確認
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("invalid_top_line\n  input: 1.0\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  input: not_a_float\n")
+        with self.assertRaises(ValueError):
+            parse_rates_yaml("model-a:\n  input: -5.0\n")
+        with self.assertRaises(RuntimeError):
+            load_rates("/nonexistent/rates.yaml")
+
+    def test_match_model_rate_key(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        rates = load_rates(repo_rates_path)
+
+        self.assertEqual(match_model_rate_key("gemini-3-8-flash-high", rates), "gemini-3.8-flash")
+        self.assertEqual(match_model_rate_key("gemini-3-8-flash-medium", rates), "gemini-3.8-flash")
+        self.assertEqual(match_model_rate_key("gemini-3-8-flash-low", rates), "gemini-3.8-flash")
+        self.assertEqual(match_model_rate_key("Gemini 3.8 Flash (High)", rates), "gemini-3.8-flash")
+        self.assertEqual(match_model_rate_key("gemini-4-argon-high", rates), "gemini-4-argon")
+        self.assertEqual(match_model_rate_key("Gemini 4 Argon (High)", rates), "gemini-4-argon")
+        self.assertEqual(match_model_rate_key("claude-opus-5-5", rates), "claude-opus-5-5")
+        self.assertEqual(match_model_rate_key("claude-opus-5-5@high", rates), "claude-opus-5-5")
+        self.assertEqual(match_model_rate_key("claude-opus-5-5-low", rates), "claude-opus-5-5")
+        self.assertEqual(match_model_rate_key("claude-opus-5-5-20251101", rates), "claude-opus-5-5")
+        self.assertEqual(match_model_rate_key("claude-sonnet-5-5-low", rates), "claude-sonnet-5-5")
+        self.assertEqual(match_model_rate_key("claude-haiku-5-5@low", rates), "claude-haiku-5-5")
+        self.assertEqual(match_model_rate_key("gpt-oss-120b-medium", rates), "gpt-oss-120b")
+
+        # 未定義モデルは None
+        self.assertIsNone(match_model_rate_key("unknown", rates))
+        self.assertIsNone(match_model_rate_key("synthetic", rates))
+        self.assertIsNone(match_model_rate_key("gemini-3-8-pro-high", rates))
+        self.assertIsNone(match_model_rate_key("gpt-5-turbo", rates))
+        self.assertIsNone(match_model_rate_key("", rates))
+
+    def test_cost_calculation_and_prometheus_output(self):
+        # Claude と Antigravity のログからトークン増分×単価で USD コストが計算され、thinking は二重加算されないこと
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-cost.jsonl")
+
+        # claude-opus-5-5: input=$15/1M, output=$75/1M, cache_read=$1.50/1M, cache_creation=$18.75/1M
+        # 100,000 input ($1.50) + 20,000 output ($1.50) + 200,000 cache_read ($0.30) + 40,000 cache_creation ($0.75) = $4.05
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/cost-branch",
+                "message": {
+                    "id": "msg-cost-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {
+                        "input_tokens": 100_000,
+                        "output_tokens": 20_000,
+                        "cache_read_input_tokens": 200_000,
+                        "cache_creation_input_tokens": 40_000,
+                        "output_tokens_details": {
+                            "thinking_tokens": 5_000,
+                        },
+                    },
+                },
+            }) + "\n")
+
+        # Antigravity: gemini-3-8-flash-high -> gemini-3.8-flash (input=$0.10/1M, output=$0.40/1M, cache_read=$0.025/1M)
+        # 500,000 input ($0.05) + 100,000 output ($0.04) + 400,000 cache_read ($0.01) = $0.10
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-cost", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        transcript_path = os.path.join(brain_dir, "transcript.jsonl")
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 500_000,
+                "output_tokens": 100_000,
+                "cache_read_tokens": 400_000,
+                "content": "レビュー完了",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector.state["cid_to_meta"]["conv-cost"] = {
+            "repo": "nuage-cluster",
+            "branch": "bot-wa-wa/cost-branch",
+            "worktree": "/home/nixos/orca/workspaces/nuage-cluster/test",
+        }
+
+        orig_glob = collector_mod.glob.glob
+        def mock_glob(p):
+            if "claude" in p:
+                return [jsonl_path]
+            if "antigravity" in p:
+                return [transcript_path]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            collector.collect_claude()
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        costs = collector.state["counters"]["cost_usd"]
+        claude_cost_key = 'agent="claude",branch="bot-wa-wa/cost-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"'
+        agy_cost_key = 'agent="agy",branch="bot-wa-wa/cost-branch",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster"'
+
+        self.assertAlmostEqual(costs[claude_cost_key], 4.05, places=8)
+        self.assertAlmostEqual(costs[agy_cost_key], 0.1, places=8)
+
+        payload = collector.generate_prometheus_payload()
+        self.assertIn("# HELP nuage_ai_agent_cost_usd_total Total cost in USD used by AI agents", payload)
+        self.assertIn("# TYPE nuage_ai_agent_cost_usd_total counter", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_cost_key}}} 4.05", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_cost_key}}} 0.1", payload)
+
+    def test_unknown_model_cost_zero_and_warns(self):
+        # 単価未定義のモデルはコスト 0 とし、警告ログが出力され、トークン数は引き続き計上されること
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-unknown-model.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "main",
+                "message": {
+                    "id": "msg-unk-1",
+                    "model": "mystery-new-model-99",
+                    "usage": {
+                        "input_tokens": 50_000,
+                        "output_tokens": 10_000,
+                    },
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            with mock.patch.object(collector, "warn", wraps=collector.warn) as mock_warn:
+                collector.collect_claude()
+                mock_warn.assert_called_once()
+                self.assertIn("mystery-new-model-99", mock_warn.call_args[0][0])
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        cost_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster"'
+        self.assertIn(cost_key, collector.state["counters"]["cost_usd"])
+        self.assertEqual(collector.state["counters"]["cost_usd"][cost_key], 0.0)
+
+        token_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster",type="input"'
+        self.assertEqual(collector.state["counters"]["tokens"][token_key], 50_000)
+
+        payload = collector.generate_prometheus_payload()
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{cost_key}}} 0.0", payload)
+
+    def test_cost_incremental_consistency_and_rate_change_protection(self):
+        # 1. 差分集計の整合性（1回目＋2回目の増分集計結果が正確であること）
+        # 2. 価格改定時に過去の確定実績が遡及変更されず、増分のみに新単価が適用されること
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
+        os.makedirs(project_dir, exist_ok=True)
+        jsonl_path = os.path.join(project_dir, "session-inc-cost.jsonl")
+
+        rates_v1 = {
+            "claude-sonnet-5-5": {
+                "input": 3.00,
+                "output": 15.00,
+                "cache_read": 0.30,
+                "cache_creation": 3.75,
+            }
+        }
+        rates_v2 = {
+            "claude-sonnet-5-5": {
+                "input": 6.00,
+                "output": 30.00,
+                "cache_read": 0.60,
+                "cache_creation": 7.50,
+            }
+        }
+
+        # 1回目: 1,000,000 input ($3.00) + 100,000 output ($1.50) = $4.50
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                "gitBranch": "bot-wa-wa/inc-cost",
+                "message": {
+                    "id": "msg-inc-cost-1",
+                    "model": "claude-sonnet-5-5",
+                    "usage": {"input_tokens": 1_000_000, "output_tokens": 100_000},
+                },
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "claude" in p else []
+        try:
+            collector1 = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=False,
+                rates=rates_v1,
+            )
+            collector1.collect_claude()
+            collector1._save_state()
+
+            cost_key = 'agent="claude",branch="bot-wa-wa/inc-cost",model="claude-sonnet-5-5",phase="implement",repo="nuage-cluster"'
+            self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][cost_key], 4.50, places=8)
+
+            # 2回目追記: 500,000 input + 100,000 output
+            with open(jsonl_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": "/home/nixos/orca/workspaces/nuage-cluster/test",
+                    "gitBranch": "bot-wa-wa/inc-cost",
+                    "message": {
+                        "id": "msg-inc-cost-2",
+                        "model": "claude-sonnet-5-5",
+                        "usage": {"input_tokens": 500_000, "output_tokens": 100_000},
+                    },
+                }) + "\n")
+
+            # 単価改定 (rates_v2: 2倍) 後に差分収集:
+            # 1回目の $4.50 は維持され、2回目増分 (0.5M * $6 + 0.1M * $30 = $3.00 + $3.00 = $6.00) のみが加算され合計 $10.50 になること
+            collector2 = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=False,
+                rates=rates_v2,
+            )
+            collector2.collect_claude()
+            collector2._save_state()
+
+            self.assertAlmostEqual(collector2.state["counters"]["cost_usd"][cost_key], 10.50, places=8)
+            token_in_key = f'{cost_key},type="input"'
+            self.assertEqual(collector2.state["counters"]["tokens"][token_in_key], 1_500_000)
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_backfill_cost_from_existing_v3_state_without_cost_key(self):
+        # cost_usd キーを持たない既存の v3 state ファイルから初期コストがバックフィルされること
+        legacy_v3_state = {
+            "version": 3,
+            "claude_offsets": {},
+            "agy_offsets": {},
+            "last_orca_stats_timestamp": 0,
+            "counters": {
+                "tokens": {
+                    'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"': 100_000,
+                    'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"': 20_000,
+                    'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="thinking"': 5_000,
+                },
+                "sessions": {},
+                "duration": {},
+                "autopilot_runs": {},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(legacy_v3_state, f)
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        cost_key = 'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"'
+        # 100,000 * 15 / 1M ($1.50) + 20,000 * 75 / 1M ($1.50) = $3.00 (thinking は除外)
+        self.assertAlmostEqual(collector.state["counters"]["cost_usd"][cost_key], 3.00, places=8)
+
+    def test_autopilot_rates_env_override(self):
+        custom_rates_path = os.path.join(self.test_dir, "custom-rates.yaml")
+        with open(custom_rates_path, "w", encoding="utf-8") as f:
+            f.write(
+                "custom-model-x:\n"
+                "  input: 10.0\n"
+                "  output: 20.0\n"
+            )
+
+        with mock.patch.dict(os.environ, {"AUTOPILOT_RATES": custom_rates_path}):
+            collector = MetricsCollector(
+                state_file=self.state_file,
+                vm_url="http://localhost:8427",
+                dry_run=True,
+            )
+            self.assertEqual(collector.rates_file, custom_rates_path)
+            self.assertAlmostEqual(
+                collector.calculate_cost_usd("custom-model-x-high", input_tokens=100_000, output_tokens=50_000),
+                2.0,
+                places=8,
+            )
 
 
 if __name__ == "__main__":
