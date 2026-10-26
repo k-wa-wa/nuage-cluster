@@ -22,7 +22,9 @@ normalize_branch_name = collector_mod.normalize_branch_name
 normalize_repo_name = collector_mod.normalize_repo_name
 normalize_model_name = collector_mod.normalize_model_name
 get_git_branch_from_worktree = collector_mod.get_git_branch_from_worktree
+escape_prometheus_label = collector_mod.escape_prometheus_label
 extract_task_from_brief = collector_mod.extract_task_from_brief
+resolve_task_label = collector_mod.resolve_task_label
 extract_pr_number = collector_mod.extract_pr_number
 is_terminal_autopilot_status = collector_mod.is_terminal_autopilot_status
 normalize_autopilot_phase = collector_mod.normalize_autopilot_phase
@@ -121,6 +123,49 @@ class TestNormalizationAndExtraction(unittest.TestCase):
 
             # brief.md がない場合
             self.assertEqual(extract_task_from_brief("/nonexistent/path"), "unknown")
+
+    def test_resolve_task_label_and_escaping(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            auto_dir = os.path.join(tmp_dir, ".autopilot")
+            os.makedirs(auto_dir, exist_ok=True)
+            brief_file = os.path.join(auto_dir, "brief.md")
+            with open(brief_file, "w", encoding="utf-8") as f:
+                f.write('# 日本語タスク名 "引用" と \\パス\\ 連携\n\n本文\n')
+            brief_task = extract_task_from_brief(tmp_dir)
+
+            # 1. phase == "portal" の場合は brief_task が存在しても "portal" となること
+            self.assertEqual(
+                resolve_task_label(phase="portal", branch="bot-wa-wa/feat", brief_task=brief_task),
+                "portal",
+            )
+
+            # 2. phase != "portal" で確定済みの brief_task が存在する場合は日本語タスク名（エスケープ済み）となること
+            self.assertEqual(
+                resolve_task_label(phase="implement", branch="bot-wa-wa/feat", brief_task=brief_task),
+                '日本語タスク名 \\"引用\\" と \\\\パス\\\\ 連携',
+            )
+
+            # 3. brief_task が未確定（"unknown"）の場合は branch にフォールバックされること
+            self.assertEqual(
+                resolve_task_label(phase="implement", branch="bot-wa-wa/fallback-branch", brief_task="unknown"),
+                "bot-wa-wa/fallback-branch",
+            )
+
+            # 4. brief_task も未確定で branch も不明な場合は "unknown" となること
+            self.assertEqual(
+                resolve_task_label(phase="review", branch="unknown", brief_task="unknown"),
+                "unknown",
+            )
+            self.assertEqual(
+                resolve_task_label(phase="review", branch="", brief_task=""),
+                "unknown",
+            )
+
+            # 5. 改行やタブ文字のエスケープ確認
+            self.assertEqual(
+                escape_prometheus_label('タスク\n改行\tタブ"クォート"\\バックスラッシュ'),
+                'タスク 改行 タブ\\"クォート\\"\\\\バックスラッシュ',
+            )
 
     def test_extract_pr_number(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -323,10 +368,10 @@ class TestMetricsCollector(unittest.TestCase):
         tokens = counters["tokens"]
         sessions = counters["sessions"]
 
-        expected_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/test-branch",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertEqual(tokens[expected_key], 100)
-        thinking_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="thinking"'
+        thinking_key = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/test-branch",type="thinking"'
         self.assertEqual(tokens[thinking_key], 10)
         session_key = 'agent="claude",branch="bot-wa-wa/test-branch",phase="implement",repo="nuage-cluster"'
         self.assertEqual(sessions[session_key], 1)
@@ -371,7 +416,7 @@ class TestMetricsCollector(unittest.TestCase):
                 collector.collect_claude()
 
                 tokens = collector.state["counters"]["tokens"]
-                expected_key = f'agent="claude",branch="bot-wa-wa/phase-branch",model="claude-opus-5-5",phase="{expected_phase}",repo="nuage-cluster",type="input"'
+                expected_key = f'agent="claude",branch="bot-wa-wa/phase-branch",model="claude-opus-5-5",phase="{expected_phase}",repo="nuage-cluster",task="bot-wa-wa/phase-branch",type="input"'
                 self.assertIn(expected_key, tokens)
                 self.assertEqual(tokens[expected_key], 10)
         finally:
@@ -414,7 +459,7 @@ class TestMetricsCollector(unittest.TestCase):
             tokens = collector.state["counters"]["tokens"]
             sessions = collector.state["counters"]["sessions"]
 
-            expected_token_key = 'agent="claude",branch="tmp",model="claude-opus-5-5",phase="unknown",repo="tmp",type="input"'
+            expected_token_key = 'agent="claude",branch="tmp",model="claude-opus-5-5",phase="unknown",repo="tmp",task="tmp",type="input"'
             self.assertIn(expected_token_key, tokens)
             self.assertEqual(tokens[expected_token_key], 15)
 
@@ -491,8 +536,8 @@ class TestMetricsCollector(unittest.TestCase):
 
         tokens = collector.state["counters"]["tokens"]
         # すべて implement として集計され、review や summarize に化けないこと
-        impl_key_input = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
-        impl_key_output = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"'
+        impl_key_input = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/feat-tool",type="input"'
+        impl_key_output = 'agent="claude",branch="bot-wa-wa/feat-tool",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/feat-tool",type="output"'
         self.assertIn(impl_key_input, tokens)
         self.assertEqual(tokens[impl_key_input], 110)
         self.assertIn(impl_key_output, tokens)
@@ -544,13 +589,14 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-cli",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-cli",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",task="portal",type="input"'
         self.assertIn(portal_key_input, tokens)
         self.assertEqual(tokens[portal_key_input], 40)
-        # offset メタデータの context と phase も portal に固定されること
+        # offset メタデータの context, phase, task も portal に固定されること
         meta = collector.state["claude_offsets"][jsonl_path]
         self.assertEqual(meta["context"], "portal")
         self.assertEqual(meta["phase"], "portal")
+        self.assertEqual(meta["task"], "portal")
 
     def test_claude_cli_with_run_log_remains_portal(self):
         ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "test-runlog")
@@ -599,7 +645,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-runlog",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",type="input"'
+        portal_key_input = 'agent="claude",branch="bot-wa-wa/feat-runlog",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",task="portal",type="input"'
         self.assertIn(portal_key_input, tokens)
         self.assertEqual(tokens[portal_key_input], 30)
         # run.log の review に引っ張られないこと
@@ -647,8 +693,8 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        key_input = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
-        key_output = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="output"'
+        key_input = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/test-branch",type="input"'
+        key_output = 'agent="claude",branch="bot-wa-wa/test-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/test-branch",type="output"'
         self.assertEqual(tokens[key_input], 100)
         self.assertEqual(tokens[key_output], 50)
 
@@ -698,10 +744,10 @@ class TestMetricsCollector(unittest.TestCase):
         tokens = counters["tokens"]
         sessions = counters["sessions"]
 
-        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",task="bot-wa-wa/feat-branch",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertEqual(tokens[expected_key], 1200)
-        out_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="output"'
+        out_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",task="bot-wa-wa/feat-branch",type="output"'
         self.assertEqual(tokens[out_key], 80)
         s_key = 'agent="agy",branch="bot-wa-wa/feat-branch",phase="implement",repo="nuage-cluster"'
         self.assertEqual(sessions[s_key], 1)
@@ -771,7 +817,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector2.state["counters"]["tokens"]
-        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="bot-wa-wa/feat-branch",model="gemini-3-8-flash-high",phase="implement",repo="nuage-cluster",task="bot-wa-wa/feat-branch",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertEqual(tokens[expected_key], 30)
 
@@ -889,8 +935,8 @@ class TestMetricsCollector(unittest.TestCase):
                 dry_run=True,
             )
 
-    def test_state_migration_to_v3(self):
-        # v1 および v2 形式の状態ファイルが読み込まれたとき v3 にマイグレーションされ、古いカウンタやオフセットがリセットされること
+    def test_state_migration_to_v4(self):
+        # v1, v2, v3 形式の状態ファイルが読み込まれたとき v4 にマイグレーションされ、古いカウンタやオフセットがリセットされること
         v1_data = {
             "version": 1,
             "claude_offsets": {"/old/path": 100},
@@ -913,38 +959,55 @@ class TestMetricsCollector(unittest.TestCase):
         )
 
         self.assertEqual(collector.state["version"], CURRENT_STATE_VERSION)
-        self.assertEqual(collector.state["version"], 3)
+        self.assertEqual(collector.state["version"], 4)
         self.assertEqual(len(collector.state["counters"]["tokens"]), 0)
         self.assertEqual(len(collector.state["counters"]["autopilot_runs"]), 0)
         self.assertEqual(len(collector.state["claude_offsets"]), 0)
 
-        # v2 形式（旧コードにより混入した context= キーなどを含む）からの移行
-        v2_data = {
-            "version": 2,
+        # v3 形式（task ラベル導入前のキーを含む）からの移行
+        v3_data = {
+            "version": 3,
             "claude_offsets": {"/old/path": {"offset": 100, "repo": "nuage-cluster"}},
-            "agy_offsets": {"/old/agy": {"offset": 200}},
+            "agy_offsets": {
+                "/home/nixos/.gemini/antigravity-cli/brain/cid-v3-agy/.system_generated/logs/transcript.jsonl": {
+                    "offset": 200,
+                    "repo": "nuage-cluster",
+                    "branch": "feature/v3-branch",
+                    "ws_path": "/home/nixos/orca/workspaces/nuage-cluster/v3-ws",
+                }
+            },
             "last_orca_stats_timestamp": 5000,
             "counters": {
-                "tokens": {'agent="claude",context="autopilot",repo="nuage-cluster"': 1000},
-                "sessions": {'agent="claude",context="portal",repo="nuage-cluster"': 1},
-                "duration": {'agent="claude",context="portal",repo="nuage-cluster"': 10.5},
+                "tokens": {'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"': 1000},
+                "cost_usd": {'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"': 1.5},
+                "sessions": {'agent="claude",branch="main",phase="portal",repo="nuage-cluster"': 1},
+                "duration": {'agent="claude",branch="main",phase="portal",repo="nuage-cluster"': 10.5},
                 "autopilot_runs": {},
             },
         }
         with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(v2_data, f)
+            json.dump(v3_data, f)
 
         collector2 = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=True,
         )
-        self.assertEqual(collector2.state["version"], 3)
+        self.assertEqual(collector2.state["version"], 4)
         self.assertEqual(len(collector2.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector2.state["counters"]["cost_usd"]), 0)
         self.assertEqual(len(collector2.state["counters"]["sessions"]), 0)
         self.assertEqual(len(collector2.state["counters"]["duration"]), 0)
         self.assertEqual(len(collector2.state["claude_offsets"]), 0)
         self.assertEqual(len(collector2.state["agy_offsets"]), 0)
+        self.assertEqual(
+            collector2.state["cid_to_meta"].get("cid-v3-agy"),
+            {
+                "repo": "nuage-cluster",
+                "branch": "feature/v3-branch",
+                "worktree": "/home/nixos/orca/workspaces/nuage-cluster/v3-ws",
+            },
+        )
 
     def test_orca_stats_portal_context(self):
         auto_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-x", ".autopilot")
@@ -1033,7 +1096,7 @@ class TestMetricsCollector(unittest.TestCase):
             dry_run=True,
         )
         collector.state["counters"]["tokens"] = {
-            'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"': 100,
+            'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="日本語タスク名",type="input"': 100,
         }
         collector.state["counters"]["sessions"] = {
             'agent="claude",branch="main",phase="implement",repo="nuage-cluster"': 1,
@@ -1041,7 +1104,7 @@ class TestMetricsCollector(unittest.TestCase):
 
         payload = collector.generate_prometheus_payload()
         self.assertIn("# TYPE nuage_ai_agent_tokens_total counter", payload)
-        self.assertIn('nuage_ai_agent_tokens_total{agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"} 100', payload)
+        self.assertIn('nuage_ai_agent_tokens_total{agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="日本語タスク名",type="input"} 100', payload)
         self.assertIn("# TYPE nuage_ai_agent_sessions_total counter", payload)
         self.assertIn('nuage_ai_agent_sessions_total{agent="claude",branch="main",phase="implement",repo="nuage-cluster"} 1', payload)
 
@@ -1110,7 +1173,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector2.state["counters"]["tokens"]
-        key_input = 'agent="claude",branch="bot-wa-wa/inc-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",type="input"'
+        key_input = 'agent="claude",branch="bot-wa-wa/inc-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/inc-branch",type="input"'
         self.assertEqual(tokens[key_input], 80)
         sessions = collector2.state["counters"]["sessions"]
         self.assertEqual(sessions['agent="claude",branch="bot-wa-wa/inc-branch",phase="implement",repo="nuage-cluster"'], 1)
@@ -1269,7 +1332,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        expected_key = 'agent="agy",branch="unknown",model="unknown",phase="portal",repo="unknown",type="input"'
+        expected_key = 'agent="agy",branch="unknown",model="unknown",phase="portal",repo="unknown",task="portal",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertEqual(tokens[expected_key], 100)
 
@@ -1313,7 +1376,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",task="portal",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertNotIn('repo="pechka"', str(tokens))
 
@@ -1359,7 +1422,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="main",model="unknown",phase="portal",repo="nuage-cluster",task="portal",type="input"'
         self.assertIn(expected_key, tokens)
         self.assertNotIn('phase="implement"', str(tokens))
         self.assertNotIn('phase="review"', str(tokens))
@@ -1411,7 +1474,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         tokens = collector.state["counters"]["tokens"]
-        expected_key = 'agent="agy",branch="feature/test",model="unknown",phase="review",repo="nuage-cluster",type="input"'
+        expected_key = 'agent="agy",branch="feature/test",model="unknown",phase="review",repo="nuage-cluster",task="feature/test",type="input"'
         self.assertIn(expected_key, tokens)
 
     def test_state_cache_pruning(self):
@@ -1623,8 +1686,8 @@ class TestMetricsCollector(unittest.TestCase):
             collector_mod.glob.glob = orig_glob
 
         costs = collector.state["counters"]["cost_usd"]
-        claude_cost_key = 'agent="claude",branch="bot-wa-wa/cost-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"'
-        agy_cost_key = 'agent="agy",branch="bot-wa-wa/cost-branch",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster"'
+        claude_cost_key = 'agent="claude",branch="bot-wa-wa/cost-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/cost-branch"'
+        agy_cost_key = 'agent="agy",branch="bot-wa-wa/cost-branch",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/cost-branch"'
 
         self.assertAlmostEqual(costs[claude_cost_key], 4.05, places=8)
         self.assertAlmostEqual(costs[agy_cost_key], 0.1, places=8)
@@ -1673,11 +1736,11 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
-        cost_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster"'
+        cost_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster",task="portal"'
         self.assertIn(cost_key, collector.state["counters"]["cost_usd"])
         self.assertEqual(collector.state["counters"]["cost_usd"][cost_key], 0.0)
 
-        token_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster",type="input"'
+        token_key = 'agent="claude",branch="main",model="mystery-new-model-99",phase="portal",repo="nuage-cluster",task="portal",type="input"'
         self.assertEqual(collector.state["counters"]["tokens"][token_key], 50_000)
 
         payload = collector.generate_prometheus_payload()
@@ -1777,7 +1840,7 @@ class TestMetricsCollector(unittest.TestCase):
             collector1.collect_claude()
             collector1._save_state()
 
-            cost_key = 'agent="claude",branch="bot-wa-wa/inc-cost",model="claude-sonnet-5-5",phase="implement",repo="nuage-cluster"'
+            cost_key = 'agent="claude",branch="bot-wa-wa/inc-cost",model="claude-sonnet-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/inc-cost"'
             self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][cost_key], 4.50, places=8)
 
             # 2回目追記: 500,000 input + 100,000 output
@@ -1811,10 +1874,10 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
-    def test_backfill_cost_from_existing_v3_state_without_cost_key(self):
-        # cost_usd キーを持たない既存の v3 state ファイルから初期コストがバックフィルされること
-        legacy_v3_state = {
-            "version": 3,
+    def test_backfill_cost_from_existing_state_without_cost_key(self):
+        # cost_usd キーを持たない既存の state ファイルから初期コストがバックフィルされ、task ラベルも整合すること
+        legacy_state = {
+            "version": CURRENT_STATE_VERSION,
             "claude_offsets": {},
             "agy_offsets": {},
             "last_orca_stats_timestamp": 0,
@@ -1830,7 +1893,7 @@ class TestMetricsCollector(unittest.TestCase):
             },
         }
         with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(legacy_v3_state, f)
+            json.dump(legacy_state, f)
 
         collector = MetricsCollector(
             state_file=self.state_file,
@@ -1845,9 +1908,10 @@ class TestMetricsCollector(unittest.TestCase):
                 }
             },
         )
-        cost_key = 'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster"'
+        cost_key = 'agent="claude",branch="main",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="main"'
         # 100,000 * 15 / 1M ($1.50) + 20,000 * 75 / 1M ($1.50) = $3.00 (thinking は除外)
         self.assertAlmostEqual(collector.state["counters"]["cost_usd"][cost_key], 3.00, places=8)
+        self.assertEqual(collector.state["counters"]["tokens"][f'{cost_key},type="input"'], 100_000)
 
     def test_autopilot_rates_env_override(self):
         custom_rates_path = os.path.join(self.test_dir, "custom-rates.yaml")
@@ -2199,6 +2263,380 @@ class TestMetricsCollector(unittest.TestCase):
                 'pr="none",repo="nuage-cluster",result="failed",task="2回目のタスク"'
             )
             self.assertEqual(runs, {expected_run_key: 1})
+
+
+
+    def test_task_label_with_brief_portal_and_fallback(self):
+        # 1. brief.md が存在するワークスペース (日本語タスク名 + エスケープ対象文字)
+        ws_with_brief = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-brief")
+        auto_dir = os.path.join(ws_with_brief, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write('# タスク別 "コスト" 集計と \\エスケープ\\ 対応\n\n詳細仕様...\n')
+        git_dir = os.path.join(ws_with_brief, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/task-label\n")
+
+        # 2. brief.md が存在しないワークスペース (branch フォールバック)
+        ws_no_brief = os.path.join(self.test_dir, "workspaces", "pechka", "ws-deleted")
+
+        project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-brief")
+        os.makedirs(project_dir, exist_ok=True)
+
+        # (A) Claude 自律実行セッション (brief.md あり -> 日本語タスク名)
+        claude_impl_jsonl = os.path.join(project_dir, "claude-impl.jsonl")
+        with open(claude_impl_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_with_brief,
+                "gitBranch": "bot-wa-wa/task-label",
+                "message": {
+                    "id": "msg-brief-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+
+        # (B) Claude 窓口セッション (同じ brief.md があるワークスペースでも phase=="portal" -> task="portal")
+        claude_portal_jsonl = os.path.join(project_dir, "claude-portal.jsonl")
+        with open(claude_portal_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": ws_with_brief,
+                "gitBranch": "bot-wa-wa/task-label",
+                "message": {
+                    "id": "msg-portal-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50_000, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        # (C) Claude 自律実行セッション (brief.md なし -> branch にフォールバック)
+        claude_fallback_jsonl = os.path.join(project_dir, "claude-fallback.jsonl")
+        with open(claude_fallback_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_no_brief,
+                "gitBranch": "bot-wa-wa/deleted-ws-branch",
+                "message": {
+                    "id": "msg-fb-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 40_000, "output_tokens": 5_000},
+                },
+            }) + "\n")
+
+        # (D) Antigravity 自律実行セッション (brief.md あり -> 日本語タスク名)
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-brief-agy", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        agy_transcript = os.path.join(brain_dir, "transcript.jsonl")
+        with open(agy_transcript, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 200_000,
+                "output_tokens": 50_000,
+                "content": f"ワークスペース {ws_with_brief} の変更をレビューした。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        def mock_glob(p):
+            if "claude" in p:
+                return [claude_impl_jsonl, claude_portal_jsonl, claude_fallback_jsonl]
+            if "antigravity" in p:
+                return [agy_transcript]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            collector.collect_claude()
+            collector.collect_antigravity()
+            collector._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        escaped_task = 'タスク別 \\"コスト\\" 集計と \\\\エスケープ\\\\ 対応'
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+
+        # (A) brief.md あり (Claude implement)
+        claude_impl_cost_key = f'agent="claude",branch="bot-wa-wa/task-label",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="{escaped_task}"'
+        self.assertIn(claude_impl_cost_key, costs)
+        self.assertAlmostEqual(costs[claude_impl_cost_key], 3.0, places=8)
+        self.assertEqual(tokens[f'{claude_impl_cost_key},type="input"'], 100_000)
+
+        # (B) phase == "portal" (Claude portal)
+        claude_portal_cost_key = 'agent="claude",branch="bot-wa-wa/task-label",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",task="portal"'
+        self.assertIn(claude_portal_cost_key, costs)
+        self.assertAlmostEqual(costs[claude_portal_cost_key], 1.5, places=8)
+        self.assertEqual(tokens[f'{claude_portal_cost_key},type="input"'], 50_000)
+
+        # (C) brief.md なし -> branch フォールバック
+        claude_fb_cost_key = 'agent="claude",branch="bot-wa-wa/deleted-ws-branch",model="claude-opus-5-5",phase="implement",repo="pechka",task="bot-wa-wa/deleted-ws-branch"'
+        self.assertIn(claude_fb_cost_key, costs)
+        self.assertEqual(tokens[f'{claude_fb_cost_key},type="input"'], 40_000)
+
+        # (D) brief.md あり (Antigravity review)
+        agy_rev_cost_key = f'agent="agy",branch="bot-wa-wa/task-label",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="{escaped_task}"'
+        self.assertIn(agy_rev_cost_key, costs)
+        self.assertAlmostEqual(costs[agy_rev_cost_key], 0.04, places=8)
+        self.assertEqual(tokens[f'{agy_rev_cost_key},type="input"'], 200_000)
+
+        # Prometheus ペイロード形式にエスケープされた task="..." が出力されること
+        payload = collector.generate_prometheus_payload()
+        self.assertIn(f'nuage_ai_agent_tokens_total{{{claude_impl_cost_key},type="input"}} 100000', payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_impl_cost_key}}} 3.0", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_portal_cost_key}}} 1.5", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_rev_cost_key}}} 0.04", payload)
+
+        # ワークスペース削除後の差分収集でも、保存済み brief_task により同じ task ラベルが維持されること
+        shutil.rmtree(ws_with_brief)
+        with open(claude_impl_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_with_brief,
+                "gitBranch": "bot-wa-wa/task-label",
+                "message": {
+                    "id": "msg-brief-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50_000, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector_mod.glob.glob = mock_glob
+        try:
+            collector2.collect_claude()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertEqual(
+            collector2.state["counters"]["tokens"][f'{claude_impl_cost_key},type="input"'],
+            150_000,
+        )
+        self.assertAlmostEqual(
+            collector2.state["counters"]["cost_usd"][claude_impl_cost_key],
+            4.5,
+            places=8,
+        )
+
+    def test_reused_workspace_branch_mismatch_does_not_use_current_brief(self):
+        # 使い回したワークスペースで、過去の別ブランチのセッションが現在の brief.md のタスク名で記録されないこと
+        ws_reused = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "feature-ai-agent-ledger")
+        auto_dir = os.path.join(ws_reused, ".autopilot")
+        git_dir = os.path.join(ws_reused, ".git")
+        os.makedirs(auto_dir, exist_ok=True)
+        os.makedirs(git_dir, exist_ok=True)
+
+        # まず旧ブランチ (feature/ai-agent-ledger) で稼働していた時点の状態を作る
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/feature/ai-agent-ledger\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 旧タスク: メインフレーム勘定系の基盤構築\n")
+
+        project_dir = os.path.join(
+            self.test_dir,
+            "projects",
+            "-home-nixos-orca-workspaces-nuage-cluster-feature-ai-agent-ledger",
+        )
+        os.makedirs(project_dir, exist_ok=True)
+
+        # セッション1: 旧ブランチ当時に一度収集されたセッション (prev_meta に旧 brief_task が保存されるケース)
+        old_saved_jsonl = os.path.join(project_dir, "old-saved.jsonl")
+        with open(old_saved_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-saved-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        collector1 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+        )
+        collector_mod.glob.glob = lambda p: [old_saved_jsonl] if "claude" in p else []
+        try:
+            collector1.collect_claude()
+            collector1._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        old_saved_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="旧タスク: メインフレーム勘定系の基盤構築"'
+        self.assertIn(old_saved_cost_key, collector1.state["counters"]["cost_usd"])
+        self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][old_saved_cost_key], 3.0, places=8)
+
+        # ワークスペースが新しいブランチ (bot-wa-wa/feature-ai-agent-task-metadata) に使い回され、brief.md が書き換わる
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/feature-ai-agent-task-metadata\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 新タスク: 日本語タスク名 (task) ラベル連携\n")
+
+        # セッション1 (old_saved_jsonl) に追記が発生した場合でも、新しい brief で上書きされず旧タスク名が維持されること
+        with open(old_saved_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-saved-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50_000, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        # セッション2: 状態リセット後や新規再集計として offset=0 から読まれる過去ブランチのセッション
+        # (現在のワークスペースのブランチと gitBranch が不一致 -> 現在の brief を使わず branch にフォールバック)
+        old_rescan_jsonl = os.path.join(project_dir, "old-rescan.jsonl")
+        with open(old_rescan_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "feature/ai-agent-ledger",
+                "message": {
+                    "id": "msg-old-rescan-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 200_000, "output_tokens": 40_000},
+                },
+            }) + "\n")
+
+        # セッション3: 現在のブランチと一致するセッション (-> 現在の brief の新タスク名が使われる)
+        current_jsonl = os.path.join(project_dir, "current.jsonl")
+        with open(current_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "queue-operation",
+                "content": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。",
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_reused,
+                "gitBranch": "bot-wa-wa/feature-ai-agent-task-metadata",
+                "message": {
+                    "id": "msg-current-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+
+        # セッション4: Antigravity で記録上の branch がワークスペースの現在ブランチと食い違うケース
+        brain_dir = os.path.join(self.test_dir, "brain", "conv-old-agy", ".system_generated", "logs")
+        os.makedirs(brain_dir, exist_ok=True)
+        old_agy_transcript = os.path.join(brain_dir, "transcript.jsonl")
+        with open(old_agy_transcript, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 100_000,
+                "output_tokens": 25_000,
+                "content": f"ワークスペース {ws_reused} を確認した。",
+            }) + "\n")
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+        )
+        collector2.state["cid_to_meta"]["conv-old-agy"] = {
+            "repo": "nuage-cluster",
+            "branch": "feature/ai-agent-ledger",
+            "worktree": ws_reused,
+        }
+
+        def mock_glob2(p):
+            if "claude" in p:
+                return [old_saved_jsonl, old_rescan_jsonl, current_jsonl]
+            if "antigravity" in p:
+                return [old_agy_transcript]
+            return []
+
+        collector_mod.glob.glob = mock_glob2
+        try:
+            collector2.collect_claude()
+            collector2.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        costs2 = collector2.state["counters"]["cost_usd"]
+        tokens2 = collector2.state["counters"]["tokens"]
+
+        # 1. old_saved_jsonl の追記分は「旧タスク」のまま加算されること ($3.0 + $1.5 = $4.5)
+        self.assertAlmostEqual(costs2[old_saved_cost_key], 4.5, places=8)
+        self.assertEqual(tokens2[f'{old_saved_cost_key},type="input"'], 150_000)
+
+        # 2. old_rescan_jsonl は現在の brief とブランチが不一致のため branch ("feature/ai-agent-ledger") にフォールバックされること
+        old_rescan_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="feature/ai-agent-ledger"'
+        self.assertIn(old_rescan_cost_key, costs2)
+        self.assertAlmostEqual(costs2[old_rescan_cost_key], 6.0, places=8)
+        self.assertEqual(tokens2[f'{old_rescan_cost_key},type="input"'], 200_000)
+
+        # 誤って旧ブランチの記録に「新タスク」が付与されていないこと
+        wrong_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="新タスク: 日本語タスク名 (task) ラベル連携"'
+        self.assertNotIn(wrong_cost_key, costs2)
+
+        # 3. current_jsonl はブランチが一致するため「新タスク」が付与されること
+        current_cost_key = 'agent="claude",branch="bot-wa-wa/feature-ai-agent-task-metadata",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="新タスク: 日本語タスク名 (task) ラベル連携"'
+        self.assertIn(current_cost_key, costs2)
+        self.assertAlmostEqual(costs2[current_cost_key], 3.0, places=8)
+
+        # 4. Antigravity の不一致ブランチも branch にフォールバックされ「新タスク」が付与されないこと
+        old_agy_cost_key = 'agent="agy",branch="feature/ai-agent-ledger",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="feature/ai-agent-ledger"'
+        self.assertIn(old_agy_cost_key, costs2)
+        self.assertAlmostEqual(costs2[old_agy_cost_key], 0.02, places=8)
+
 
 
 if __name__ == "__main__":

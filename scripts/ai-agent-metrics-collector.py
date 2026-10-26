@@ -155,6 +155,16 @@ def get_git_branch_from_worktree(path: str) -> str:
     return "unknown"
 
 
+def escape_prometheus_label(val: str) -> str:
+    """Prometheus ラベル値として安全な文字列にエスケープ（改行・タブを空白に置換し、\\ と " をエスケープ）"""
+    if not val:
+        return "unknown"
+    val = re.sub(r"[\r\n\t]+", " ", val).strip()
+    if not val:
+        return "unknown"
+    return val.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def extract_task_from_brief(ws_path: str) -> str:
     """ワークスペースの .autopilot/brief.md からタスク名（1行目見出し）を抽出"""
     if not ws_path:
@@ -174,12 +184,27 @@ def extract_task_from_brief(ws_path: str) -> str:
             for line in f:
                 line = line.strip()
                 if line.startswith("# "):
-                    title = line[2:].strip()
-                    title = re.sub(r"[\r\n\t]+", " ", title)
-                    title = title.replace("\\", "\\\\").replace('"', '\\"')
-                    return title or "unknown"
+                    return escape_prometheus_label(line[2:])
     except Exception:
         pass
+    return "unknown"
+
+
+def resolve_task_label(
+    phase: str,
+    branch: str,
+    brief_task: str = "unknown",
+) -> str:
+    """セッションの phase, 確定済みの brief_task, branch から task ラベル値を決定"""
+    if phase == "portal":
+        return "portal"
+
+    if brief_task and brief_task != "unknown":
+        return brief_task
+
+    if branch and branch != "unknown":
+        return escape_prometheus_label(branch)
+
     return "unknown"
 
 
@@ -701,7 +726,7 @@ def default_rates_file() -> str:
     return etc_path
 
 
-CURRENT_STATE_VERSION = 3
+CURRENT_STATE_VERSION = 4
 
 
 class MetricsCollector:
@@ -787,15 +812,28 @@ class MetricsCollector:
         """cost_usd 未導入の状態ファイルから初回読み込み時に既存の tokens 実績から初期コストを算出"""
         counters = state_data.setdefault("counters", {})
         tokens = counters.get("tokens", {})
+        normalized_tokens: dict[str, int] = {}
         cost_usd: dict[str, float] = {}
         for token_key, count in tokens.items():
             m_type = re.search(r',type="([^"]+)"$', token_key)
             m_model = re.search(r'(?:^|,)model="([^"]+)"', token_key)
             if not m_type or not m_model:
+                normalized_tokens[token_key] = int(count)
                 continue
             token_type = m_type.group(1)
             model = m_model.group(1)
             cost_key = token_key[: m_type.start()]
+            # v4 以降の状態ファイルで万一 cost_usd や task ラベルが欠けていた場合の補完ガード
+            # （トークンキー単体からは brief_task を復元できないため branch へフォールバックする）
+            if ',task="' not in cost_key:
+                m_phase = re.search(r'(?:^|,)phase="([^"]+)"', cost_key)
+                m_branch = re.search(r'(?:^|,)branch="([^"]+)"', cost_key)
+                phase = m_phase.group(1) if m_phase else "unknown"
+                branch = m_branch.group(1) if m_branch else "unknown"
+                task = resolve_task_label(phase=phase, branch=branch, brief_task="unknown")
+                cost_key = f'{cost_key},task="{task}"'
+            norm_token_key = f'{cost_key},type="{token_type}"'
+            normalized_tokens[norm_token_key] = normalized_tokens.get(norm_token_key, 0) + int(count)
             if token_type == "thinking" or int(count) <= 0:
                 continue
             inc = self.calculate_cost_usd(
@@ -806,6 +844,7 @@ class MetricsCollector:
                 cache_creation=int(count) if token_type == "cache_creation" else 0,
             )
             cost_usd[cost_key] = round(cost_usd.get(cost_key, 0.0) + inc, 10)
+        counters["tokens"] = normalized_tokens
         counters["cost_usd"] = cost_usd
 
     def _load_state(self) -> dict:
@@ -817,6 +856,28 @@ class MetricsCollector:
                     if isinstance(data, dict):
                         if data.get("version", 1) < CURRENT_STATE_VERSION:
                             self.log(f"状態ファイルをバージョン {CURRENT_STATE_VERSION} へマイグレーション")
+                            # Antigravity セッションの当時確定した (repo, branch, worktree) を cid_to_meta に引き継ぐ
+                            cid_to_meta = data.setdefault("cid_to_meta", {})
+                            if not isinstance(cid_to_meta, dict):
+                                cid_to_meta = {}
+                                data["cid_to_meta"] = cid_to_meta
+                            for agy_path, agy_meta in data.get("agy_offsets", {}).items():
+                                if isinstance(agy_meta, dict):
+                                    m_cid = re.search(r"/brain/([^/]+)/\.system_generated", str(agy_path))
+                                    if m_cid:
+                                        cid = m_cid.group(1)
+                                        saved_repo = agy_meta.get("repo", "unknown")
+                                        saved_branch = agy_meta.get("branch", "unknown")
+                                        saved_ws = agy_meta.get("ws_path", "")
+                                        if saved_repo != "unknown" or saved_branch != "unknown" or saved_ws:
+                                            existing = cid_to_meta.get(cid, {})
+                                            if not isinstance(existing, dict):
+                                                existing = {}
+                                            cid_to_meta[cid] = {
+                                                "repo": saved_repo if saved_repo != "unknown" else existing.get("repo", "unknown"),
+                                                "branch": saved_branch if saved_branch != "unknown" else existing.get("branch", "unknown"),
+                                                "worktree": saved_ws or existing.get("worktree", ""),
+                                            }
                             data["version"] = CURRENT_STATE_VERSION
                             data["claude_offsets"] = {}
                             data["agy_offsets"] = {}
@@ -911,6 +972,21 @@ class MetricsCollector:
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
                 branch = prev_meta.get("branch") or get_git_branch_from_worktree(path)
+                ws_path = prev_meta.get("ws_path", "")
+                prev_branch = prev_meta.get("branch", "unknown")
+                prev_brief_task = prev_meta.get("brief_task", "unknown")
+                branch_brief_tasks: dict[str, str] = {}
+                if prev_branch != "unknown" and prev_brief_task != "unknown":
+                    branch_brief_tasks[prev_branch] = prev_brief_task
+                checked_ws_paths: dict[str, tuple[str, str]] = {}
+                if ws_path and branch != "unknown":
+                    checked_ws_paths[ws_path] = (
+                        get_git_branch_from_worktree(ws_path),
+                        extract_task_from_brief(ws_path),
+                    )
+                    ws_branch, ws_task = checked_ws_paths[ws_path]
+                    if ws_branch == branch and ws_task != "unknown":
+                        branch_brief_tasks[branch] = ws_task
                 prev_entrypoint = prev_meta.get("entrypoint", "")
                 is_cli = (prev_entrypoint == "cli")
                 is_sdk = (prev_entrypoint == "sdk-cli")
@@ -958,21 +1034,39 @@ class MetricsCollector:
                                 phase = "unknown"
                                 phase_locked = False
 
-                        cwd = record.get("cwd", "")
-                        if cwd:
-                            extracted_repo = normalize_repo_name(cwd)
-                            if extracted_repo != "unknown":
-                                repo = extracted_repo
-                            extracted_branch = get_git_branch_from_worktree(cwd)
-                            if extracted_branch != "unknown":
-                                branch = extracted_branch
-
                         # record 自体の gitBranch を利用（HEAD や無効値以外）
                         rec_branch = record.get("gitBranch", "")
                         if rec_branch and rec_branch != "HEAD":
                             norm_br = normalize_branch_name(rec_branch)
                             if norm_br != "unknown":
                                 branch = norm_br
+
+                        cwd = record.get("cwd", "")
+                        if cwd:
+                            ws_path = cwd
+                            extracted_repo = normalize_repo_name(cwd)
+                            if extracted_repo != "unknown":
+                                repo = extracted_repo
+                            if ws_path not in checked_ws_paths:
+                                checked_ws_paths[ws_path] = (
+                                    get_git_branch_from_worktree(ws_path),
+                                    extract_task_from_brief(ws_path),
+                                )
+                            if branch == "unknown":
+                                extracted_branch = checked_ws_paths[ws_path][0]
+                                if extracted_branch != "unknown":
+                                    branch = extracted_branch
+
+                        # ワークスペースの現在のブランチと記録の branch が一致するときのみ brief.md のタスク名を採用する
+                        if ws_path and branch != "unknown":
+                            if ws_path not in checked_ws_paths:
+                                checked_ws_paths[ws_path] = (
+                                    get_git_branch_from_worktree(ws_path),
+                                    extract_task_from_brief(ws_path),
+                                )
+                            ws_branch, ws_task = checked_ws_paths[ws_path]
+                            if ws_branch == branch and ws_task != "unknown":
+                                branch_brief_tasks[branch] = ws_task
 
                         # ユーザープロンプトからフェーズを判定（autopilot の初回指示のみ）
                         # 窓口セッション (cli) は portal に固定し、上書きさせない
@@ -1038,6 +1132,13 @@ class MetricsCollector:
                         output_details = usage.get("output_tokens_details") or {}
                         thinking = int(output_details.get("thinking_tokens", 0) or 0)
 
+                        brief_task = branch_brief_tasks.get(branch, "unknown")
+                        effective_task = resolve_task_label(
+                            phase=effective_phase,
+                            branch=branch,
+                            brief_task=brief_task,
+                        )
+
                         for token_type, count in [
                             ("input", input_tokens),
                             ("output", output_tokens),
@@ -1046,7 +1147,7 @@ class MetricsCollector:
                             ("thinking", thinking),
                         ]:
                             if count > 0 or token_type in ("input", "output"):
-                                key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",type="{token_type}"'
+                                key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",task="{effective_task}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
                         if input_tokens > 0 or output_tokens > 0 or cache_read > 0 or cache_creation > 0:
@@ -1058,11 +1159,17 @@ class MetricsCollector:
                                 cache_creation=cache_creation,
                                 unpriced_models=temp_unpriced_models,
                             )
-                            cost_key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}"'
+                            cost_key = f'agent="claude",branch="{branch}",model="{model}",phase="{effective_phase}",repo="{repo}",task="{effective_task}"'
                             temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
                 effective_phase = "portal" if (is_cli or context == "portal") else phase
                 effective_context = "portal" if (is_cli or context == "portal") else ("autopilot" if is_sdk else context)
+                brief_task = branch_brief_tasks.get(branch, "unknown")
+                effective_task = resolve_task_label(
+                    phase=effective_phase,
+                    branch=branch,
+                    brief_task=brief_task,
+                )
 
                 # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
                 if is_new_session and new_offset > 0:
@@ -1084,7 +1191,10 @@ class MetricsCollector:
                     "offset": new_offset,
                     "repo": repo,
                     "branch": branch,
+                    "ws_path": ws_path,
                     "phase": effective_phase,
+                    "task": effective_task,
+                    "brief_task": brief_task,
                     "context": effective_context,
                     "entrypoint": "cli" if is_cli else ("sdk-cli" if is_sdk else prev_entrypoint),
                     "model": saved_model,
@@ -1138,6 +1248,12 @@ class MetricsCollector:
                 repo = prev_meta.get("repo", "unknown")
                 branch = prev_meta.get("branch", "unknown")
                 ws_path = prev_meta.get("ws_path", "")
+                prev_branch = branch
+                prev_brief_task = prev_meta.get("brief_task", "unknown")
+                branch_brief_tasks: dict[str, str] = {}
+                if prev_branch != "unknown" and prev_brief_task != "unknown":
+                    branch_brief_tasks[prev_branch] = prev_brief_task
+                checked_ws_paths: dict[str, tuple[str, str]] = {}
                 if (repo == "unknown" or branch == "unknown" or not ws_path) and cid:
                     meta_repo, meta_branch, meta_ws = get_antigravity_conversation_meta(cid, cid_map)
                     if repo == "unknown":
@@ -1146,6 +1262,18 @@ class MetricsCollector:
                         branch = meta_branch
                     if not ws_path and meta_ws:
                         ws_path = meta_ws
+
+                # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
+                # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
+                # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
+                if ws_path and branch != "unknown":
+                    checked_ws_paths[ws_path] = (
+                        get_git_branch_from_worktree(ws_path),
+                        extract_task_from_brief(ws_path),
+                    )
+                    ws_branch, ws_task = checked_ws_paths[ws_path]
+                    if ws_branch == branch and ws_task != "unknown":
+                        branch_brief_tasks[branch] = ws_task
 
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
@@ -1210,7 +1338,7 @@ class MetricsCollector:
                             if m_ws:
                                 full_match_path = m_ws.group(1)
                                 candidate = m_ws.group(2)
-                                if candidate not in ("repo", "workspace", "name"):
+                                if candidate not in ("repo", "workspace", "name") and "*" not in full_match_path:
                                     if repo == "unknown":
                                         for known in get_candidate_repos():
                                             if candidate.startswith(known):
@@ -1218,12 +1346,18 @@ class MetricsCollector:
                                                 break
                                         else:
                                             repo = normalize_identifier(candidate)
-                                    if branch == "unknown":
-                                        extracted_br = get_git_branch_from_worktree(full_match_path)
-                                        if extracted_br != "unknown":
-                                            branch = extracted_br
-                                if not ws_path:
-                                    ws_path = full_match_path
+                                    if full_match_path not in checked_ws_paths:
+                                        checked_ws_paths[full_match_path] = (
+                                            get_git_branch_from_worktree(full_match_path),
+                                            extract_task_from_brief(full_match_path),
+                                        )
+                                    extracted_br, extracted_task = checked_ws_paths[full_match_path]
+                                    if branch == "unknown" and extracted_br != "unknown":
+                                        branch = extracted_br
+                                    if not ws_path:
+                                        ws_path = full_match_path
+                                        if branch != "unknown" and extracted_br == branch and extracted_task != "unknown":
+                                            branch_brief_tasks[branch] = extracted_task
 
                         # トークン取得
                         input_tokens = int(record.get("input_tokens", 0) or 0)
@@ -1231,12 +1365,18 @@ class MetricsCollector:
                         cache_read = int(record.get("cache_read_tokens", 0) or 0)
 
                         if input_tokens > 0 or output_tokens > 0 or cache_read > 0:
+                            brief_task = branch_brief_tasks.get(branch, "unknown")
+                            effective_task = resolve_task_label(
+                                phase=phase,
+                                branch=branch,
+                                brief_task=brief_task,
+                            )
                             for token_type, count in [
                                 ("input", input_tokens),
                                 ("output", output_tokens),
                                 ("cache_read", cache_read),
                             ]:
-                                key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",type="{token_type}"'
+                                key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",task="{effective_task}",type="{token_type}"'
                                 temp_counters[key] = temp_counters.get(key, 0) + count
 
                             cost_inc = self.calculate_cost_usd(
@@ -1246,7 +1386,7 @@ class MetricsCollector:
                                 cache_read=cache_read,
                                 unpriced_models=temp_unpriced_models,
                             )
-                            cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}"'
+                            cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",task="{effective_task}"'
                             temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
                 # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
@@ -1263,15 +1403,29 @@ class MetricsCollector:
                 for k, v in temp_sessions.items():
                     sessions[k] = sessions.get(k, 0) + v
 
+                brief_task = branch_brief_tasks.get(branch, "unknown")
+                effective_task = resolve_task_label(
+                    phase=phase,
+                    branch=branch,
+                    brief_task=brief_task,
+                )
                 offsets[path] = {
                     "offset": new_offset,
                     "repo": repo,
                     "branch": branch,
                     "ws_path": ws_path,
                     "phase": phase,
+                    "task": effective_task,
+                    "brief_task": brief_task,
                     "context": context,
                     "model": current_model,
                 }
+                if cid and (repo != "unknown" or branch != "unknown" or ws_path):
+                    self.state.setdefault("cid_to_meta", {})[cid] = {
+                        "repo": repo,
+                        "branch": branch,
+                        "worktree": ws_path,
+                    }
 
             except Exception as e:
                 self.error(f"Antigravity ログ処理失敗 ({path}): {e}")
