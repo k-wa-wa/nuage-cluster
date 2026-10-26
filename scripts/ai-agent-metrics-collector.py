@@ -199,7 +199,12 @@ def _extract_latest_run_log_content(content: str) -> str:
     return content
 
 
-def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "none") -> str:
+def extract_pr_number(
+    ws_path: str,
+    repo: str | None = None,
+    default: str = "none",
+    allow_fallback: bool = True,
+) -> str:
     """ワークスペースの .autopilot/run.log または result.md から PR 番号を抽出"""
     if not ws_path:
         return default
@@ -215,7 +220,7 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
 
     result_content: str | None = None
     latest_run_log: str | None = None
-    if os.path.exists(result_path):
+    if allow_fallback and os.path.exists(result_path):
         try:
             with open(result_path, "r", encoding="utf-8", errors="replace") as f:
                 result_content = f.read()
@@ -233,6 +238,9 @@ def extract_pr_number(ws_path: str, repo: str | None = None, default: str = "non
         matches = AUTOPILOT_PR_LINE_RE.findall(latest_run_log)
         if matches:
             return matches[-1]
+
+    if not allow_fallback:
+        return default
 
     sources: list[str] = []
     if result_content is not None:
@@ -1436,7 +1444,9 @@ class MetricsCollector:
                         repo = normalize_repo_name(d)
                         branch = get_git_branch_from_worktree(ws_dir)
                         task = extract_task_from_brief(ws_dir)
-                        pr = extract_pr_number(ws_dir, repo=repo, default="unknown")
+                        pr = extract_pr_number(
+                            ws_dir, repo=repo, default="unknown", allow_fallback=False
+                        )
                         phase = normalize_autopilot_phase(first_line)
 
                         active_key = (

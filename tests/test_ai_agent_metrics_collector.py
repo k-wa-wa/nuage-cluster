@@ -175,6 +175,22 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                 f.write("[00:20:00] PR #65\n")
             self.assertEqual(extract_pr_number(tmp_dir, repo="nuage-cluster", default="unknown"), "65")
 
+            # allow_fallback=False の場合、[HH:MM:SS] PR #N 行が無ければエージェント出力内の URL や PR #N を拾わず default を返す
+            with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] start impl=agy level=high reviewers=claude base=abcdef from=implement\n"
+                    "[10:00:01] == implementing (agy)\n"
+                    "直前 PR #63 (https://github.com/k-wa-wa/nuage-cluster/pull/63) を確認した。\n"
+                )
+            self.assertEqual(
+                extract_pr_number(tmp_dir, repo="nuage-cluster", default="unknown", allow_fallback=False),
+                "unknown",
+            )
+            self.assertEqual(
+                extract_pr_number(tmp_dir, repo="nuage-cluster", default="none", allow_fallback=True),
+                "63",
+            )
+
             # PR 記載なし
             with tempfile.TemporaryDirectory() as empty_dir:
                 self.assertEqual(extract_pr_number(empty_dir), "none")
@@ -1909,7 +1925,11 @@ class TestMetricsCollector(unittest.TestCase):
         with open(os.path.join(auto1, "status"), "w", encoding="utf-8") as f:
             f.write("implementing (agy)\n")
         with open(os.path.join(auto1, "run.log"), "w", encoding="utf-8") as f:
-            f.write("[23:51:34] start impl=agy level=high reviewers=claude base=1cfde718 from=implement\n")
+            f.write(
+                "[23:51:34] start impl=agy level=high reviewers=claude base=1cfde718 from=implement\n"
+                "[23:51:35] == implementing (agy)\n"
+                "直前 PR #63 (https://github.com/k-wa-wa/nuage-cluster/pull/63) に追従して実装する。\n"
+            )
         with open(os.path.join(auto1, "brief.md"), "w", encoding="utf-8") as f:
             f.write("# 自走中ステータスの新設\n\n詳細...")
         git1 = os.path.join(ws1, ".git")
