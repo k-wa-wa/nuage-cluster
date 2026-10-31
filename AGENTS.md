@@ -76,8 +76,8 @@ ssh <host> 'sudo systemctl start nixos-upgrade; journalctl -u nixos-upgrade -n 2
   特別な指示がない限り、Terraform, Terragrunt の操作は実行しないこと。ユーザーに操作を促すこと。
 
 - **Terragrunt コマンドの提示方法**:
-  基本的にはリポジトリルートから操作することを前提に、以下のように --terragrunt-working-dir を指定して提示すること。
-  `terragrunt --terragrunt-working-dir terraform/pve/hosts plan`
+  基本的にはリポジトリルートから操作することを前提に、以下のように --working-dir を指定して提示すること。
+  `terragrunt --working-dir terraform/pve/hosts plan`
 
 - **Nixファイルのフォーマット**:
   `nix/` 配下のファイル（`*.nix` 等）を変更した際は、必ず以下のコマンドを実行してフォーマットを適用すること。

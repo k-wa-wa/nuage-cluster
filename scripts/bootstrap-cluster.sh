@@ -20,7 +20,7 @@ TALOSCTL_ARGS="--talosconfig ${TALOSCONFIG} -e ${LB_EXTERNAL_IP}:50000 -n ${CP01
 # 1. Terragrunt Apply の実行
 echo "=== Step 1: Running Terragrunt Apply ==="
 terragrunt \
-  --terragrunt-working-dir terraform/vpc/zone-private-k8s \
+  --working-dir terraform/vpc/zone-private-k8s \
   apply
 
 # 2. controlplane-01 が起動するまでポーリング
