@@ -5,7 +5,7 @@ description: Workflow for defining, deploying, debugging, and verifying NixOS LX
 
 # NixOS LXC ミドルウェアクラスタの構築
 
-NixOS + Terraform で Proxmox LXC 上にミドルウェア (PostgreSQL, MinIO 等) のクラスタを新規構築する際のフロー。個別の手段・コマンドは [[modify-nix-host]] / [[modify-terraform]] / [[sops-secrets]] を参照し、ここではフェーズの順序と新規構築に固有の作業のみ定義する。
+NixOS + Terraform で Proxmox LXC 上にミドルウェア (PostgreSQL, SeaweedFS 等) のクラスタを新規構築する際のフロー。個別の手段・コマンドは [[modify-nix-host]] / [[modify-terraform]] / [[sops-secrets]] を参照し、ここではフェーズの順序と新規構築に固有の作業のみ定義する。
 
 ## フェーズ 1: 設計と実装 (AI)
 

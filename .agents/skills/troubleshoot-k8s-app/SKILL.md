@@ -11,7 +11,7 @@ description: Reference of investigation techniques for apps running on the clust
 
 - 本リポジトリ管理アプリ: `manifests/apps/<app>/`
 - 外部リポジトリアプリ: `manifests/apps/multi-repo-deploy.yaml` の `elements` を見る (pechka, nuage-monitoring-stack, bare-web-proxy 等)。ローカルには兄弟ディレクトリ (`../pechka` 等) として checkout されていることが多い。マニフェストは対象リポジトリの `k8s/overlays/prod`
-- ミドルウェア (PostgreSQL, MinIO 等) は k8s 外の NixOS LXC。定義は `nix/hosts/<name>/` ([[modify-nix-host]])
+- ミドルウェア (PostgreSQL, SeaweedFS 等) は k8s 外の NixOS LXC。定義は `nix/hosts/<name>/` ([[modify-nix-host]])
 
 ## k8s 層の調査コマンド
 

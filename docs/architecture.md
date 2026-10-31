@@ -48,7 +48,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 | 層 | ツール | 対象 | 適用方法 |
 | :-- | :-- | :-- | :-- |
 | ① インフラ | Terragrunt + OpenTofu/Terraform (bpg/proxmox, siderolabs/talos, cloudflare) | SDN・VM・LXC・Talos マシン設定・Cloudflare Tunnel | ローカルから `terragrunt apply` (手動 Push 型) |
-| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (autopilot-server, atelier, lm-server, bluray-extractor) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
+| ② OS | Nix Flake + nixos-generators + sops-nix | NixOS LXC (lb-*, egress-gateway) / VM (atelier, lm-server, bluray-extractor) | LXC は `system.autoUpgrade` による自動 Pull。VM は `nixos-rebuild switch --flake` で手動 Push |
 | ③ アプリ | Argo CD (ApplicationSet + Kustomize + argocd-vault-plugin/SOPS) | Kubernetes 上の全アプリ | master ブランチへの push で自動同期 |
 
 ### Argo CD の Application 検出規則
@@ -84,7 +84,6 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP: 10.20.1.60) |
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
-| autopilot-server | 251 | server-1 | 10.20.1.51 | - | nuage-autopilot 実行ホスト (8c/16GB, zone-dev で管理)。atelier へ移行後に廃止 |
 | atelier | 252 | server-1 | 10.20.1.52 | 192.168.5.252 | エージェントと開発する作業場。Orca サーバー + autopilot5 (8c/16GB, zone-dev で管理)。出先からは既存の Tailscale 経由で LAN 側に入る |
 | bluray-extractor | 240 | server-2 (停止中) | 10.20.1.80 | 192.168.5.240 | MakeMKV リッピング VM |
 | mainframe | 290 | server-1 | 10.20.1.90 | - | MVS 3.8j (Hercules) のメインフレーム。TN3270 は lb の VIP `:3270` で中継 ([mainframe.md](./mainframe.md)) |

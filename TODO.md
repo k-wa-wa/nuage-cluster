@@ -21,9 +21,9 @@
 | kube-vip による HA Cluster 化 | 一旦実装したものの、**外部 HAProxy によるロードバランス**に変更 |
 | AZ を追加して VPN で繋ぐ | 実施済み |
 | Ansible のコンテナ実行・リファクタ | **Terraform + Nix により Ansible を排除**する方針とし、クローズ |
-| DB の外出し (VM 化) or Operator 使用 | **NFS / Minio / PostgreSQL のみ外出し**。NixOS LXC (Patroni+etcd HA / Minio Cluster) で構築 |
+| DB の外出し (VM 化) or Operator 使用 | **NFS / SeaweedFS (S3) / PostgreSQL のみ外出し**。NixOS LXC (Patroni+etcd HA / SeaweedFS Cluster) で構築 |
 | 外形死活監視のアーキテクチャ | k8s / Argo CD に非依存の **chaos-monitor (NixOS LXC + Prometheus + Blackbox Exporter + Grafana)** を構築 |
-| 自律開発基盤の導入 | **autopilot-server VM** + クラスタ調査用 read-only ServiceAccount 配布スクリプトを導入 |
+| 自律開発基盤の導入 | **atelier VM** (Orca サーバー + autopilot5) + クラスタ調査用 read-only ServiceAccount 配布スクリプトを導入 |
 | PR プレビュー環境の動的管理 | 各アプリリポジトリの PR 用に **動的 ApplicationSet** (`*-preview-appset.yaml`) を導入 |
 | Keel と Argo CD の使い分け | PR 環境等のコンテナイメージ自動更新に **Keel** を採用し、Argo CD と共存運用 |
 
@@ -33,16 +33,16 @@
 
 - [ ] **Terraform state のリモートバックエンド化**
   - 現状はローカル `terraform.tfstate` のため、実行マシンの喪失 = state の喪失となる (operations.md 7 章)
-  - クラスター外で稼働している **Minio (S3 互換) を backend に使う**のが構成的に自然。ただし「Minio 自体を作る terraform」だけはローカル state に残す、という鶏卵の切り分けが必要
+  - クラスター外で稼働している **SeaweedFS (S3) を backend に使う**のが構成的に自然。ただし「SeaweedFS 自体を作る terraform」だけはローカル state に残す、という鶏卵の切り分けが必要
   - 併せて OpenTofu の **state encryption** 機能を試すのも面白い (Age/PBKDF2 でクライアントサイド暗号化できる)
 - [x] **バックアップ基盤 (PBS) の構築**
   - Proxmox Backup Server を立て、TrueNAS 上のデータストアと連携して NIC1 (管理セグメント) 経由で VM/LXC の増分バックアップを取得可能にした (`terraform/pbs`)
 - [ ] **PostgreSQL (pg-1/2/3) のバックアップ・リストア手順の整備**
-  - 現状 `patroni.nix` は `archive_command = "true"` であり WAL アーカイブが未配線。pgBackRest / wal-g で Minio へ WAL アーカイブ + 定期フルバックアップを設定し、リストア演習まで一度やっておく
+  - 現状 `patroni.nix` は `archive_command = "true"` であり WAL アーカイブが未配線。pgBackRest / wal-g で SeaweedFS (S3) へ WAL アーカイブ + 定期フルバックアップを設定し、リストア演習まで一度やっておく
 - [x] ~~**etcd スナップショットの定期取得**~~ (実施しない)
   - 構成・思想的に、クラスター全損はリスクではない（復旧時間は必要）ため実施しない。
 - [x] ~~**k8s の PV バックアップ (Velero)**~~ (実施しない)
-  - クラスター内は揮発とし、永続データは外部 (NFS/Minio/PostgreSQL) に配置する方針で割り切り、実施しない。
+  - クラスター内は揮発とし、永続データは外部 (NFS/SeaweedFS (S3)/PostgreSQL) に配置する方針で割り切り、実施しない。
 - [ ] **障害訓練 (Chaos Day) の定例化**
   - replace-all-node.md はあるので、「ノード 1 台電源断」「lb VIP フェイルオーバー」「Argo CD 全消し → apply-apps.sh 再実行」等を年数回実施して手順の腐敗を防ぐ
 
@@ -66,7 +66,7 @@
 - [ ] **アラート通知経路の整備**
   - Argo CD Notifications は `monitoring-pwa-backend` への Webhook 連携を設定済み (`manifests/bootstrap/argocd/notifications.yaml`)。Alertmanager からの通知経路 (ntfy / PWA 連携) を整備してスマホ等に届くようにする
 - [x] **クラスター外コンポーネント (NixOS LXC) の監視**
-  - chaos-monitor (NixOS LXC) にて、lb-1/2/3, egress-gateway, pg-cluster-1/2/3, minio-cluster-1/2 の `prometheus-node-exporter` (9100) および `haproxy-exporter` (8404) をスクレイプし、死活とメトリクスを監視中
+  - chaos-monitor (NixOS LXC) にて、lb-1/2/3, egress-gateway, pg-cluster-1/2/3 の `prometheus-node-exporter` (9100) および `haproxy-exporter` (8404) をスクレイプし、死活とメトリクスを監視中
 - [x] ~~**Proxmox ホスト自体の監視 (pve-exporter)**~~ (実施しない)
   - ホストOS側には極力手動変更や追加パッケージを入れない運用方針とし、導入しない。
 - [x] **Hubble の有効化**
@@ -81,9 +81,9 @@
 - [x] **`scripts/apply-datastore.sh` の削除**
   - 参照先 (`terraform/environments/dev-persistent`, `playbooks/postgres.yml`) が現存しない旧構成向け (operations.md 7 章)。削除完了
 - [ ] **`playbooks/` の完全撤去**
-  - NFS / Minio / Postgres は NixOS / TrueNAS へ移行完了し playbook も削除済み。残っている `omada-controller.yml` を LXC (NixOS or 公式コンテナ) へ移行し、「Ansible 排除」の思想を完遂して `playbooks/` を完全撤去する
+  - NFS / SeaweedFS (S3) / Postgres は NixOS / TrueNAS へ移行完了し playbook も削除済み。残っている `omada-controller.yml` を LXC (NixOS or 公式コンテナ) へ移行し、「Ansible 排除」の思想を完遂して `playbooks/` を完全撤去する
 - [ ] **nix/flake.nix の重複排除**
-  - lb-1/2/3, pg-cluster-1/2/3, minio-cluster-1/2 等が同一定義のコピーになっている。`map` / `genAttrs` で共通ファクトリ関数に畳む
+  - lb-1/2/3, pg-cluster-1/2/3, swfs-cluster-1/2/3 等が同一定義のコピーになっている。`map` / `genAttrs` で共通ファクトリ関数に畳む
 - [ ] **nixpkgs 24.11 のアップグレード**
   - 24.11 は EOL のため 25.x へ上げ、sops-nix のコミット固定も release ブランチ追従に変える
 - [x] **atelier のシェル環境を nix-config に寄せる**
@@ -116,7 +116,7 @@
 ## 6. マルチテナント構想 (spec/cloud.md) の前進
 
 - [ ] **Shared Services Zone の実体化**
-  - 現状 PG/NFS/Minio は zone: private 内や旧セグメントに同居。spec 通り `zone-shared` を切って移設すると、テナント追加時に共有サービスへの経路設計が綺麗になる
+  - 現状 PG/NFS/SeaweedFS (S3) は zone: private 内や旧セグメントに同居。spec 通り `zone-shared` を切って移設すると、テナント追加時に共有サービスへの経路設計が綺麗になる
 - [ ] **BGP EVPN Route Leaking (フェーズ 2) の検証**
   - Hub & Spoke を飛ばして VRF Leaking を先に PoC する価値あり。zone-waai が既にあるので、waai ↔ shared 間で試せる
 - [ ] **内部 DNS 基盤 (Technitium 等) の導入**
@@ -141,13 +141,13 @@
   - `manifests/apps/keel` により PR プレビュー環境等のイメージ自動更新を安定稼働中。本番 GitOps (Argo CD) との住み分けを確立
 - [ ] **Terragrunt / OpenTofu の GitOps 化 (①層の自動デプロイ)**
   - 現状はローカルから手動実行している `terragrunt apply` を、GitHub Actions (または Atlantis / Digger などのインフラ GitOps ツール) に移行する。PR 上での plan 結果確認からマージ時の自動 apply までを完結させ、インフラの完全宣言的運用を達成する
-- [ ] **Minio を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
-  - クラスター外の Minio を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。ローカル環境や CI でのビルド結果を Minio にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
+- [ ] **SeaweedFS (S3) を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
+  - クラスター外の SeaweedFS (S3) を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。ローカル環境や CI でのビルド結果を SeaweedFS (S3) にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
 - [ ] **AI-driven 自律運用 (AI Copilot Operator) の発展**
-  - `autopilot-server` VM および調査用 read-only ServiceAccount 配布基盤は構築済み。
+  - `atelier` VM (Orca サーバー + autopilot5) および調査用 read-only ServiceAccount 配布基盤は構築済み。
   - 発展として、Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語での対話に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
 - [ ] **永続データの外部オブジェクトストレージへの自動暗号化レプリケーション**
-  - クラスター内は揮発とする割り切りを補完するため、外部の永続データ (PostgreSQL WAL, Minio, NFS) について、`restic` や `rclone` を用いて外部オブジェクトストレージ (Cloudflare R2 や Backblaze B2) へ自動で暗号化バックアップする。これにより、自宅の物理災害時にもデータ損失を避ける 3-2-1 バックアップルールを確立する
+  - クラスター内は揮発とする割り切りを補完するため、外部の永続データ (PostgreSQL WAL, SeaweedFS (S3), NFS) について、`restic` や `rclone` を用いて外部オブジェクトストレージ (Cloudflare R2 や Backblaze B2) へ自動で暗号化バックアップする。これにより、自宅の物理災害時にもデータ損失を避ける 3-2-1 バックアップルールを確立する
 - [ ] **Prometheus と物理空間の双方向連携 (Ambient IoT-Ops)**
   - 自宅 BLE 温湿度計のメトリクスや各物理ノードの温度に基づき、室温上昇時や特定ノード過熱時に VM/LXC のライブマイグレーションや Pod ドレインを実行する自律熱分散を構築する。同時に、クラスターのヘルス状態（Argo CD の同期失敗やアラート発生）に応じて部屋のスマートLED (Hue/WLED) を明滅・発色させ、インフラの状態を物理空間にアンビエントに視覚化する
 - [ ] **スマートメーターと在室状況に連動する完全自律エコシステム (Eco-Ops)**
