@@ -1,5 +1,11 @@
+variable "talosconfig_path" {
+  type        = string
+  description = "talosconfig を書き出す絶対パス (terragrunt.hcl が渡す)"
+}
+
 module "k8s-cluster" {
-  source = "../modules/k8s-cluster"
+  source           = "../modules/k8s-cluster"
+  talosconfig_path = var.talosconfig_path
   cluster_config = {
     cluster = {
       name                 = "private"

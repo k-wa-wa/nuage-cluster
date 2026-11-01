@@ -21,3 +21,8 @@ variable "cluster_config" {
     }))
   })
 }
+
+variable "talosconfig_path" {
+  type        = string
+  description = "talosconfig を書き出す絶対パス"
+}
