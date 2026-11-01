@@ -37,16 +37,18 @@ umask 077
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-if [ -f "$OUT" ]; then
-  sops decrypt --output-type json "$OUT" > "$TMP/plain.json"
-else
-  echo '{}' > "$TMP/plain.json"
-fi
-
 ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMP/$name"
-jq --arg n "$name" --rawfile k "$TMP/$name" '.[$n] = $k' "$TMP/plain.json" > "$TMP/next.json"
-sops encrypt --filename-override "$OUT" --input-type json --output-type yaml "$TMP/next.json" > "$TMP/enc.yaml"
-mv "$TMP/enc.yaml" "$OUT"
+
+# 既にあるファイルには sops set で 1 つだけ足す。全体を暗号化し直すと他の鍵の暗号文まで変わり、差分でどの鍵が変わったか読めなくなる。
+# 値は JSON の文字列にしてファイルで渡す (コマンドの引数に秘密を載せない)。
+jq -Rs . "$TMP/$name" > "$TMP/value.json"
+if [ -f "$OUT" ]; then
+  sops set --value-file "$OUT" "[\"$name\"]" "$TMP/value.json"
+else
+  jq -n --arg n "$name" --slurpfile v "$TMP/value.json" '{($n): $v[0]}' > "$TMP/plain.json"
+  sops encrypt --filename-override "$OUT" --input-type json --output-type yaml "$TMP/plain.json" > "$TMP/enc.yaml"
+  mv "$TMP/enc.yaml" "$OUT"
+fi
 
 mkdir -p "$KEY_DIR"
 mv "$TMP/$name" "$KEY_DIR/$name"

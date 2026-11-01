@@ -32,24 +32,36 @@ umask 077
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-if [ -f "$OUT" ]; then
-  sops decrypt --output-type json "$OUT" > "$TMP/plain.json"
-else
-  echo '{}' > "$TMP/plain.json"
-fi
-touch "$KNOWN_HOSTS"
-cp "$KNOWN_HOSTS" "$TMP/known_hosts"
+host_ip() {
+  ssh -F .ssh/ssh_config -G "$1" | awk '$1 == "hostname" { print $2 }'
+}
 
+# 1 台ずつ書き換えるので、途中で止まって一部だけ変わらないよう、先に全ホストを確かめる。
 for h in "$@"; do
-  ip=$(ssh -F .ssh/ssh_config -G "$h" | awk '$1 == "hostname" { print $2 }')
+  ip=$(host_ip "$h")
   if [ -z "$ip" ] || [ "$ip" = "$h" ]; then
     echo "Error: $h は .ssh/ssh_config に無い" >&2
     exit 1
   fi
+done
+
+echo '{}' > "$TMP/plain.json"
+touch "$KNOWN_HOSTS"
+cp "$KNOWN_HOSTS" "$TMP/known_hosts"
+
+for h in "$@"; do
+  ip=$(host_ip "$h")
 
   ssh-keygen -q -t ed25519 -N "" -C "root@$h" -f "$TMP/$h"
-  jq --arg h "$h" --rawfile k "$TMP/$h" '.[$h] = $k' "$TMP/plain.json" > "$TMP/next.json"
-  mv "$TMP/next.json" "$TMP/plain.json"
+  # 既にあるファイルには sops set で 1 台ずつ足す。全体を暗号化し直すと他のホストの暗号文まで変わり、差分でどのホストが変わったか読めなくなる。
+  # 値は JSON の文字列にしてファイルで渡す (コマンドの引数に秘密を載せない)。
+  jq -Rs . "$TMP/$h" > "$TMP/$h.json"
+  if [ -f "$OUT" ]; then
+    sops set --value-file "$OUT" "[\"$h\"]" "$TMP/$h.json"
+  else
+    jq --arg h "$h" --slurpfile v "$TMP/$h.json" '.[$h] = $v[0]' "$TMP/plain.json" > "$TMP/next.json"
+    mv "$TMP/next.json" "$TMP/plain.json"
+  fi
 
   grep -v "^$h," "$TMP/known_hosts" > "$TMP/kh" || true
   echo "$h,$ip $(cut -d' ' -f1,2 "$TMP/$h.pub")" >> "$TMP/kh"
@@ -57,7 +69,9 @@ for h in "$@"; do
   echo "$h ($ip) の鍵を作った"
 done
 
-sops encrypt --filename-override "$OUT" --input-type json --output-type yaml "$TMP/plain.json" > "$TMP/enc.yaml"
-mv "$TMP/enc.yaml" "$OUT"
+if [ ! -f "$OUT" ]; then
+  sops encrypt --filename-override "$OUT" --input-type json --output-type yaml "$TMP/plain.json" > "$TMP/enc.yaml"
+  mv "$TMP/enc.yaml" "$OUT"
+fi
 sort "$TMP/known_hosts" > "$KNOWN_HOSTS"
 echo "秘密鍵を $OUT に、公開鍵を $KNOWN_HOSTS に書いた (commit して push する)"

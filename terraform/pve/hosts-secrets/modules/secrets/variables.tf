@@ -1,8 +1,3 @@
-variable "repo_root" {
-  type        = string
-  description = "リポジトリのルートの絶対パス。Proxmox に入る鍵 (.ssh/id_rsa) を読む"
-}
-
 variable "host" {
   type = string
 }
