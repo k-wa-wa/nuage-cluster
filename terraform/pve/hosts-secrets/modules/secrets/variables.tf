@@ -24,3 +24,9 @@ variable "github_access_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "ssh_host_key" {
+  type        = string
+  description = "SSH のホスト鍵 (ed25519)。sops-nix の Age 鍵も兼ねる"
+  sensitive   = true
+}

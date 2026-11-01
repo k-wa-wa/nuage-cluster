@@ -2,6 +2,11 @@ data "sops_file" "bluray_extractor_secrets" {
   source_file = "${path.module}/../../secrets.yaml"
 }
 
+# ホストごとの SSH ホスト鍵 (scripts/gen-host-keys.sh が書く)
+data "sops_file" "bluray_extractor_host_keys" {
+  source_file = "${path.module}/../../pve/hosts-secrets/host-keys.yaml"
+}
+
 
 resource "proxmox_virtual_environment_file" "bluray_extractor_cloud_config" {
   content_type = "snippets"
@@ -19,6 +24,11 @@ write_files:
     owner: root:root
     content: |
       ${data.sops_file.bluray_extractor_secrets.data["lb_sops_key"]}
+  - path: /var/lib/nix-provisioning/ssh_host_ed25519_key
+    permissions: '0600'
+    owner: root:root
+    content: |
+      ${indent(6, trimspace(data.sops_file.bluray_extractor_host_keys.data["bluray-extractor"]))}
 EOF
   }
 }
