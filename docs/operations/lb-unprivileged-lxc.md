@@ -27,6 +27,8 @@ NixOS 側 (`nix/`) は変えていない。keepalived の VRRP と VIP の付与
 
 コマンドはリポジトリルートで実行する。terragrunt は state と age 鍵のある手元 (Mac) で実行する。
 作り直した直後は base イメージの `nixos` ユーザーしか居ないため、構成が戻るまでは Mac から `ssh` する (atelier の `agent` ユーザーは構成が戻ってから入れる)。
+Mac から pg-cluster・swfs-cluster・mainframe・autopilot-server へは `.ssh/ssh_config` の `ProxyJump lb-1` で入る。
+**lb-1 を作り直して構成が戻るまでは、Mac からこれらのホストに入れない。** そのあいだに入る必要があれば、ProxyJump を使わない atelier から入る (`ssh atelier` のあと `ssh pg-cluster-1`)。
 
 ## 0. 事前確認
 
@@ -206,8 +208,9 @@ curl -s  -o /dev/null -w '%{http_code}\n' --resolve argocd.wpcapp.net:80:192.168
 curl -sk -o /dev/null -w '%{http_code}\n' --resolve argocd.wpcapp.net:443:192.168.5.200 https://argocd.wpcapp.net/   # 000 以外
 nc -vz -w 3 192.168.5.200 3270                                               # succeeded (TN3270)
 dig +short @192.168.5.200 argocd.wpcapp.net                                  # Mac から: 192.168.5.200
-dig +short @10.20.1.20 argocd.wpcapp.net                                     # atelier など prvmain から: 10.20.1.20
-nc -vz -w 3 10.20.1.20 8427                                                  # atelier など prvmain から: succeeded
+# SDN 側の VIP (10.20.1.20) は Mac から届かないので、prvmain に足のある atelier から確かめる
+ssh atelier 'dig +short @10.20.1.20 argocd.wpcapp.net'                       # 10.20.1.20
+ssh atelier 'nc -vz -w 3 10.20.1.20 8427'                                    # succeeded
 ssh pg-cluster-1 'journalctl -u systemd-journal-upload -n 5 --no-pager -o cat'   # VIP:8427 への送信のエラーが出ていない
 ```
 
