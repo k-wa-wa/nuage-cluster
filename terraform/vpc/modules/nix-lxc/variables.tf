@@ -18,6 +18,9 @@ variable "lxc_config" {
       host = string
     })))
     protection = optional(bool)
+    // true で非特権 LXC にする (コンテナの root はホストの UID 100000 に当たる)。
+    // 既定は特権のままにし、未指定の LXC が作り直されないようにする。
+    unprivileged = optional(bool, false)
     startup = optional(object({
       order      = string
       up_delay   = string

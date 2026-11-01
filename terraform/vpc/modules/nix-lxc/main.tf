@@ -2,7 +2,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
 
-  unprivileged = false
+  # 変更すると bpg provider は LXC を作り直す (ForceNew)。
+  # nesting は systemd のサンドボックスと Nix のビルドサンドボックスが使うため、非特権でも外さない。
+  unprivileged = var.lxc_config.unprivileged
   features {
     nesting = true
   }

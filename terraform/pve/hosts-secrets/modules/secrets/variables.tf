@@ -19,3 +19,9 @@ variable "github_access_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "unprivileged" {
+  type        = bool
+  description = "配り先の LXC が非特権か。true なら持ち主をコンテナの root (ホストの 100000:100000) にする"
+  default     = false
+}
