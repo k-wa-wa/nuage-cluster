@@ -1,7 +1,7 @@
 # GitHub PR ごとの preview 環境専用 AppProject。
 # 外部 PR によるクラスタ内 RCE やリソース不正作成を多層防御で防止する。
 # - デプロイ先 Namespace を 各 PR 用 (pechka-pr-*, bare-web-proxy-pr-*, nuage-monitoring-stack-pr-*) のみに限定
-# - Cluster スコープリソースの作成を一切禁止 (clusterResourceWhitelist: [])
+# - Cluster スコープリソースの作成を Namespace のみに限定 (clusterResourceWhitelist: Namespace のみ)
 # - Namespace スコープリソースも preview で実際に必要なリソースのみをホワイトリスト化
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -21,7 +21,9 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: 'nuage-monitoring-stack-pr-*'
       server: https://kubernetes.default.svc
-  clusterResourceWhitelist: []
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
   namespaceResourceWhitelist:
     - group: apps
       kind: Deployment
@@ -49,5 +51,3 @@ spec:
       kind: ServiceAccount
     - group: ''
       kind: PersistentVolumeClaim
-    - group: ''
-      kind: Namespace
