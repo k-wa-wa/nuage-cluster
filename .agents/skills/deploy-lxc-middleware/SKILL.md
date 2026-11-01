@@ -15,7 +15,7 @@ NixOS + Terraform で Proxmox LXC 上にミドルウェア (PostgreSQL, MinIO �
    - `secrets.yaml`: 平文のシークレットテンプレート (そのまま使用しても問題ないランダム値をセットする)
 2. **flake.nix の更新**: 各クラスタノードの configuration を追加する。各ノードのホスト名は `networking.hostName` で指定する。
 3. **`.sops.yaml` へのルール追加**: [[sops-secrets]]
-4. **Terraform 定義の作成**: 対象ゾーンに LXC リソースを定義し、IP 重複確認と `.ssh/gen-keys.sh` への追記を行う。[[modify-terraform]]
+4. **Terraform 定義の作成**: 対象ゾーンに LXC リソースを定義し、IP 重複確認と `.ssh/ssh_config` への `Host` の追記を行う。[[modify-terraform]]
 5. **ローカルビルド検証**: `nix build` ドライランで評価エラーを検出する。[[modify-nix-host]]
 
 ## フェーズ 2: ユーザーによる初期適用 (User)
