@@ -206,12 +206,13 @@ ssh lb-1 'cat /var/lib/nix-provisioning/ssh_host_ed25519_key'    # Permission de
 
 ```bash
 ssh lb-1 'findmnt -no OPTIONS /var/lib/nix-provisioning'          # 先頭に ro が出る (ro,relatime,...)
-ssh lb-1 'sudo touch /var/lib/nix-provisioning/x'                 # touch: ... Read-only file system で失敗する
-ssh lb-1 'ls /var/lib/nix-provisioning'                           # access-tokens-env と ssh_host_ed25519_key だけ (x が無い)
+ssh lb-1 'sudo touch /var/lib/nix-provisioning/access-tokens-env'   # touch: ... Read-only file system で失敗する
 ssh lb-1 'systemctl is-active sshd-keygen; systemctl show -p Result sshd-keygen'   # inactive・Result=success (鍵があるので走らない)
 ```
 
-`touch` が成功したら読み取り専用になっていない。`ssh lb-1 'sudo rm /var/lib/nix-provisioning/x'` で消し、plan と `pct config` の `ro=1` を確かめる。
+`touch` は、コンテナの root が持ち主の既存のファイルに対して行う。
+新しいファイルを作る形だと、mount が書き込み可でもディレクトリがホストの root のものなので `Permission denied` で失敗し、読み取り専用かどうかを見分けられない。
+`touch` が成功したら (更新日時が変わるだけで中身は変わらない) 読み取り専用になっていない。plan と `pct config` の `ro=1` を確かめる。
 
 #### sshd のホスト鍵
 
