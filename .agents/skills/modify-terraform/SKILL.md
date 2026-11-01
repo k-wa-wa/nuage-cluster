@@ -36,7 +36,7 @@ Terraform / Terragrunt 資材を変更する際に使う手段・場所・注意
 export PATH=$HOME/.nix-profile/bin:$PATH
 
 # 差分確認
-terragrunt --terragrunt-working-dir terraform/vpc/<zone> plan
+terragrunt --working-dir terraform/vpc/<zone> plan
 
 # フォーマット・静的検証一式 (tflint + validate をダミーシークレットで実行)
 bash scripts/validate-tf.sh

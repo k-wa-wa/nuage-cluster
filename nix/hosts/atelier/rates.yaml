@@ -1,0 +1,33 @@
+# 100万トークンあたりの USD 単価
+claude-opus-5-5:
+  input: 15.00
+  output: 75.00
+  cache_read: 1.50
+  cache_creation: 18.75
+
+claude-sonnet-5-5:
+  input: 3.00
+  output: 15.00
+  cache_read: 0.30
+  cache_creation: 3.75
+
+claude-haiku-5-5:
+  input: 0.80
+  output: 4.00
+  cache_read: 0.08
+  cache_creation: 1.00
+
+gemini-3.8-flash:
+  input: 0.10
+  output: 0.40
+  cache_read: 0.025
+
+gemini-4-argon:
+  input: 2.00
+  output: 8.00
+  cache_read: 0.50
+
+gpt-oss-120b:
+  input: 0.15
+  output: 0.60
+  cache_read: 0.03
