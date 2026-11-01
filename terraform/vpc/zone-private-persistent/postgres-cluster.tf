@@ -43,7 +43,7 @@ module "pg-cluster-2" {
   lxc_config = {
     vm_id     = 242
     vm_name   = "pg-cluster-2"
-    node_name = "nuc-2"
+    node_name = "server-2"
     cores     = 2
     memory    = 8192
     network_devices = [
