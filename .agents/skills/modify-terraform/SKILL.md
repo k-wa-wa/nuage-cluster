@@ -50,8 +50,8 @@ terragrunt hclfmt
 ## IP アドレスの決め方・確認手段
 
 - 割当済み IP は対象ゾーンの `.tf` ファイルを grep して重複がないか確認する
-- SSH 接続用のホスト名 ↔ IP の対応は `.ssh/gen-keys.sh` が正 (詳細は AGENTS.md)
-- 新規ホストを作ったら `.ssh/gen-keys.sh` の `NODES` にも追記する
+- SSH 接続用のホスト名 ↔ IP の対応は `.ssh/ssh_config` が正 (詳細は AGENTS.md)
+- 新規ホストを作ったら `.ssh/ssh_config` にも `Host` を追記する
 
 ## 注意点・既知の罠
 

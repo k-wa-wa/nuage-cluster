@@ -6,7 +6,12 @@
 #
 # nix では変わりにくいもの (ツール・ライブラリ・常駐ユニット) だけを定義する。
 # 更新の速い Orca 本体とエージェント CLI は setup.sh が ~/.local に入れる。
-{ lib, agentRules, ... }:
+{
+  config,
+  lib,
+  agentRules,
+  ...
+}:
 
 {
   imports = [
@@ -31,17 +36,33 @@
   };
 
   # エージェントは Mac と同じ `ssh <host>` で各ホストに入る。ホスト一覧はリポジトリの .ssh/ssh_config を Include して共有し、
-  # 入る先のユーザーは agent (modules/agent-user.nix、権限は Mac の nixos と同じ)、鍵は atelier 用のもの (scripts/setup-atelier-ssh-key.sh が置く) にする。
+  # 入る先のユーザーは agent (modules/agent-user.nix、権限は Mac の nixos と同じ)、鍵は atelier 用のもの (下の sops.secrets.agent_ed25519) にする。
   # ssh_config は先に得た値が勝つので、Include より前に書いて User・鍵・ProxyJump を上書きする。
   # agent の鍵は転送を禁じている (restrict) ため lb-1 を踏み台にできず、atelier は SDN にも LAN にも直接届くので ProxyJump は使わない。
   programs.ssh.extraConfig = ''
     Host *
         User agent
-        IdentityFile /var/lib/atelier/agent_ed25519
+        IdentityFile ${config.sops.secrets.agent_ed25519.path}
         IdentitiesOnly yes
         ProxyJump none
     Include /home/nixos/ghq/github.com/k-wa-wa/nuage-cluster/.ssh/ssh_config
   '';
+
+  # SSH のホスト鍵は Terraform の cloud-config (terraform/vpc/zone-dev/atelier.tf) が置く。中身は terraform/pve/hosts-secrets/host-keys.yaml の atelier。
+  # 公開鍵は .ssh/known_hosts にある。sops-nix もこの鍵を Age 鍵として使う (sops.age.sshKeyPaths の既定値が hostKeys の ed25519 を拾う)。
+  services.openssh.hostKeys = [
+    {
+      path = "/var/lib/nix-provisioning/ssh_host_ed25519_key";
+      type = "ed25519";
+    }
+  ];
+
+  # agent ユーザーで入る鍵。秘密鍵は scripts/gen-atelier-agent-key.sh が作り、atelier 自身のホスト鍵で開く。
+  # ssh は nixos ユーザーで動くので、所有者を nixos にする。
+  sops.secrets.agent_ed25519 = {
+    sopsFile = ./secrets.yaml;
+    owner = "nixos";
+  };
 
   # setup.sh が入れる Orca・エージェント CLI と autopilot のスキルが呼ぶコマンドを通す。
   environment.localBinInPath = true;

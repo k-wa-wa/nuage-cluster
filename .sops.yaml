@@ -14,6 +14,7 @@ keys:
   - &swfs_cluster_3     age17w7hemv6nrtdxgzfflkquq0mn74gg5xauy2gghny2q402estt3pq6yc9md
   - &mainframe          age1lphq42qr2s39ajjqy7yx8s9u2qyfrq8u3n9eqa8jwgzm5yhe8q2s97tnz3
   - &bluray_extractor   age1r6gc0d23ktn8gzgaggpw9zmtccpdtv480n8zzq607t6u4l6q3ums7psvnd
+  - &atelier            age1ktxcrrpt6ccx94xlerkg9zmttswuue087d4c84xefjdhlsunk4zqdxt6xm
 
 creation_rules:
   - path_regex: terraform/secrets\.yaml$
@@ -95,6 +96,14 @@ creation_rules:
           - *admin_key
           - *master_key
           - *bluray_extractor
+
+  # atelier の agent ユーザーが各ホストへ入る鍵 (scripts/gen-atelier-agent-key.sh が書く)。
+  - path_regex: nix/hosts/atelier/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
+          - *atelier
 
   - path_regex: manifests/apps/cert-manager/overlays/prod/secrets.yaml
     key_groups:

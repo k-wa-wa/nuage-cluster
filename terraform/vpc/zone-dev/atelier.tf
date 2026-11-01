@@ -12,6 +12,13 @@
 #
 # シークレット (GitHub の bot token、Claude / Antigravity / Copilot のログイン) は SOPS で配布しない。
 # 万一の流出時の影響が大きいため、VM 起動後に手作業で配置・ログインする運用とする。
+# ただし SSH のホスト鍵だけは cloud-config で渡す。sops-nix がこの鍵で nix/hosts/atelier/secrets.yaml を開くので、
+# VM を作り直しても同じ鍵で戻るようにする (bluray-extractor と同じ)。
+
+# ホストごとの SSH ホスト鍵 (scripts/gen-host-keys.sh が書く)
+data "sops_file" "atelier_host_keys" {
+  source_file = "${path.module}/../../pve/hosts-secrets/host-keys.yaml"
+}
 
 resource "proxmox_virtual_environment_file" "atelier_cloud_config" {
   content_type = "snippets"
@@ -23,6 +30,12 @@ resource "proxmox_virtual_environment_file" "atelier_cloud_config" {
     data      = <<EOF
 #cloud-config
 hostname: atelier
+write_files:
+  - path: /var/lib/nix-provisioning/ssh_host_ed25519_key
+    permissions: '0600'
+    owner: root:root
+    content: |
+      ${indent(6, trimspace(data.sops_file.atelier_host_keys.data["atelier"]))}
 EOF
   }
 }
@@ -80,6 +93,12 @@ resource "proxmox_virtual_environment_vm" "atelier" {
 
   network_device {
     bridge = "vmbr0"
+  }
+
+  # cloud-config を変えると VM の作り直しになる。atelier にはワークスペースやログインの状態があるので、
+  # 動いている VM には cloud-config の変更を当てない。cloud-config は VM を新しく作るときにだけ効く。
+  lifecycle {
+    ignore_changes = [initialization[0].user_data_file_id]
   }
 }
 
