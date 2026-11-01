@@ -45,7 +45,6 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     # secrets.yaml 内の keepalived_auth_pass をロードする
     secrets.keepalived_auth_pass = {
       owner = "root";

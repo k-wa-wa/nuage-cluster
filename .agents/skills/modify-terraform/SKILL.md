@@ -13,7 +13,7 @@ Terraform / Terragrunt 資材を変更する際に使う手段・場所・注意
 | :-- | :-- |
 | `terraform/pve/hosts` | 物理ノードのブリッジ・VLAN・SDN Fabric (OSPF) |
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
-| `terraform/pve/hosts-secrets` | PVE ホストの `/var/lib/pve/<host>/` に LXC 向けシークレットファイル (sops-key, access-tokens-env) を配置 |
+| `terraform/pve/hosts-secrets` | PVE ホストの `/var/lib/pve/<host>/` に LXC 向けシークレットファイル (ssh_host_ed25519_key, access-tokens-env) を配置 |
 | `terraform/pbs` | Proxmox Backup Server (データストア等) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
 | `terraform/vpc/zone-dev` | dev-server VM |

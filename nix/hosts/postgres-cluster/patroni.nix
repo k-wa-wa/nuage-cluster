@@ -33,9 +33,6 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    # 復号に使用するキーファイルのパスを指定する
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
-
     secrets = {
       pg_superuser_password = {
         owner = "patroni";

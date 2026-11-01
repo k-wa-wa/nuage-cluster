@@ -11,7 +11,6 @@ resource "terraform_data" "upload_file" {
     content_hash = sha256(join("-", [
       var.host,
       var.target_host,
-      var.sops_key,
       var.github_access_token,
       var.ssh_host_key
     ]))
@@ -21,18 +20,13 @@ resource "terraform_data" "upload_file" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p /var/lib/pve/${var.target_host}",
-      "cd /var/lib/pve/${var.target_host} && touch access-tokens-env sops-key ssh_host_ed25519_key && chmod 600 access-tokens-env sops-key ssh_host_ed25519_key"
+      "cd /var/lib/pve/${var.target_host} && touch access-tokens-env ssh_host_ed25519_key && chmod 600 access-tokens-env ssh_host_ed25519_key"
     ]
   }
 
   provisioner "file" {
     content     = "NIX_CONFIG=access-tokens = github.com=${var.github_access_token}\n"
     destination = "/var/lib/pve/${var.target_host}/access-tokens-env"
-  }
-
-  provisioner "file" {
-    content     = var.sops_key
-    destination = "/var/lib/pve/${var.target_host}/sops-key"
   }
 
   provisioner "file" {
@@ -43,7 +37,7 @@ resource "terraform_data" "upload_file" {
   # 念のため、書いたあとの権限も確かめて揃える。
   provisioner "remote-exec" {
     inline = [
-      "cd /var/lib/pve/${var.target_host} && chmod 600 access-tokens-env sops-key ssh_host_ed25519_key"
+      "cd /var/lib/pve/${var.target_host} && chmod 600 access-tokens-env ssh_host_ed25519_key"
     ]
   }
 }
