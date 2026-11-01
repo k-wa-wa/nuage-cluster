@@ -20,6 +20,8 @@ spec:
       github:
         owner: k-wa-wa
         repo: nuage-monitoring-stack
+        labels:
+          - preview
         tokenRef:
           secretName: pechka-preview-github-token
           key: token
@@ -30,7 +32,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
-      project: default
+      project: preview-apps
       source:
         repoURL: https://github.com/k-wa-wa/nuage-monitoring-stack.git
         targetRevision: '{{head_sha}}'
@@ -48,6 +50,12 @@ spec:
                 - op: replace
                   path: /metadata/name
                   value: 'nuage-monitoring-stack-pr-{{number}}'
+                - op: add
+                  path: /metadata/labels
+                  value:
+                    pod-security.kubernetes.io/enforce: baseline
+                    pod-security.kubernetes.io/enforce-version: latest
+                    pod-security.kubernetes.io/warn: restricted
             - target:
                 kind: Ingress
                 name: monitoring-pwa-ingress

@@ -1,0 +1,53 @@
+# GitHub PR ごとの preview 環境専用 AppProject。
+# 外部 PR によるクラスタ内 RCE やリソース不正作成を多層防御で防止する。
+# - デプロイ先 Namespace を 各 PR 用 (pechka-pr-*, bare-web-proxy-pr-*, nuage-monitoring-stack-pr-*) のみに限定
+# - Cluster スコープリソースの作成を一切禁止 (clusterResourceWhitelist: [])
+# - Namespace スコープリソースも preview で実際に必要なリソースのみをホワイトリスト化
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: preview-apps
+  namespace: argocd
+spec:
+  description: Preview environments for GitHub pull requests
+  sourceRepos:
+    - https://github.com/k-wa-wa/pechka.git
+    - https://github.com/k-wa-wa/bare-web-proxy.git
+    - https://github.com/k-wa-wa/nuage-monitoring-stack.git
+  destinations:
+    - namespace: 'pechka-pr-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'bare-web-proxy-pr-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'nuage-monitoring-stack-pr-*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: batch
+      kind: Job
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: discovery.k8s.io
+      kind: EndpointSlice
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
+    - group: argoproj.io
+      kind: WorkflowTemplate
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: ''
+      kind: Namespace

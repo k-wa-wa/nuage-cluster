@@ -21,6 +21,8 @@ spec:
       github:
         owner: k-wa-wa
         repo: pechka
+        labels:
+          - preview
         # public repo のため未認証でも動作するが、レート制限(60 req/h)に余裕を持たせたい場合は
         # tokenRef で PAT (repo:read scope) を argocd namespace の Secret から参照する。
         tokenRef:
@@ -33,7 +35,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
-      project: default
+      project: preview-apps
       source:
         repoURL: https://github.com/k-wa-wa/pechka.git
         targetRevision: '{{head_sha}}'
@@ -64,6 +66,12 @@ spec:
                 - op: replace
                   path: /metadata/name
                   value: 'pechka-pr-{{number}}'
+                - op: add
+                  path: /metadata/labels
+                  value:
+                    pod-security.kubernetes.io/enforce: baseline
+                    pod-security.kubernetes.io/enforce-version: latest
+                    pod-security.kubernetes.io/warn: restricted
             - target:
                 kind: Ingress
                 name: pechka-ingress
