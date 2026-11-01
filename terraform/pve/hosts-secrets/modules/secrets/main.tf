@@ -1,10 +1,12 @@
 
 resource "terraform_data" "upload_file" {
   connection {
-    type        = "ssh"
-    user        = "root"
-    host        = var.host
-    private_key = file("${var.repo_root}/.ssh/id_rsa")
+    type = "ssh"
+    user = "root"
+    host = var.host
+    # Proxmox の root に入る鍵は ssh-agent から使う。apply の前に ssh-add .ssh/keys/pve-root を打つ
+    # (鍵は .ssh/login-keys.yaml の pve-root。scripts/gen-login-key.sh が作る)。
+    agent = true
   }
 
   triggers_replace = {
