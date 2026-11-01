@@ -32,7 +32,8 @@ resource "proxmox_virtual_environment_vm" "autopilot_server" {
   node_name = "server-1"
   vm_id     = 251
 
-  on_boot = true
+  on_boot = false
+  started = false
 
   machine = "q35"
   bios    = "ovmf"

@@ -178,9 +178,6 @@ bash scripts/gen-atelier-agent-key.sh
 
 全ホストに新しい公開鍵が行き渡るまで、atelier からは入れない。
 
-atelier の VM を作り直すとホスト鍵が変わり、`nix/hosts/atelier/secrets.yaml` を開けなくなる。
-`.sops.yaml` の `atelier` を新しいホスト鍵から `ssh-to-age` で作り直し、`sops updatekeys nix/hosts/atelier/secrets.yaml` をかける。
-
 #### 確認 (atelier で)
 
 ```bash
@@ -221,8 +218,7 @@ copilot  # /login
 # 4. クラスタ調査用の kubeconfig を置く (手元の nuage-cluster で実行)
 bash scripts/setup-autopilot-kubeconfig.sh
 
-# 5. ノードへ入る SSH 鍵は sops-nix が置く (4.2)。VM を作り直したときはホスト鍵が変わって開けないので、
-#    4.2 のとおり .sops.yaml の atelier を書き換えて master に入れ、atelier で nixos-upgrade を起動する
+# 5. ノードへ入る SSH 鍵は sops-nix が置く (4.2)。ホスト鍵は cloud-config で渡るので、作業は要らない
 ```
 
 #### クライアント (Mac・iPhone) のペアリング

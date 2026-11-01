@@ -48,6 +48,15 @@
     Include /home/nixos/ghq/github.com/k-wa-wa/nuage-cluster/.ssh/ssh_config
   '';
 
+  # SSH のホスト鍵は Terraform の cloud-config (terraform/vpc/zone-dev/atelier.tf) が置く。中身は terraform/pve/hosts-secrets/host-keys.yaml の atelier。
+  # 公開鍵は .ssh/known_hosts にある。sops-nix もこの鍵を Age 鍵として使う (sops.age.sshKeyPaths の既定値が hostKeys の ed25519 を拾う)。
+  services.openssh.hostKeys = [
+    {
+      path = "/var/lib/nix-provisioning/ssh_host_ed25519_key";
+      type = "ed25519";
+    }
+  ];
+
   # agent ユーザーで入る鍵。秘密鍵は scripts/gen-atelier-agent-key.sh が作り、atelier 自身のホスト鍵で開く。
   # ssh は nixos ユーザーで動くので、所有者を nixos にする。
   sops.secrets.agent_ed25519 = {
