@@ -106,7 +106,11 @@ lb-1 で書く。lb-2・lb-3 は表のとおり読み替える。
 
 ### 1. 秘密ファイルの持ち主を変える (hosts-secrets)
 
+hosts-secrets の apply は PVE ノードの root に ssh-agent の鍵で入る。先に `.ssh/keys/pve-root` を agent に載せておく (`terraform/pve/hosts-secrets/modules/secrets/main.tf`)。
+
 ```bash
+ssh-add .ssh/keys/pve-root
+
 # module.lb-1.terraform_data.upload_file must be replaced だけが出る
 terragrunt --working-dir terraform/pve/hosts-secrets plan -target=module.lb-1
 terragrunt --working-dir terraform/pve/hosts-secrets apply -target=module.lb-1
@@ -143,10 +147,10 @@ terragrunt --working-dir terraform/vpc/zone-private-k8s plan -target=module.lb-1
 terragrunt --working-dir terraform/vpc/zone-private-k8s apply -target=module.lb-1
 ```
 
-PVE ノードの設定を見る (読むだけ)。鍵は hosts-secrets と同じ `.ssh/id_rsa` を使う。
+PVE ノードの設定を見る (読むだけ)。鍵は hosts-secrets と同じ `.ssh/keys/pve-root` を使う。
 
 ```bash
-ssh -i .ssh/id_rsa root@192.168.5.21 'pct config 211 | grep -E "^(unprivileged|features|mp[0-9]+):"'
+ssh -i .ssh/keys/pve-root root@192.168.5.21 'pct config 211 | grep -E "^(unprivileged|features|mp[0-9]+):"'
 # features: nesting=1
 # mp0: /var/lib/pve/lb-1,mp=/var/lib/nix-provisioning,...,ro=1   (ro=1 が入っていること)
 # unprivileged: 1
@@ -317,6 +321,7 @@ terragrunt --working-dir terraform/pve/hosts-secrets plan       # No changes
 4. hosts-secrets を戻す。`stat` の結果が `600 0:0` になる。
 
    ```bash
+   ssh-add .ssh/keys/pve-root
    terragrunt --working-dir terraform/pve/hosts-secrets plan -target=module.lb-1
    terragrunt --working-dir terraform/pve/hosts-secrets apply -target=module.lb-1
    ```
