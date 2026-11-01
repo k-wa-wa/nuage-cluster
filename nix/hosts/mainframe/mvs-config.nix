@@ -60,7 +60,6 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     secrets.mvs_admin_password = { };
   };
 
