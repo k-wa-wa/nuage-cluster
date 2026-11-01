@@ -12,6 +12,7 @@ in
   imports = [
     ./agent-user.nix
     ./journald-upload.nix
+    ./auto-upgrade-rollback.nix
   ];
 
   services.openssh.settings = {
