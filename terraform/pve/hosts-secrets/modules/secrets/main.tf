@@ -12,13 +12,16 @@ resource "terraform_data" "upload_file" {
       var.host,
       var.target_host,
       var.sops_key,
-      var.github_access_token
+      var.github_access_token,
+      var.ssh_host_key
     ]))
   }
 
+  # 秘密を書く前に root だけが読めるファイルを用意しておく (scp は既にあるファイルの権限を変えない)。
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p /var/lib/pve/${var.target_host}"
+      "mkdir -p /var/lib/pve/${var.target_host}",
+      "cd /var/lib/pve/${var.target_host} && touch access-tokens-env sops-key ssh_host_ed25519_key && chmod 600 access-tokens-env sops-key ssh_host_ed25519_key"
     ]
   }
 
@@ -30,5 +33,17 @@ resource "terraform_data" "upload_file" {
   provisioner "file" {
     content     = var.sops_key
     destination = "/var/lib/pve/${var.target_host}/sops-key"
+  }
+
+  provisioner "file" {
+    content     = var.ssh_host_key
+    destination = "/var/lib/pve/${var.target_host}/ssh_host_ed25519_key"
+  }
+
+  # 念のため、書いたあとの権限も確かめて揃える。
+  provisioner "remote-exec" {
+    inline = [
+      "cd /var/lib/pve/${var.target_host} && chmod 600 access-tokens-env sops-key ssh_host_ed25519_key"
+    ]
   }
 }

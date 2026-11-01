@@ -3,6 +3,18 @@ keys:
   - &master_key    age1vesvx04kyv2nz4s2u3yn3h0msmra44lsn97n263nfr254zcckscq8nzyfq
   - &lb_key        age1g72ttt26gqzjt39nj423vkqtrt7t02x0qdz9g8yvc27eru0cuu4qte2u04
   - &argocd_key    age1vqgm0gczrwyluk9lyhpz49uea7m04u53q4c60kwn9s6wuguhju3qjznrut
+  # ホストごとの鍵。SSH のホスト鍵 (.ssh/known_hosts) から ssh-to-age で作る。
+  - &lb_1               age1d4hysr2lwyf7trt5vhwftj7zrmxd3mxyn4psmlpmrgkgc0gfh30qzgdhf9
+  - &lb_2               age16aehtje5j8qcqwpnu0ctxayxmmlhvxhpwwqjdckzu0xvx8vegvcqrxnmv3
+  - &lb_3               age1zrp5fvn25r22lteanlh394s7m8t429xew6n3x3pkjq45vmr7qu0qujj4dl
+  - &pg_cluster_1       age1rlupjv4pjq3g2mn3p9nfvjuer4x4lmctjcwel7n50e6n4atttpkq9thce9
+  - &pg_cluster_2       age17j803c6sdp7wms8rl5x62pyadhshrg5d66unvcqqp6rzr4ac65ls4yhcjs
+  - &pg_cluster_3       age1df4zdhk4wp4hghmvj8sucudk7l568upd9rlra5nv3ukwhh4fagqsv5md0h
+  - &swfs_cluster_1     age1eh3vh54kck0009ddrstzq40m6jfzqh5x7jsa7xk8m33p90hvry3sazml5z
+  - &swfs_cluster_2     age13r9s7dqvwwh865c7lm5wftuh79t0qzvq48wyputtydga2m48m4gq3gr2eq
+  - &swfs_cluster_3     age17w7hemv6nrtdxgzfflkquq0mn74gg5xauy2gghny2q402estt3pq6yc9md
+  - &mainframe          age1lphq42qr2s39ajjqy7yx8s9u2qyfrq8u3n9eqa8jwgzm5yhe8q2s97tnz3
+  - &bluray_extractor   age1r6gc0d23ktn8gzgaggpw9zmtccpdtv480n8zzq607t6u4l6q3ums7psvnd
 
 creation_rules:
   - path_regex: terraform/secrets\.yaml$
@@ -42,6 +54,9 @@ creation_rules:
           - *admin_key
           - *master_key
           - *lb_key
+          - *lb_1
+          - *lb_2
+          - *lb_3
 
   - path_regex: nix/hosts/postgres-cluster/secrets\.yaml$
     key_groups:
@@ -49,6 +64,9 @@ creation_rules:
           - *admin_key
           - *master_key
           - *lb_key
+          - *pg_cluster_1
+          - *pg_cluster_2
+          - *pg_cluster_3
 
 
   - path_regex: nix/hosts/swfs-cluster/secrets\.yaml$
@@ -57,6 +75,9 @@ creation_rules:
           - *admin_key
           - *master_key
           - *lb_key
+          - *swfs_cluster_1
+          - *swfs_cluster_2
+          - *swfs_cluster_3
 
   - path_regex: nix/hosts/mainframe/secrets\.yaml$
     key_groups:
@@ -64,6 +85,7 @@ creation_rules:
           - *admin_key
           - *master_key
           - *lb_key
+          - *mainframe
 
   - path_regex: nix/hosts/bluray-extractor/secrets.yaml
     key_groups:
@@ -71,6 +93,7 @@ creation_rules:
           - *admin_key
           - *master_key
           - *lb_key
+          - *bluray_extractor
 
   - path_regex: manifests/apps/cert-manager/overlays/prod/secrets.yaml
     key_groups:
