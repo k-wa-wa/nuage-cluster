@@ -6,14 +6,14 @@
 
 ### SSH キー
 
+ログイン用の鍵は接続元ごとに 1 本作る。秘密鍵は `.ssh/login-keys.yaml` (SOPS) と `.ssh/keys/<名前>` に入るので、先に下の SOPS の鍵を作る。
+
 ```sh
-# 各ノードへ配置するキー
-ssh-keygen -f ./.ssh/id_rsa # その他のオプション
-ssh-keygen -t ed25519 -f ./.ssh/id_ed25519 -N ""
-bash .ssh/gen-keys.sh
+bash scripts/gen-login-key.sh nixos      # Mac から各 NixOS ホストの nixos ユーザーへ入る
+bash scripts/gen-login-key.sh pve-root   # Mac から Proxmox の root へ入る
 ```
 
-atelier のエージェントが各ホストへ入るための鍵 (`agent` ユーザー用) は、atelier を作った後に `scripts/setup-atelier-ssh-key.sh` で作って配る ([operations.md](./operations.md) 4.2)。
+atelier のエージェントが各ホストへ入るための鍵 (`agent` ユーザー用) は `scripts/gen-atelier-agent-key.sh` で作る ([operations.md](./operations.md) 4.2)。
 
 ### SOPS (Age) キー
 
