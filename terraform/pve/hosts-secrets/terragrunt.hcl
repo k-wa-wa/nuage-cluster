@@ -20,6 +20,7 @@ terraform {
 }
 
 # Proxmox に入る鍵 (.ssh/id_rsa) は terraform/ の外にあり写されないので、絶対パスで渡す。
+# TODO: 変数をやめ、connection を ssh-agent (agent = true) にする。
 inputs = {
   repo_root = get_repo_root()
 }
