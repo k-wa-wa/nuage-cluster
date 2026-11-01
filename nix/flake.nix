@@ -14,18 +14,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # autopilot (GitHub の Issue / PR を真実源とする自律開発ワーカー) の
-    # パッケージと NixOS モジュールを提供する。autopilot-server で使用する。
-    #
-    # v3 (nuage-autopilot3) から v4 へ移行済み。設定の書式が変わっているため、
-    # 差し戻す場合は hosts/autopilot-server/config.yaml も一緒に戻すこと。
-    #
-    # autopilot-server で使用する自律開発ワーカー。
-    autopilot = {
-      url = "github:k-wa-wa/nuage-autopilot4";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # autopilot5 (Orca の窓口エージェントから任された仕事を裏で完走させる autopilot-run と、
     # 全エージェント共通のルール・スキル) を提供する。atelier で使用する。
     autopilot5 = {
@@ -70,7 +58,6 @@
       nixos-generators,
       nixpkgs-llama-cpp,
       sops-nix,
-      autopilot,
       autopilot5,
       home-manager,
       nix-config,
@@ -107,22 +94,6 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/base-vm/configuration.nix
-          ];
-        };
-
-        # autopilot の実行ホスト。
-        # lm-server / bluray-extractor と同じく base-vm イメージから起動し、
-        # cloud-init のホスト名をもとに nixos-bootstrap が本構成を自動適用する。
-        autopilot-server = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            autopilot.nixosModules.autopilot
-            ./hosts/base-vm/configuration.nix
-            ./modules/common.nix
-            ./hosts/autopilot-server/configuration.nix
-            {
-              networking.hostName = "autopilot-server";
-            }
           ];
         };
 

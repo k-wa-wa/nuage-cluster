@@ -57,7 +57,7 @@ sudo systemctl start nixos-upgrade.service
 journalctl -u nixos-upgrade.service -f
 ```
 
-VM ホスト (autopilot-server, atelier, lm-server, bluray-extractor) は手動 Push 型:
+VM ホスト (atelier, lm-server, bluray-extractor) は手動 Push 型:
 
 ```bash
 # TODO: VM ホストの運用自動化
@@ -82,7 +82,7 @@ terragrunt --terragrunt-working-dir terraform/vpc/zone-private-k8s apply
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
 | `terraform/pve/server-2` | server-2 上の lm-server (import 保存のみ) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
-| `terraform/vpc/zone-dev` | autopilot-server VM・atelier VM |
+| `terraform/vpc/zone-dev` | atelier VM |
 | `terraform/vpc/zone-private` | EVPN zone: private + prvmain VNet |
 | `terraform/vpc/zone-private-k8s` | Talos クラスター・lb-1/2/3・egress-gateway |
 | `terraform/vpc/zone-private-persistent` | PostgreSQL LXC (pg-1/2/3) |
@@ -136,17 +136,17 @@ TODO:
 
 ### 4.1 autopilot: クラスタ調査用kubeconfigの配布
 
-`manifests/apps/autopilot/` は nuage-autopilot エージェントがクラスタ調査に使う read-only
+`manifests/apps/autopilot/` は atelier のエージェント (autopilot5 等) がクラスタ調査に使う read-only
 ServiceAccount（`autopilot-readonly` ClusterRole: 全namespace対象で `get`/`list`/`watch` のみ、
 `secrets` は対象外）をArgo CD経由で発行する。SAのトークンからkubeconfigを組み立て
-autopilot-serverへ配置する手順はスクリプト化されており、SOPSには載せない
+atelierへ配置する手順はスクリプト化されており、SOPSには載せない
 （`secrets.env` と同じ、手動配置の運用）。
 
 ```bash
 # manifests/apps/autopilot/ がArgo CDで同期済みであることを確認してから実行する
 cd nuage-cluster
 bash scripts/setup-autopilot-kubeconfig.sh            # atelier へ配置する
-bash scripts/setup-autopilot-kubeconfig.sh autopilot-server
+bash scripts/setup-autopilot-kubeconfig.sh <ホスト名>  # 別のホストへ配置する
 ```
 
 配置先は対象ホストのデフォルトkubeconfigパス `~/.kube/config`（= `nixos` ユーザーの

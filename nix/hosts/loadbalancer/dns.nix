@@ -5,7 +5,7 @@
   services.coredns = {
     enable = true;
     # split-horizon: SDN (prvmain 10.20.1.0/24) のクライアントには SDN 側の VIP を返す。
-    # autopilot-server 等は 192.168.5.0/24 に足を持たず、LAN 側の VIP に到達できないため。
+    # pg-cluster・swfs-cluster 等の SDN だけに足を持ち 192.168.5.0/24 に足を持たないホストは、LAN 側の VIP に到達できないため。
     # view を持つブロックが先に評価され、view の無い 2 つ目のブロックが既定 (LAN 側 VIP) になる。
     config = ''
       . {

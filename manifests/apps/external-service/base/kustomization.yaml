@@ -1,9 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# クラスタ外の IP を k8s 内部サービスとして引き込む。
+# 今後他の外部IPを追加する際は同じパターンで <name>.yaml を追加し、ここに列挙する。
 resources:
 - namespace.yaml
 - postgres.yaml
 - minio.yaml
-- autopilot-ui.yaml
 - lm-server.yaml

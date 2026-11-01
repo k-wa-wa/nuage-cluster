@@ -14,7 +14,7 @@ ORCA_ROOT="$HOME/.local/share/orca-ide"
 BIN="$HOME/.local/bin"
 
 # 前もってクローンし、Orca に登録しておくリポジトリ (k-wa-wa/<名前>)。
-# nuage-workspace の AGENTS.md の地図と揃える。nuage-autopilot4 は autopilot-server でだけ使う旧版なので入れない。
+# nuage-workspace の AGENTS.md の地図と揃える。nuage-autopilot4 は旧版なので入れない。
 REPOS=(
   nuage-workspace
   nuage-cluster
