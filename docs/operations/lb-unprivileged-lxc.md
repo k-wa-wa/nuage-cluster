@@ -1,28 +1,42 @@
 # lb (lb-1 / lb-2 / lb-3) を非特権 LXC に切り替える手順
 
 lb の 3 台を特権 LXC から非特権 LXC に作り直す。
+同じ作り直しで、鍵ファイルを置く `/var/lib/nix-provisioning` の bind mount を読み取り専用にする。
 
 - 特権 LXC ではコンテナの root がホストの root (UID 0) と同じである。lb の root を取られると、カーネルか LXC のバグ 1 つで Proxmox ホストに抜けられ、ノード同士の信頼でクラスタ全体に広がる。
 - 非特権 LXC ではコンテナの root はホストの UID 100000 に当たり、ホストに抜けても root ではない。
+- `/var/lib/nix-provisioning` はホストの `/var/lib/pve/<name>` の bind mount である。書き込み可のままだと、lb の root を取られたときに sshd のホスト鍵 (sops-nix の Age 鍵を兼ねる) や `access-tokens-env` をコンテナの中から書き換えられ、ホスト側の原本が変わる。読み取り専用にすると書き換えられない。
 
 ## 変更の中身
 
 | 場所 | 変更 |
 | :-- | :-- |
 | `terraform/vpc/modules/nix-lxc` | `lxc_config.unprivileged` (既定 `false`) を足した。nesting は残す |
-| `terraform/vpc/zone-private-k8s/loadbalancer.tf` | lb-1・lb-2・lb-3 を `unprivileged = true` にした |
+| `terraform/vpc/modules/nix-lxc` | `lxc_config.provisioning_read_only` (既定 `false`) を足した。`true` で `/var/lib/nix-provisioning` の mount_point を `read_only = true` にする。既定の `false` は bpg provider の `read_only` の既定値と同じなので、指定しない LXC は差分が出ない。`var.mount_points` で足す mount_point は変えない |
+| `terraform/vpc/zone-private-k8s/loadbalancer.tf` | lb-1・lb-2・lb-3 を `unprivileged = true`・`provisioning_read_only = true` にした |
 | `terraform/pve/hosts-secrets/modules/secrets` | `access-tokens-env` と `ssh_host_ed25519_key` の持ち主をコンテナの root にする。`unprivileged = true` なら `100000:100000`、特権なら `0:0`。`0600` は変えない。持ち主は非特権のときだけ `triggers_replace` に入れるので、特権のホストは配り直しにならない |
 | `terraform/pve/hosts-secrets/main.tf` | lb-1・lb-2・lb-3 を `unprivileged = true` にした |
 
 `ssh_host_ed25519_key` は sshd のホスト鍵と sops-nix の Age 鍵を兼ねる (`nix/hosts/base-lxc/configuration.nix`)。
 持ち主がホストの root (`0:0`) のまま `0600` で非特権にすると、コンテナの root から読めない。sshd が起動できず、sops-nix の復号も失敗し、VRRP のパスワードが無いので keepalived も動かない。
 
+コンテナの中から `/var/lib/nix-provisioning` に書くものは無い。lb-1〜3 の構成で、このパスを使うのは次の 3 つで、どれも読むだけである。
+
+- `nix/modules/common.nix`: nix-daemon の `EnvironmentFile=-/var/lib/nix-provisioning/access-tokens-env`
+- `nix/hosts/base-lxc/configuration.nix`: `services.openssh.hostKeys` (sshd の `HostKey`)
+- sops-nix: `sops.age.sshKeyPaths` (上のホスト鍵を Age 鍵として読む。`sops.age.generateKey` は `false`)
+
+例外は sshd-keygen である。鍵ファイルが無いか空のときだけ (`ConditionFileNotEmpty=|!`)、`ssh-keygen` で鍵を作ろうとする。読み取り専用ではこれが `Read-only file system` で失敗し、`systemctl --failed` に sshd-keygen が出る。
+黙って `.ssh/known_hosts` と sops の受信者に無い鍵を作られるより、失敗して見える方がよい。そのときは hosts-secrets の配り方を確かめる (「1. 秘密ファイルの持ち主を変える」)。
+
+鍵ファイルを置くのはホスト側の hosts-secrets (`terraform/pve/hosts-secrets`) で、PVE ノードの `/var/lib/pve/<name>` に直接書く。コンテナの mount が読み取り専用でも配り直しはできる。
+
 NixOS 側 (`nix/`) は変えていない。keepalived の VRRP と VIP の付与、`net.ipv4.ip_nonlocal_bind`、HAProxy・CoreDNS の 1024 未満のポートは、どれもコンテナ自身の network namespace の中の操作で、非特権でも効く。
 lb-1〜3 の `proxmoxLXC.privileged` は既定の `false` で、NixOS は元から非特権を前提にしている。下の確認で実機の動きを確かめる。
 
 ## 先に知っておくこと
 
-- **`unprivileged` を変えると LXC は作り直しになる** (bpg provider の `ForceNew`)。rootfs は消える。lb は状態を持たないので、作り直したあとは base イメージから NixOS の lb の構成に自分で戻る (下の「3. 構成が戻るのを待つ」)。
+- **`unprivileged` を変えると LXC は作り直しになる** (bpg provider の `ForceNew`)。`mount_point` も `ForceNew` なので、`read_only` も同じ作り直しで入る。作り直しは 1 回で、`1 to add, 0 to change, 1 to destroy` になる。rootfs は消える。lb は状態を持たないので、作り直したあとは base イメージから NixOS の lb の構成に自分で戻る (下の「3. 構成が戻るのを待つ」)。
 - **作り直しのあいだ、VIP (`10.20.1.20`・`192.168.5.200`) は残りの lb に移る**。keepalived は nopreempt なので、作り直した lb は BACKUP で上がり、VIP を取り返さない。
 - **同時に 2 台を落とさない**。1 台ずつ、確認が済んでから次へ進む (lb-1 → 確認 → lb-2 → 確認 → lb-3 → 確認)。
 - **hosts-secrets を先に適用する**。非特権のコンテナから読めるよう、持ち主を `100000:100000` にしておく。今の特権のコンテナの root はどの持ち主のファイルでも読めるので、先に変えても止まらない。
@@ -50,7 +64,9 @@ for h in lb-1 lb-2 lb-3; do echo "$h: $(ssh $h 'ip -4 -o addr show | grep -oE "(
 
 ```bash
 # lb-1〜3 の proxmox_virtual_environment_container.lxc が must be replaced
-# (unprivileged = false -> true # forces replacement) で、それ以外の差分が無い
+# (unprivileged = false -> true # forces replacement と、
+#  /var/lib/nix-provisioning の mount_point の read_only = false -> true) で、lb のほかに差分が無い。
+# lm_server と local_file.talosconfig の差分は今回と関係ないので、apply は下の -target で lb だけに絞る
 terragrunt --working-dir terraform/vpc/zone-private-k8s plan
 
 # lb 以外の nix-lxc は差分が無い (No changes)
@@ -120,8 +136,9 @@ for h in lb-1 lb-2 lb-3; do echo "$h: $(ssh $h 'ip -4 -o addr show | grep -oE "(
 ```
 
 ```bash
-# module.lb-1.proxmox_virtual_environment_container.lxc must be replaced
-# (unprivileged = false -> true # forces replacement) だけが出る。それ以外が出たら止めて中身を確かめる
+# module.lb-1.proxmox_virtual_environment_container.lxc must be replaced だけが出る
+# (unprivileged = false -> true # forces replacement と、/var/lib/nix-provisioning の mount_point の
+#  read_only = false -> true)。Plan: 1 to add, 0 to change, 1 to destroy。それ以外が出たら止めて中身を確かめる
 terragrunt --working-dir terraform/vpc/zone-private-k8s plan -target=module.lb-1
 terragrunt --working-dir terraform/vpc/zone-private-k8s apply -target=module.lb-1
 ```
@@ -129,8 +146,9 @@ terragrunt --working-dir terraform/vpc/zone-private-k8s apply -target=module.lb-
 PVE ノードの設定を見る (読むだけ)。鍵は hosts-secrets と同じ `.ssh/id_rsa` を使う。
 
 ```bash
-ssh -i .ssh/id_rsa root@192.168.5.21 'pct config 211 | grep -E "^(unprivileged|features):"'
+ssh -i .ssh/id_rsa root@192.168.5.21 'pct config 211 | grep -E "^(unprivileged|features|mp[0-9]+):"'
 # features: nesting=1
+# mp0: /var/lib/pve/lb-1,mp=/var/lib/nix-provisioning,...,ro=1   (ro=1 が入っていること)
 # unprivileged: 1
 ```
 
@@ -179,6 +197,17 @@ ssh lb-1 'sudo stat -c "%a %U:%G %n" /var/lib/nix-provisioning /var/lib/nix-prov
 # root 以外からは読めない
 ssh lb-1 'cat /var/lib/nix-provisioning/ssh_host_ed25519_key'    # Permission denied
 ```
+
+#### 読み取り専用であること
+
+```bash
+ssh lb-1 'findmnt -no OPTIONS /var/lib/nix-provisioning'          # 先頭に ro が出る (ro,relatime,...)
+ssh lb-1 'sudo touch /var/lib/nix-provisioning/x'                 # touch: ... Read-only file system で失敗する
+ssh lb-1 'ls /var/lib/nix-provisioning'                           # access-tokens-env と ssh_host_ed25519_key だけ (x が無い)
+ssh lb-1 'systemctl is-active sshd-keygen; systemctl show -p Result sshd-keygen'   # inactive・Result=success (鍵があるので走らない)
+```
+
+`touch` が成功したら読み取り専用になっていない。`ssh lb-1 'sudo rm /var/lib/nix-provisioning/x'` で消し、plan と `pct config` の `ro=1` を確かめる。
 
 #### sshd のホスト鍵
 
@@ -271,11 +300,15 @@ terragrunt --working-dir terraform/pve/hosts-secrets plan       # No changes
 1 台ずつ戻す。lb-1 で書く。戻したことはコードの変更として PR に残す。
 
 1. `terraform/vpc/zone-private-k8s/loadbalancer.tf` の lb-1 から `unprivileged = true` を外す。`terraform/pve/hosts-secrets/main.tf` の lb-1 からも外す。
+   `provisioning_read_only = true` は残す。特権のコンテナでも `/var/lib/nix-provisioning` は読むだけで動き、非特権をやめる理由 (keepalived などが動かない) とは関係ないためである。
+   ただし特権のコンテナの root は、読み取り専用の mount を書き込み可に付け直せる場合がある (非特権では、ホストが作った mount の読み取り専用はコンテナの中から外せない)。特権に戻しているあいだは、誤って書き換えるのを防ぐ程度の守りになる。
+   読み取り専用そのものが原因で戻すとき (コンテナの中から書く必要が出たとき) だけ、`provisioning_read_only = true` も外す。どちらを外しても mount_point の作り直しは同じ 1 回で済む。
 2. **vpc を先に適用する**。特権のコンテナの root は持ち主が `100000` でも `0` でも読めるが、非特権のコンテナの root は持ち主が `0` の `0600` のファイルを読めない。hosts-secrets を先に戻すと、残っている非特権のコンテナが鍵を読めなくなる。
 
    ```bash
    ssh lb-1 'sudo systemctl stop keepalived'     # VIP を先に手放させる
    # module.lb-1.proxmox_virtual_environment_container.lxc must be replaced (unprivileged = true -> false)
+   # provisioning_read_only を残したなら read_only の差分は出ない。Plan: 1 to add, 0 to change, 1 to destroy
    terragrunt --working-dir terraform/vpc/zone-private-k8s plan -target=module.lb-1
    terragrunt --working-dir terraform/vpc/zone-private-k8s apply -target=module.lb-1
    ```
@@ -289,5 +322,6 @@ terragrunt --working-dir terraform/pve/hosts-secrets plan       # No changes
    ```
 
 5. 「4. 確認」を行う。`uid_map` は `0 0 4294967295` になり、`/var/lib/nix-provisioning` は `nobody:nogroup` ではなく `root:root` に見える。
+   `provisioning_read_only = true` を残したなら、「読み取り専用であること」も同じ結果になる。
 
 作り直しの途中で apply が失敗し、LXC が消えたままになったときも、VIP は残りの 2 台が持つ。原因を直して同じ apply をやり直すか、上の手順で特権に戻す。

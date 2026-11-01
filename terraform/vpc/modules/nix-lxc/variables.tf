@@ -21,6 +21,10 @@ variable "lxc_config" {
     // true で非特権 LXC にする (コンテナの root はホストの UID 100000 に当たる)。
     // 既定は特権のままにし、未指定の LXC が作り直されないようにする。
     unprivileged = optional(bool, false)
+    // true で /var/lib/nix-provisioning (ホストの /var/lib/pve/<vm_name>) を読み取り専用で mount する。
+    // 既定の false は bpg provider の read_only の既定値と同じで、未指定の LXC は差分が出ない。
+    // mount_point は ForceNew なので、変えると LXC は作り直しになる。
+    provisioning_read_only = optional(bool, false)
     startup = optional(object({
       order      = string
       up_delay   = string
