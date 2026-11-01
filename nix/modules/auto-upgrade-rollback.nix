@@ -186,6 +186,15 @@ let
             failure_detail="$failure_detail, required units not active"
           fi
 
+          # 新世代に切り替わっていない場合 (自ホストの更新差分がない日次自動更新等)、
+          # 今回のアップグレードが原因で壊れたわけではないため、過去世代への誤ロールバックを防ぐ。
+          if [ "$generation_changed" != "true" ]; then
+            log_error "Healthcheck failed within ${toString cfg.timeoutSec}s ($failure_detail), but no new generation was applied (current profile unchanged: $current_profile)."
+            log_error "Skipping rollback to avoid rolling back intact past generations."
+            write_metrics 0 0
+            exit 1
+          fi
+
           rollback "Healthcheck failed within ${toString cfg.timeoutSec}s ($failure_detail)"
           exit 1
         fi

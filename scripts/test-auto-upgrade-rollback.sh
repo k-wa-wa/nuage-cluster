@@ -159,10 +159,13 @@ env5=$(setup_mock_env "test5")
   echo "/nix/store/old-system" > "$env5/run/nixos-upgrade/pre-upgrade-profile"
   SERVICE_RESULT="success"
 
-  # degraded 状態
+  # degraded 状態かつ新世代適用後 (generation_changed=true)
   system_state="degraded"
   failed_units="haproxy.service"
   units_ok=false
+  current_profile="/nix/store/new-system"
+  pre_profile=$(cat "$env5/run/nixos-upgrade/pre-upgrade-profile")
+  generation_changed=true
 
   rollback_called=false
   mock_rollback() {
@@ -175,11 +178,55 @@ env5=$(setup_mock_env "test5")
   fi
 
   if [ "$healthy" != "true" ]; then
-    mock_rollback
+    if [ "$generation_changed" = "true" ]; then
+      mock_rollback
+    fi
   fi
 
   if [ "$rollback_called" != "true" ]; then
-    echo "FAIL: rollback was not called on degraded system" >&2
+    echo "FAIL: rollback was not called on degraded system after generation change" >&2
+    exit 1
+  fi
+  exit 0
+)
+echo "PASS"
+
+# ---------------------------------------------------------
+# Test 6: 新世代未適用 (generation_changed=false) 時のヘルスチェック失敗でロールバックがスキップされること
+# ---------------------------------------------------------
+echo -n "Test 6: Skip rollback on healthcheck failure when generation unchanged... "
+env6=$(setup_mock_env "test6")
+(
+  touch "$env6/var/lib/bootstrap-second-switch-done"
+  echo "/nix/store/current-system" > "$env6/run/nixos-upgrade/pre-upgrade-profile"
+  SERVICE_RESULT="success"
+
+  # degraded 状態だがプロファイル未変更
+  system_state="degraded"
+  failed_units="haproxy.service"
+  units_ok=false
+  current_profile="/nix/store/current-system"
+  pre_profile=$(cat "$env6/run/nixos-upgrade/pre-upgrade-profile")
+  generation_changed=false
+
+  rollback_called=false
+  mock_rollback() {
+    rollback_called=true
+  }
+
+  healthy=false
+  if [ "$system_state" = "running" ] && [ -z "$failed_units" ] && [ "$units_ok" = "true" ]; then
+    healthy=true
+  fi
+
+  if [ "$healthy" != "true" ]; then
+    if [ "$generation_changed" = "true" ]; then
+      mock_rollback
+    fi
+  fi
+
+  if [ "$rollback_called" = "true" ]; then
+    echo "FAIL: rollback was called unexpectedly when generation unchanged" >&2
     exit 1
   fi
   exit 0
