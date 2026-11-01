@@ -3,6 +3,12 @@ locals {
   secrets = yamldecode(sops_decrypt_file("${get_parent_terragrunt_dir()}/secrets.yaml"))
 }
 
+# Terragrunt v1 はユニットを必ず .terragrunt-cache に写してから動かす。ユニットのディレクトリだけを写すと
+# ../modules や ../../secrets.yaml が写した先で解決できないので、terraform/ の木ごと写し、その中のユニットで動かす。
+terraform {
+  source = "${get_parent_terragrunt_dir()}//${path_relative_to_include()}"
+}
+
 generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"

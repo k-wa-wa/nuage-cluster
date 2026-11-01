@@ -2,6 +2,11 @@ locals {
   secrets = yamldecode(sops_decrypt_file("${get_terragrunt_dir()}/../secrets.yaml"))
 }
 
+# ../secrets.yaml を写した先でも解決できるよう、terraform/ の木ごと写して動かす (root.hcl と同じ理由)。
+terraform {
+  source = "${get_terragrunt_dir()}/..//pbs"
+}
+
 # PBS用のプロバイダーを動的に生成する
 generate "provider" {
   path      = "provider.tf"

@@ -4,7 +4,7 @@ resource "terraform_data" "upload_file" {
     type        = "ssh"
     user        = "root"
     host        = var.host
-    private_key = file("./../../../.ssh/id_rsa")
+    private_key = file("${var.repo_root}/.ssh/id_rsa")
   }
 
   triggers_replace = {
