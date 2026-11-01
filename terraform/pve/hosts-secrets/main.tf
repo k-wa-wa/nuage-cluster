@@ -17,6 +17,7 @@ module "lb-1" {
   repo_root           = var.repo_root
   host                = "192.168.5.21"
   target_host         = "lb-1"
+  unprivileged        = true
   ssh_host_key        = data.sops_file.host_keys.data["lb-1"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
@@ -25,6 +26,7 @@ module "lb-2" {
   repo_root           = var.repo_root
   host                = "192.168.5.26"
   target_host         = "lb-2"
+  unprivileged        = true
   ssh_host_key        = data.sops_file.host_keys.data["lb-2"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
@@ -33,6 +35,7 @@ module "lb-3" {
   repo_root           = var.repo_root
   host                = "192.168.5.25"
   target_host         = "lb-3"
+  unprivileged        = true
   ssh_host_key        = data.sops_file.host_keys.data["lb-3"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
