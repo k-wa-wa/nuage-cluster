@@ -2,7 +2,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
   node_name = var.lxc_config.node_name
   vm_id     = var.lxc_config.vm_id
 
-  unprivileged = false
+  # 変更すると bpg provider は LXC を作り直す (ForceNew)。
+  # nesting は systemd のサンドボックスと Nix のビルドサンドボックスが使うため、非特権でも外さない。
+  unprivileged = var.lxc_config.unprivileged
   features {
     nesting = true
   }
@@ -46,9 +48,12 @@ resource "proxmox_virtual_environment_container" "lxc" {
     size         = var.lxc_config.disk_size
   }
 
+  # 変更すると bpg provider は LXC を作り直す (mount_point は ForceNew)。
+  # 鍵ファイルはホスト側で terraform/pve/hosts-secrets が置くので、コンテナの中からは読むだけでよい。
   mount_point {
-    volume = "/var/lib/pve/${var.lxc_config.vm_name}"
-    path   = "/var/lib/nix-provisioning"
+    volume    = "/var/lib/pve/${var.lxc_config.vm_name}"
+    path      = "/var/lib/nix-provisioning"
+    read_only = var.lxc_config.provisioning_read_only
   }
 
   dynamic "mount_point" {

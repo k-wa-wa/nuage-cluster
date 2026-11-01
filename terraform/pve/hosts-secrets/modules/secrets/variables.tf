@@ -18,3 +18,9 @@ variable "ssh_host_key" {
   description = "SSH のホスト鍵 (ed25519)。sops-nix の Age 鍵も兼ねる"
   sensitive   = true
 }
+
+variable "unprivileged" {
+  type        = bool
+  description = "配り先の LXC が非特権か (terraform/vpc の lxc_config.unprivileged と揃える)。true なら持ち主をコンテナの root (ホストの 100000:100000) にする"
+  default     = false
+}
