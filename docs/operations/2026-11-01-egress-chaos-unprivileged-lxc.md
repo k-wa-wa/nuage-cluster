@@ -82,12 +82,13 @@ cd ~/ghq/github.com/k-wa-wa/nuage-cluster && ssh-add .ssh/keys/pve-root && (
     terragrunt --working-dir terraform/pve/hosts-secrets apply -target=module.$h -auto-approve
     terragrunt --working-dir terraform/vpc/zone-private-k8s apply -target=module.$h -auto-approve
     sleep 240
-    until ssh -o ConnectTimeout=10 $h 'test -e /var/lib/bootstrap-second-switch-done && [ "$(systemctl show -p ActiveState --value bootstrap-second-switch)" = inactive ] && systemctl is-active -q '"$s"; do sleep 30; done
+    until ssh -o ConnectTimeout=10 $h 'test -e /var/lib/bootstrap-second-switch-done && [ "$(systemctl show -p ActiveState --value bootstrap-second-switch)" = inactive ] && ! systemctl is-active '"$s"' | grep -qvx active'; do sleep 30; done
     ssh $h 'cat /proc/self/uid_map; findmnt -no OPTIONS /var/lib/nix-provisioning; systemctl --failed --no-pager'
   done
 )
 ```
 
+`systemctl is-active` はユニットを並べるとどれか 1 つが active なだけで成功するので、全部の行が `active` かを grep で見る。
 各ホストで `0 100000 65536`・`ro,...`・`0 loaded units listed` が出ればよい。
 10 分を過ぎても抜けなければ、Ctrl-C で止めて `ssh $h 'systemctl show -p Result nixos-upgrade bootstrap-second-switch; journalctl -u nixos-upgrade -b -n 20 --no-pager -o cat'` を見る。直し方は lb の手順書の「3. 構成が戻るのを待つ」と同じである。
 
