@@ -24,7 +24,7 @@ module "lb-1" {
 module "lb-2" {
   source              = "./modules/secrets"
   repo_root           = var.repo_root
-  host                = "192.168.5.22"
+  host                = "192.168.5.26"
   target_host         = "lb-2"
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   ssh_host_key        = data.sops_file.host_keys.data["lb-2"]
@@ -51,7 +51,7 @@ module "egress-gateway" {
 module "chaos-monitor" {
   source              = "./modules/secrets"
   repo_root           = var.repo_root
-  host                = "192.168.5.22"
+  host                = "192.168.5.26"
   target_host         = "chaos-monitor"
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   ssh_host_key        = data.sops_file.host_keys.data["chaos-monitor"]
@@ -69,7 +69,7 @@ module "pg-cluster-1" {
 module "pg-cluster-2" {
   source              = "./modules/secrets"
   repo_root           = var.repo_root
-  host                = "192.168.5.22"
+  host                = "192.168.5.26"
   target_host         = "pg-cluster-2"
   sops_key            = data.sops_file.secrets.data["lb_sops_key"]
   ssh_host_key        = data.sops_file.host_keys.data["pg-cluster-2"]
