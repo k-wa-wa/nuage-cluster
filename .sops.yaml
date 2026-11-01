@@ -40,6 +40,13 @@ creation_rules:
           - *admin_key
           - *master_key
 
+  # ログイン用の SSH 鍵 (scripts/gen-login-key.sh が書く)。人間だけが開ける。
+  - path_regex: \.ssh/login-keys\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
+
   - path_regex: scripts/secrets\.yaml$
     key_groups:
       - age:
