@@ -29,4 +29,8 @@
   };
 
   networking.firewall.allowedTCPPorts = [ 9100 ];
+
+  system.autoUpgrade.healthCheck.requiredUnits = [
+    "hercules.service"
+  ];
 }

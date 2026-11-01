@@ -35,4 +35,8 @@
       rocmPackages.clr.icd
     ];
   };
+
+  system.autoUpgrade.healthCheck.requiredUnits = [
+    "llama-cpp.service"
+  ];
 }

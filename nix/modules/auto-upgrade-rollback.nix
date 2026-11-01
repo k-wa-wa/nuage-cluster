@@ -19,6 +19,13 @@ let
     config.systemd.package
   ];
 
+  # 更新開始前の現行プロファイルを記録するスクリプト
+  preCheckScript = pkgs.writeShellScript "nixos-upgrade-pre-check" ''
+    set -u
+    mkdir -p /run/nixos-upgrade
+    ${pkgs.coreutils}/bin/readlink -f /nix/var/nix/profiles/system > /run/nixos-upgrade/pre-upgrade-profile 2>/dev/null || true
+  '';
+
   # 自動ヘルスチェック＆ロールバックスクリプト
   healthcheckScript = pkgs.writeShellScript "nixos-upgrade-post-check" ''
         set -u
@@ -74,9 +81,17 @@ let
           exit 0
         fi
 
-        # 2. ロールバック可否の判定（現在の世代が 2 以上か）
-        current_profile=$(readlink /nix/var/nix/profiles/system || true)
-        current_gen=$(echo "$current_profile" | sed -n 's/.*system-\([0-9]*\)-link/\1/p')
+        # 2. 更新前後のプロファイルおよび世代確認
+        pre_profile=$(cat /run/nixos-upgrade/pre-upgrade-profile 2>/dev/null || true)
+        current_profile=$(readlink -f /nix/var/nix/profiles/system || true)
+        current_link=$(readlink /nix/var/nix/profiles/system || true)
+        current_gen=$(echo "$current_link" | sed -n 's/.*system-\([0-9]*\)-link/\1/p')
+
+        # 新世代に切り替わったかどうか (プロファイルが変化したか)
+        generation_changed=false
+        if [ -n "$pre_profile" ] && [ -n "$current_profile" ] && [ "$pre_profile" != "$current_profile" ]; then
+          generation_changed=true
+        fi
 
         can_rollback=false
         if [ -n "$current_gen" ] && [ "$current_gen" -gt 1 ]; then
@@ -86,6 +101,7 @@ let
         rollback() {
           local reason="$1"
           log_error "Auto-rollback triggered: $reason"
+          log "Pre-upgrade profile: $pre_profile"
           log "Current profile before rollback: $current_profile (generation $current_gen)"
 
           if [ "$can_rollback" != "true" ]; then
@@ -97,7 +113,7 @@ let
           log "Executing: ${nixosRebuild} switch --rollback"
           if ${nixosRebuild} switch --rollback >> "$LOG_FILE" 2>&1; then
             local new_profile
-            new_profile=$(readlink /nix/var/nix/profiles/system || true)
+            new_profile=$(readlink -f /nix/var/nix/profiles/system || true)
             log "SUCCESS: Rolled back to $new_profile"
             write_metrics 1 0
             return 0
@@ -109,17 +125,26 @@ let
         }
 
         # 3. ExecStart 本体の成否チェック
-        # switch コマンド自体が異常終了した場合、直ちにロールバックする
         if [ "''${SERVICE_RESULT:-}" != "success" ]; then
-          rollback "nixos-upgrade main process failed (SERVICE_RESULT=''${SERVICE_RESULT:-unknown}, EXIT_STATUS=''${EXIT_STATUS:-unknown})"
+          # フェッチ失敗、ビルドエラー、Flake 評価エラー等で新世代が適用されていない場合、
+          # 現行の健全な世代のまま稼働しているため、ロールバックは実行しない。
+          if [ "$generation_changed" != "true" ]; then
+            log_error "nixos-upgrade failed before applying new generation (current profile unchanged: $current_profile)."
+            log_error "Skipping rollback because running system generation is intact."
+            write_metrics 0 0
+            exit 1
+          fi
+
+          # 新世代への switch 中に失敗した場合のみロールバックを実行する
+          rollback "nixos-upgrade main process failed after switching profile (SERVICE_RESULT=''${SERVICE_RESULT:-unknown}, EXIT_STATUS=''${EXIT_STATUS:-unknown})"
           exit 1
         fi
 
         # 4. ヘルスチェック（健全性検証）
         log "Starting post-upgrade healthcheck (timeout: ${toString cfg.timeoutSec}s)..."
 
-        # switch 直後の過渡的な状態を避けるため少し待機
-        sleep 3
+        # switch 直後の過渡的な状態を避けるため待機
+        sleep 5
 
         required_units=(${toString cfg.requiredUnits})
         deadline=$(( $(date +%s) + ${toString cfg.timeoutSec} ))
@@ -177,7 +202,7 @@ in
 
       timeoutSec = lib.mkOption {
         type = lib.types.int;
-        default = 30;
+        default = 90;
         description = "Timeout in seconds to wait for system to become healthy after switch.";
       };
 
@@ -194,6 +219,9 @@ in
     systemd.services.nixos-upgrade = {
       serviceConfig = {
         TimeoutStopSec = "10m";
+        ExecStartPre = [
+          "${preCheckScript}"
+        ];
         ExecStopPost = [
           "${healthcheckScript}"
         ];
