@@ -33,7 +33,10 @@ in
     isNormalUser = true;
     extraGroups = [ "wheel" ];
     hashedPassword = "!";
+    # 秘密鍵は .ssh/login-keys.yaml の nixos (scripts/gen-login-key.sh が作る)。
+    # nixos-sever (.ssh/id_ed25519_nixos) は入れ替えの途中なので残している。新しい鍵だけで入れることを確かめたら消す。
     openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHKBWEBc4x5Es44LehE56x+QVLDm6pACwd5ovSAJFA4z nixos"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIi6KgfT6hU8CWl7Xm7bnKen80++7lHrQ+OqvEuAe+80 nixos-sever"
     ];
   };
