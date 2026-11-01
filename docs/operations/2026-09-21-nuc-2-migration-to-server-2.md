@@ -254,3 +254,7 @@ talos-gjl-seu   Ready    <none>          63d   v1.35.0   10.20.1.18    <none>   
    - M.2 NVMe SSD を外すと PCI バス番号が元に戻るため、オンボード Killer LAN が **`enp13s0` から `enp12s0` に戻る**。
    - `/etc/network/interfaces` で `vmbr0` の `bridge-ports` を **`enp12s0`** に戻し、`ifreload -a` を実行する。
 6. Terraform 側で `server-2` のリソース設定を整理し、新機の定義へ差し替える。
+
+---
+
+このあと 2026-11-01 に、nuc-2 をクラスタから外し、Qdevice を撤去した ([2026-11-01-nuc-2-cluster-removal.md](./2026-11-01-nuc-2-cluster-removal.md))。

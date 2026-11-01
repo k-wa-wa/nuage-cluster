@@ -40,6 +40,10 @@ module "lb-1" {
       }
     ]
     disk_size = 4
+    // 非特権 LXC にする。切り替え・戻し方は docs/operations/2026-11-01-lb-unprivileged-lxc.md を参照する
+    unprivileged = true
+    // /var/lib/nix-provisioning をコンテナの中から書き換えられないようにする
+    provisioning_read_only = true
     startup = {
       order      = "2"
       up_delay   = "10"
@@ -88,6 +92,10 @@ module "lb-2" {
       }
     ]
     disk_size = 4
+    // 非特権 LXC にする。切り替え・戻し方は docs/operations/2026-11-01-lb-unprivileged-lxc.md を参照する
+    unprivileged = true
+    // /var/lib/nix-provisioning をコンテナの中から書き換えられないようにする
+    provisioning_read_only = true
     startup = {
       order      = "2"
       up_delay   = "10"
@@ -136,6 +144,10 @@ module "lb-3" {
       }
     ]
     disk_size = 4
+    // 非特権 LXC にする。切り替え・戻し方は docs/operations/2026-11-01-lb-unprivileged-lxc.md を参照する
+    unprivileged = true
+    // /var/lib/nix-provisioning をコンテナの中から書き換えられないようにする
+    provisioning_read_only = true
     startup = {
       order      = "2"
       up_delay   = "10"

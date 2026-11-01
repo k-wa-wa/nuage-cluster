@@ -109,6 +109,7 @@
           modules = [
             autopilot5.nixosModules.autopilot5
             home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
             ./hosts/base-vm/configuration.nix
             ./modules/common.nix
             ./hosts/atelier/configuration.nix

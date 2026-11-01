@@ -1,3 +1,28 @@
+# ホストごとの SSH ホスト鍵 (scripts/gen-host-keys.sh が書く)
+data "sops_file" "lm_server_host_keys" {
+  source_file = "${path.module}/../../pve/hosts-secrets/host-keys.yaml"
+}
+
+resource "proxmox_virtual_environment_file" "lm_server_cloud_config" {
+  content_type = "snippets"
+  datastore_id = "local"
+  node_name    = "server-2"
+
+  source_raw {
+    file_name = "lm-server-cloud-config.yaml"
+    data      = <<EOF
+#cloud-config
+hostname: lm-server
+write_files:
+  - path: /var/lib/nix-provisioning/ssh_host_ed25519_key
+    permissions: '0600'
+    owner: root:root
+    content: |
+      ${indent(6, trimspace(data.sops_file.lm_server_host_keys.data["lm-server"]))}
+EOF
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "lm_server" {
   name      = "lm-server"
   node_name = "server-2"
@@ -29,6 +54,7 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
         gateway = "192.168.5.1"
       }
     }
+    user_data_file_id = proxmox_virtual_environment_file.lm_server_cloud_config.id
   }
 
   disk {

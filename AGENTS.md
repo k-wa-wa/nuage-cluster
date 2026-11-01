@@ -17,12 +17,12 @@
   ```
 
 - **ノードへのSSH接続**:
-  `~/.ssh/config` が本リポジトリの `.ssh/ssh_config`（`.ssh/gen-keys.sh` が生成）を Include しているため、ホスト名だけで接続できる。これを正とし、`-i` や `-o` オプションを毎回指定しない。
+  `~/.ssh/config` が本リポジトリの `.ssh/ssh_config` を Include しているため、ホスト名だけで接続できる。これを正とし、`-i` や `-o` オプションを毎回指定しない。
   ```bash
   ssh lb-1
   ssh pg-cluster-1 "journalctl -u patroni -n 50 --no-pager"
   ```
-  接続できないホストは `.ssh/gen-keys.sh` の `NODES` に `"ホスト名:IP:ユーザー名"` を追記し、`bash .ssh/gen-keys.sh` を再実行して登録する。ホスト名 ↔ IP の対応もこのファイルを正とする。
+  接続できないホストは `.ssh/ssh_config` に `Host` を追記する。ホスト名 ↔ IP の対応もこのファイルを正とする。
   atelier では `/etc/ssh/ssh_config` (`nix/hosts/atelier/configuration.nix`) が User・鍵・ProxyJump を上書きし、`agent` ユーザーとして入る。権限は Mac の `nixos` と同じである。鍵の配布は `docs/operations.md` 4.2 を参照する。
 
 ## 2. GitOps 原則

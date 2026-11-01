@@ -11,7 +11,7 @@
 # - 転送を禁じられる (restrict)
 # Mac の鍵は bootstrap.nix に直書きされ base イメージに焼かれた最後の手段なので、atelier には置かない。
 #
-# 鍵は Mac で scripts/setup-atelier-ssh-key.sh が作り、公開鍵を atelier-agent.pub に書き出す。
+# 鍵は Mac で scripts/gen-atelier-agent-key.sh が作り、公開鍵を atelier-agent.pub に書き出す。
 # ファイルが無ければ評価をエラーにする (既定値で黙って続けない)。
 { lib, ... }:
 

@@ -14,6 +14,11 @@ terraform {
 EOF
 }
 
+# ../../secrets.yaml を写した先でも解決できるよう、terraform/ の木ごと写して動かす (root.hcl と同じ理由)。
+terraform {
+  source = "${get_terragrunt_dir()}/../..//pve/hosts-secrets"
+}
+
 # ローカルステートを生成する
 remote_state {
   backend = "local"

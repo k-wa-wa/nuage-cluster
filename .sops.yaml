@@ -1,68 +1,120 @@
 keys:
   - &admin_key     age17e67u5g3j9v6sxxrk448gsgmv9ldc2umqgad579du75fgjkjtcasatrhxr
-  - &lb_key        age1g72ttt26gqzjt39nj423vkqtrt7t02x0qdz9g8yvc27eru0cuu4qte2u04
+  - &master_key    age1vesvx04kyv2nz4s2u3yn3h0msmra44lsn97n263nfr254zcckscq8nzyfq
   - &argocd_key    age1vqgm0gczrwyluk9lyhpz49uea7m04u53q4c60kwn9s6wuguhju3qjznrut
+  # ホストごとの鍵。SSH のホスト鍵 (.ssh/known_hosts) から ssh-to-age で作る。
+  - &lb_1               age1d4hysr2lwyf7trt5vhwftj7zrmxd3mxyn4psmlpmrgkgc0gfh30qzgdhf9
+  - &lb_2               age16aehtje5j8qcqwpnu0ctxayxmmlhvxhpwwqjdckzu0xvx8vegvcqrxnmv3
+  - &lb_3               age1zrp5fvn25r22lteanlh394s7m8t429xew6n3x3pkjq45vmr7qu0qujj4dl
+  - &pg_cluster_1       age1rlupjv4pjq3g2mn3p9nfvjuer4x4lmctjcwel7n50e6n4atttpkq9thce9
+  - &pg_cluster_2       age17j803c6sdp7wms8rl5x62pyadhshrg5d66unvcqqp6rzr4ac65ls4yhcjs
+  - &pg_cluster_3       age1df4zdhk4wp4hghmvj8sucudk7l568upd9rlra5nv3ukwhh4fagqsv5md0h
+  - &swfs_cluster_1     age1eh3vh54kck0009ddrstzq40m6jfzqh5x7jsa7xk8m33p90hvry3sazml5z
+  - &swfs_cluster_2     age13r9s7dqvwwh865c7lm5wftuh79t0qzvq48wyputtydga2m48m4gq3gr2eq
+  - &swfs_cluster_3     age17w7hemv6nrtdxgzfflkquq0mn74gg5xauy2gghny2q402estt3pq6yc9md
+  - &mainframe          age1lphq42qr2s39ajjqy7yx8s9u2qyfrq8u3n9eqa8jwgzm5yhe8q2s97tnz3
+  - &bluray_extractor   age1r6gc0d23ktn8gzgaggpw9zmtccpdtv480n8zzq607t6u4l6q3ums7psvnd
+  - &atelier            age1ktxcrrpt6ccx94xlerkg9zmttswuue087d4c84xefjdhlsunk4zqdxt6xm
 
 creation_rules:
   - path_regex: terraform/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
+          - *master_key
   - path_regex: terraform/truenas/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
+          - *master_key
 
   - path_regex: terraform/cloudflare/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
+          - *master_key
+
+  # ホストごとの SSH ホスト鍵 (scripts/gen-host-keys.sh が書く)。ホスト自身には開かせない。
+  - path_regex: terraform/pve/hosts-secrets/host-keys\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
+
+  # ログイン用の SSH 鍵 (scripts/gen-login-key.sh が書く)。人間だけが開ける。
+  - path_regex: \.ssh/login-keys\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
 
   - path_regex: scripts/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
+          - *master_key
           - *argocd_key
 
   - path_regex: nix/hosts/loadbalancer/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
-          - *lb_key
+          - *master_key
+          - *lb_1
+          - *lb_2
+          - *lb_3
 
   - path_regex: nix/hosts/postgres-cluster/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
-          - *lb_key
+          - *master_key
+          - *pg_cluster_1
+          - *pg_cluster_2
+          - *pg_cluster_3
 
 
   - path_regex: nix/hosts/swfs-cluster/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
-          - *lb_key
+          - *master_key
+          - *swfs_cluster_1
+          - *swfs_cluster_2
+          - *swfs_cluster_3
 
   - path_regex: nix/hosts/mainframe/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
-          - *lb_key
+          - *master_key
+          - *mainframe
 
   - path_regex: nix/hosts/bluray-extractor/secrets.yaml
     key_groups:
       - age:
           - *admin_key
-          - *lb_key
+          - *master_key
+          - *bluray_extractor
+
+  # atelier の agent ユーザーが各ホストへ入る鍵 (scripts/gen-atelier-agent-key.sh が書く)。
+  - path_regex: nix/hosts/atelier/secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
+          - *atelier
 
   - path_regex: manifests/apps/cert-manager/overlays/prod/secrets.yaml
     key_groups:
       - age:
           - *admin_key
+          - *master_key
           - *argocd_key
 
   - path_regex: manifests/apps/litellm/overlays/prod/secrets\.yaml$
     key_groups:
       - age:
           - *admin_key
+          - *master_key
           - *argocd_key

@@ -68,7 +68,7 @@ ssh <host> "journalctl -u nixos-upgrade.service -n 50 --no-pager"
 ## 注意点・既知の罠
 
 - autoUpgrade は flake を tarball (`https://github.com/k-wa-wa/nuage-cluster/archive/master.tar.gz?dir=nix`) で取得する。GitHub rate limit 対策として nix-daemon が `/var/lib/nix-provisioning/access-tokens-env` のトークンを読み込む。rate limit エラー時はこのファイルの存在を確認する
-- sops-nix の復号失敗時は `/var/lib/nix-provisioning/sops-key` の存在を確認 (PVE ホストの `/var/lib/pve/<host>/` を mount。配置は `terraform/pve/hosts-secrets`)
+- sops-nix の復号失敗時は `/var/lib/nix-provisioning/ssh_host_ed25519_key` (SSH のホスト鍵を Age 鍵として使う) の存在を確認 (PVE ホストの `/var/lib/pve/<host>/` を mount。配置は `terraform/pve/hosts-secrets`)
 - `/run/<middleware>` 等のディレクトリ不在でソケット・PID ファイル作成に失敗しクラッシュすることがある。配置先を `/tmp` 等に退避させる
 - NixOS モジュールが生成する設定ファイル (YAML 等) の属性ネストがミドルウェアの期待と合わないことがある。生成物を直接開いて確認する
 - loadbalancer の keepalived は nopreempt 設定。VIP の動きを検証する際は state 遷移 (MASTER/BACKUP) のログを確認する

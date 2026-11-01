@@ -39,9 +39,6 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    # 全ホスト共通の固定値パスを指定
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
-
     secrets.keepalived_auth_pass = { };
 
     # authentication ブロック全体をレンダリングするテンプレートを定義

@@ -82,7 +82,6 @@ in
 {
   sops = {
     defaultSopsFile = ./secrets.yaml;
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     # secrets.yaml から S3 の認証情報を読み込む
     secrets.swfs_s3_access_key = {
       owner = "swfs";

@@ -26,7 +26,6 @@ let
 in
 {
   sops = {
-    age.keyFile = "/var/lib/nix-provisioning/sops-key";
     secrets.pechka_minio_bucket = {
       sopsFile = ./secrets.yaml;
     };

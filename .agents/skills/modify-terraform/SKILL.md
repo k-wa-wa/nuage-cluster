@@ -13,7 +13,7 @@ Terraform / Terragrunt 資材を変更する際に使う手段・場所・注意
 | :-- | :-- |
 | `terraform/pve/hosts` | 物理ノードのブリッジ・VLAN・SDN Fabric (OSPF) |
 | `terraform/pve/vm` | 旧セグメントの VM (oc1-omada) |
-| `terraform/pve/hosts-secrets` | PVE ホストの `/var/lib/pve/<host>/` に LXC 向けシークレットファイル (sops-key, access-tokens-env) を配置 |
+| `terraform/pve/hosts-secrets` | PVE ホストの `/var/lib/pve/<host>/` に LXC 向けシークレットファイル (ssh_host_ed25519_key, access-tokens-env) を配置 |
 | `terraform/pbs` | Proxmox Backup Server (データストア等) |
 | `terraform/vpc/cloudflare` | Cloudflare Tunnel・Zero Trust ポリシー |
 | `terraform/vpc/zone-dev` | dev-server VM |
@@ -50,8 +50,8 @@ terragrunt hclfmt
 ## IP アドレスの決め方・確認手段
 
 - 割当済み IP は対象ゾーンの `.tf` ファイルを grep して重複がないか確認する
-- SSH 接続用のホスト名 ↔ IP の対応は `.ssh/gen-keys.sh` が正 (詳細は AGENTS.md)
-- 新規ホストを作ったら `.ssh/gen-keys.sh` の `NODES` にも追記する
+- SSH 接続用のホスト名 ↔ IP の対応は `.ssh/ssh_config` が正 (詳細は AGENTS.md)
+- 新規ホストを作ったら `.ssh/ssh_config` にも `Host` を追記する
 
 ## 注意点・既知の罠
 

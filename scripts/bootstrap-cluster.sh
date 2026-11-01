@@ -7,7 +7,7 @@ set -euo pipefail
 # TCP パススルーでプロキシしている前提です。
 # ============================================================
 
-SSH_KEY="./.ssh/id_ed25519_nixos"
+SSH_KEY="./.ssh/keys/nixos"
 LB_EXTERNAL_IP="192.168.5.200"   # lb-1 の HAProxy IP
 TALOSCONFIG="terraform/vpc/zone-private-k8s/talosconfig"
 CP01_IP="10.20.1.11"
