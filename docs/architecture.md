@@ -2,7 +2,7 @@
 
 ## 1. 物理構成
 
-Proxmox VE の物理ノード (nuc-1 / server-1 / server-2 / dm-1) で構成する。nuc-2 は 2026-09 に故障で退役し、ワークロードは server-2 へ退避していたが、後継機として dm-1 を導入して復旧を進める ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md))。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
+Proxmox VE の物理ノード (nuc-1 / server-1 / server-2、および導入準備中の後継機 dm-1) で構成する。nuc-2 は 2026-09 に故障で退役し、ワークロードは server-2 へ退避中である。後継機として dm-1 を導入し、ワークロードを戻す準備を進めている ([nuc-2-migration-to-server-2.md](./operations/nuc-2-migration-to-server-2.md))。各ノードは役割ごとに 3 系統の NIC を持ち、それぞれ別の L2 セグメントに接続する。
 
 - **vmbr0 — VLAN (192.168.5.0/24)**: Proxmox 管理 (GUI/SSH)。lb の VIP (192.168.5.200) など一部 VM / LXC の LAN 側の足もここに置いている。上流は「Internet → ONU/メインルーター (192.168.1.0/24) → Omada VLAN ルーター ER605 (192.168.1.201) → Omada L2 スイッチ ES220GMP」
 - **vmbr10 — SDN Fabric (10.0.0.0/24)**: EVPN/VXLAN アンダーレイ専用。専用の L2 スイッチに収容し、VLAN 1/2/3 のサブインターフェースでノード間の論理 P2P リンクを構成する。nuc-1, dm-1 は USB NIC を使用
@@ -70,7 +70,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | :-- | :-- | :-- | :-- | :-- |
 | nuc-1 | 192.168.5.21 | 10.0.0.10 (fabric: 10.254.1.21) | 10.0.1.10 | |
 | nuc-2 | (192.168.5.22) | (10.0.0.11) | (10.0.1.11) | 2026-09 故障により退役 |
-| dm-1 | 192.168.5.23 | 10.0.0.14 (fabric: 10.254.1.23) | 10.0.1.14 | nuc-2 後継機 (HP Desktop Mini) |
+| dm-1 | 192.168.5.23 | 10.0.0.14 (fabric: 10.254.1.23) | 10.0.1.14 | nuc-2 後継機 (HP Desktop Mini, 導入中・移植待ち) |
 | server-1 | 192.168.5.25 | 10.0.0.12 (fabric: 10.254.1.25) | 10.0.1.12 | vmbr1 (Proxy 用) / vmbr999 (Omada 用) あり |
 | server-2 | 192.168.5.26 | 10.0.0.13 (fabric: 10.254.1.26) | 10.0.1.13 | lm-server (llama.cpp) をホスト。nuc-2 のワークロードを退避中 |
 

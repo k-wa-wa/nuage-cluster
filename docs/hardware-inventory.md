@@ -11,7 +11,7 @@
 | L2 スイッチ | TP-Link Omada ES220GMP (20 ポート, PoE+ 16 ポート, 250W, SFP 2) | 管理 LAN 収容 |
 | L2 スイッチ | TP-Link TL-SG108S (8 ポート, アンマネージド) | SDN Fabric (10.0.0.0/24) 専用スイッチの候補 ※要確認 |
 | Proxmox ノード | nuc-1 (Intel NUC 11) | 各アプリ基盤 (nuc-2 は 2026-09 に故障で退役) |
-| Proxmox ノード | dm-1 (HP Desktop Mini, Core i5-8500T / 32GB) | 各アプリ基盤 (nuc-2 の後継機) |
+| Proxmox ノード | dm-1 (HP Desktop Mini, Core i5-8500T / 32GB) | 各アプリ基盤 (nuc-2 後継機、導入中・移植待ち) |
 | Proxmox ノード | server-1 (自作 AM4, Ryzen 9 5900XT / 64GB) | 各アプリ基盤 |
 | Proxmox ノード | server-2 (自作 AM4, Ryzen 5 5500 / 64GB / RX 7600 系 × 2) | 各アプリ基盤、GPU サーバー |
 | ストレージ | TrueNAS | バックアップ、PBS |
@@ -85,15 +85,15 @@
 
 | 項目 | 内容 |
 | :-- | :-- |
-| 機種 | HP ProDesk / EliteDesk 400 G4 / 600 G4 / 800 G4 DM (Desktop Mini) |
+| 機種 | HP ProDesk / EliteDesk 400 G4 / 600 G4 / 800 G4 DM (Desktop Mini) ※ 詳細型番・M.2 スロット仕様は確認要 |
 | CPU | Intel Core i5-8500T (6C/6T, 2.1GHz - 3.5GHz) |
-| メモリ | 32GB = nuc-2 から移植した DDR4-3200 SO-DIMM 16GB × 2 (スロット 2 / 最大 64GB) |
-| ストレージ (起動) | 付属 SSD 256GB (LVM `pve`) |
-| ストレージ (データ) | Kingston OM8PGP41024N 1TB NVMe (server-2 より再移植予定) → ZFS `local-zfs` |
+| メモリ | 32GB = nuc-2 から移植した DDR4-3200 SO-DIMM 16GB × 2 (スロット 2) |
+| ストレージ (起動) | 付属 SSD 256GB (PVE インストール予定) |
+| ストレージ (データ) | Kingston OM8PGP41024N 1TB NVMe (server-2 より再移植予定、ZFS `local-zfs` 予定) |
 | NIC (vmbr0) | オンボード Intel I219 系 1GbE → **vmbr0** (192.168.5.23) |
-| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156, server-2 より再移植予定) |
-| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179, server-2 より再移植予定) |
-| 状態 | 故障退役した nuc-2 の後継機として導入。現在 server-2 に退避稼働中の SSD および USB NIC を再移植してワークロードを復帰予定 |
+| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156, nuc-2 から取り外して保管中のものを流用予定) |
+| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179, nuc-2 から取り外して保管中のものを流用予定) |
+| 状態 | 故障退役した nuc-2 の後継機として導入中 (移植待ち)。現在 server-2 に退避稼働中の SSD (Kingston 1TB NVMe) の再移植、および保管中の USB NIC 2 本の接続を行い、ワークロードを復帰予定。※ 機種型番および付属 256GB SSD の種別 (M.2 か 2.5" SATA か) によって M.2 スロットの排他・拡張性に注意を要する |
 
 ## 3. ストレージ
 
