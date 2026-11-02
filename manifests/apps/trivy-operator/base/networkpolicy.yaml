@@ -9,12 +9,17 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # メトリクス収集用 (VictoriaMetrics 等)
+    # 1. メトリクス収集用 (VictoriaMetrics 等)
     - from:
         - namespaceSelector: {}
       ports:
         - protocol: TCP
           port: 8080
+    # 2. Kubelet によるヘルスチェック (healthz / readyz)
+    - ports:
+        - protocol: TCP
+          port: 9090
+
   egress:
     # 1. DNS (kube-system 内の CoreDNS)
     - to:
