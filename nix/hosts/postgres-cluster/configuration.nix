@@ -35,4 +35,9 @@
 
   # メトリクス収集用ポートを開放する
   networking.firewall.allowedTCPPorts = [ 9100 ];
+
+  system.autoUpgrade.healthCheck.requiredUnits = [
+    "patroni.service"
+    "etcd.service"
+  ];
 }

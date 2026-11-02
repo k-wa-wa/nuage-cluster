@@ -22,4 +22,9 @@
     port = 9100;
     extraFlags = [ "--collector.textfile.directory=/var/lib/prometheus/node-exporter" ];
   };
+
+  system.autoUpgrade.healthCheck.requiredUnits = [
+    "haproxy.service"
+    "coredns.service"
+  ];
 }

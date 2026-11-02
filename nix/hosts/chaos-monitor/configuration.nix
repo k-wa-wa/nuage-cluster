@@ -345,4 +345,9 @@
   networking.firewall.allowedTCPPorts = [
     3000
   ];
+
+  system.autoUpgrade.healthCheck.requiredUnits = [
+    "prometheus.service"
+    "grafana.service"
+  ];
 }
