@@ -1,69 +1,50 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 metadata:
   name: trivy-operator-egress-guard
   namespace: trivy-operator
 spec:
-  podSelector: {} # trivy-operator namespace 内の全 Pod (Operator および Scan Job)
-  policyTypes:
-    - Ingress
-    - Egress
+  endpointSelector: {} # trivy-operator namespace 内の全 Pod
   ingress:
-    # 1. メトリクス収集用 (VictoriaMetrics 等)
-    - from:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: 8080
+    # 1. Prometheus / VictoriaMetrics からのメトリクス収集
+    - fromEndpoints:
+        - {}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
     # 2. Kubelet によるヘルスチェック (healthz / readyz)
-    - ports:
-        - protocol: TCP
-          port: 9090
-
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
   egress:
-    # 1. DNS (kube-system 内の CoreDNS)
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-        - ipBlock:
-            cidr: 10.96.0.10/32
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-
-    # 2. Kubernetes API Server (Talos CP VIP および 各 CP Node エンドポイント)
-    - to:
-        - ipBlock:
-            cidr: 10.20.1.10/32 # VIP
-        - ipBlock:
-            cidr: 10.20.1.11/32 # CP Node 1
-        - ipBlock:
-            cidr: 10.20.1.12/32 # CP Node 2
-        - ipBlock:
-            cidr: 10.20.1.13/32 # CP Node 3
-        - ipBlock:
-            cidr: 10.96.0.1/32  # Service ClusterIP
-      ports:
-        - protocol: TCP
-          port: 6443
-        - protocol: TCP
-          port: 443
-
+    # 1. Kubernetes API Server へのアクセス (Cilium ネイティブ解決)
+    - toEntities:
+        - kube-apiserver
+    # 2. CoreDNS による名前解決 (kube-system の DNS ポート 53 UDP/TCP)
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
     # 3. 外部コンテナレジストリ / DB ダウンロード (HTTPS: 443 のみ)
-    # 内部プライベート網 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) を除外
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 172.16.0.0/12
-              - 192.168.0.0/16
-      ports:
-        - protocol: TCP
-          port: 443
+    # 内部プライベート網 (192.168.0.0/16, 10.0.0.0/8 等) への横展開を完全遮断
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 192.168.0.0/16   # 自宅 LAN / Proxmox / PBS / ルータ等への通信を全面遮断
+            - 10.0.0.0/8       # k8s ノード / etcd / 内部ゾーン / 他 Namespace を全面遮断
+            - 172.16.0.0/12    # プライベート IP 帯全面遮断
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
