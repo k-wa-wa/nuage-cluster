@@ -8,5 +8,6 @@
 | [2026-11-01-egress-chaos-unprivileged-lxc.md](2026-11-01-egress-chaos-unprivileged-lxc.md) | egress-gateway と chaos-monitor を非特権 LXC に切り替える手順と戻し方 |
 | [2026-11-01-lb-unprivileged-lxc.md](2026-11-01-lb-unprivileged-lxc.md) | lb (lb-1 / lb-2 / lb-3) を非特権 LXC に切り替える手順と戻し方 |
 | [2026-11-01-nuc-2-cluster-removal.md](2026-11-01-nuc-2-cluster-removal.md) | nuc-2 のクラスタからの除外と Qdevice の撤去の実施ログ |
+| [2026-11-03-keepalived-password-rotation.md](2026-11-03-keepalived-password-rotation.md) | keepalived の VRRP のパスワードを VIP を動かさずに作り直した記録 (lb_key の後始末) |
 | [pbs-401-troubleshooting.md](pbs-401-troubleshooting.md) | PVE から PBS (truenas-pbs) への認証失敗 (401) の調査メモ |
 | [replace-all-node.md](replace-all-node.md) | Proxmox ノードの replace 作業ログ |
