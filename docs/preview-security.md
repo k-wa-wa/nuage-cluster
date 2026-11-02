@@ -130,11 +130,11 @@ jobs:
 
 - **スケジュール**: 15 分おき（`*/15 * * * *`、`concurrencyPolicy: Forbid`）
 - **検証項目 (`run-isolation-test.sh`)**:
-  - Cilium によるパケット drop は必ずタイムアウトになるため、遮断テストではタイムアウトのみを PASS とし、疎通成功（Exit 0）だけでなく相手ホストからの TCP RST（`Connection refused`）や名前解決失敗もポリシー未機能として FAIL 扱いにする。
-  1. **遮断テスト（自宅 LAN / PBS `192.168.5.30:8007`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
-  2. **遮断テスト（k8s コントロールプレーン / Talos API `10.20.1.11:50000`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
-  3. **遮断テスト（k8s API サーバー `10.96.0.1:443`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
-  4. **遮断テスト（他 Namespace / Argo CD Server `argocd-server.argocd.svc.cluster.local:80`）**: タイムアウト（drop）すれば PASS、疎通・`Connection refused`・名前解決失敗なら FAIL。
+  - Cilium によるパケット drop は必ずタイムアウトになるため、遮断テストでは `nc -z -vv -w 3` の出力が `Connection timed out`（かつ終了コード非 0）となった場合のみを PASS とし、それ以外（疎通成功、相手ホストからの TCP RST / `Connection refused`、`No route to host`、名前解決失敗等）はすべてポリシー未機能として FAIL 扱いにする。
+  1. **遮断テスト（自宅 LAN / PBS `192.168.5.30:8007`）**: `Connection timed out`（drop）なら PASS、それ以外（疎通・`Connection refused`・到達不能応答等）は FAIL。
+  2. **遮断テスト（k8s コントロールプレーン / Talos API `10.20.1.11:50000`）**: `Connection timed out`（drop）なら PASS、それ以外は FAIL。
+  3. **遮断テスト（k8s API サーバー `10.96.0.1:443`）**: `Connection timed out`（drop）なら PASS、それ以外は FAIL。
+  4. **遮断テスト（他 Namespace / Argo CD Server `argocd-server.argocd.svc.cluster.local:80`）**: `Connection timed out`（drop）なら PASS、それ以外は FAIL。
   5. **許可テスト（CoreDNS `10.96.0.10:53` TCP および `nslookup` UDP 名前解決）**: 両方成功すれば PASS、いずれか失敗なら FAIL。
   6. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
   7. **許可テスト（`pechka` 本番外部リソース：MinIO VIP `10.20.1.60:9000` および PostgreSQL VIP `10.20.1.40:5432`）**: 両方疎通すれば PASS、いずれか遮断されれば FAIL。

@@ -26,23 +26,24 @@ data:
 
     echo "=== Starting Preview Environment Network Isolation Test ==="
 
-    # Cilium による パケット drop は必ずタイムアウトになる。
-    # 接続成功 (rc=0) だけでなく、相手ホストから TCP RST (Connection refused) が返った場合や
-    # 名前解決自体に失敗した場合も、ポリシーによる遮断が機能していない (または検証不能) として FAIL とする。
+    # Cilium による パケット drop は必ずタイムアウト (Connection timed out) になる。
+    # busybox nc では -vv 指定時のみ Connection refused / Connection timed out 等が出力されるため、
+    # rc != 0 かつ出力に "Connection timed out" が含まれる場合のみ PASS とし、
+    # それ以外 (rc=0 の接続成功、Connection refused、No route to host、名前解決失敗等) はすべて FAIL とする。
     check_blocked() {
       name="$1"
       host="$2"
       port="$3"
-      out="$(nc -z -v -w 3 "$host" "$port" 2>&1)"
+      out="$(nc -z -vv -w 3 "$host" "$port" 2>&1)"
       rc=$?
-      if [ "$rc" -eq 0 ]; then
+      if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "Connection timed out"; then
+        echo "[PASS] Blocked target dropped (timed out) as expected: ${name} (${host}:${port})"
+      elif [ "$rc" -eq 0 ]; then
         echo "[FAIL] Blocked target reachable: ${name} (${host}:${port})"
         FAILED=1
-      elif echo "$out" | grep -qiE "refused|bad address|name or service not known|can't resolve"; then
-        echo "[FAIL] Blocked target not dropped by policy (RST or resolution error): ${name} (${host}:${port}) - ${out}"
-        FAILED=1
       else
-        echo "[PASS] Blocked target dropped (timed out) as expected: ${name} (${host}:${port})"
+        echo "[FAIL] Blocked target did not time out (not dropped by policy): ${name} (${host}:${port}) - ${out}"
+        FAILED=1
       fi
     }
 
