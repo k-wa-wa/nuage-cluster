@@ -1,0 +1,113 @@
+# プレビュー環境用 恒常的ネットワーク隔離検証リソース。
+# プレビュー環境と同一の PSA ラベル (pod-security.kubernetes.io/enforce: baseline) を持つ
+# 検証用 Namespace (preview-isolation-test) を常設し、15分おきに CronJob で
+# CiliumClusterwideNetworkPolicy (preview-isolation-guardrail) の遮断・許可動作を自動検証する。
+# ポリシーの適用漏れや構成ドリフトが発生した場合、Job が Failed (Exit 1) となり検知できる。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: preview-isolation-test
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: isolation-test-script
+  namespace: preview-isolation-test
+data:
+  run-isolation-test.sh: |
+    #!/bin/sh
+    set -u
+
+    FAILED=0
+
+    echo "=== Starting Preview Environment Network Isolation Test ==="
+
+    check_blocked() {
+      name="$1"
+      host="$2"
+      port="$3"
+      if nc -z -w 3 "$host" "$port" >/dev/null 2>&1; then
+        echo "[FAIL] Blocked target reachable: ${name} (${host}:${port})"
+        FAILED=1
+      else
+        echo "[PASS] Blocked target unreachable as expected: ${name} (${host}:${port})"
+      fi
+    }
+
+    check_allowed() {
+      name="$1"
+      host="$2"
+      port="$3"
+      if nc -z -w 3 "$host" "$port" >/dev/null 2>&1; then
+        echo "[PASS] Allowed target reachable as expected: ${name} (${host}:${port})"
+      else
+        echo "[FAIL] Allowed target unreachable: ${name} (${host}:${port})"
+        FAILED=1
+      fi
+    }
+
+    # 1. 遮断テスト: 自宅 LAN / Proxmox (PBS)
+    check_blocked "Home LAN / PBS" "192.168.5.30" "8007"
+
+    # 2. 遮断テスト: k8s コントロールプレーン (Talos API)
+    check_blocked "k8s Control Plane / Talos API" "10.20.1.11" "50000"
+
+    # 3. 許可テスト: CoreDNS
+    check_allowed "CoreDNS" "10.96.0.10" "53"
+
+    # 4. 許可テスト: パブリックインターネット
+    check_allowed "Public Internet (Cloudflare)" "1.1.1.1" "443"
+
+    # 5. 許可テスト: pechka 本番外部リソース (MinIO / SeaweedFS S3 VIP)
+    check_allowed "pechka Prod MinIO (SeaweedFS VIP)" "10.20.1.60" "9000"
+
+    if [ "$FAILED" -ne 0 ]; then
+      echo "=== Isolation Test FAILED ==="
+      exit 1
+    fi
+
+    echo "=== All Isolation Tests PASSED ==="
+    exit 0
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: preview-isolation-test
+  namespace: preview-isolation-test
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: isolation-test
+              image: busybox:latest
+              command:
+                - /scripts/run-isolation-test.sh
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: isolation-test-script
+                defaultMode: 0755

@@ -1,0 +1,71 @@
+# プレビュー環境用 ネットワーク隔離ガードレール (CiliumClusterwideNetworkPolicy)。
+# 公開リポジトリ (pechka, bare-web-proxy, nuage-monitoring-stack) の PR プレビュー環境、
+# および恒常的検証用 Namespace (preview-isolation-test) に対し、PSA ラベル
+# (pod-security.kubernetes.io/enforce: baseline) を手がかりに自動で適用する。
+#
+# - 自宅 LAN (192.168.0.0/16) やクラスタ内部ゾーン・ノード・コントロールプレーン (10.0.0.0/8 等)、
+#   および本番・システム Namespace (argocd, pechka, kube-system 等) への横展開を全面遮断する。
+# - プレビュー環境内の Pod 間通信、Ingress Controller からの HTTP/HTTPS 流入、
+#   CoreDNS (53/UDP, 53/TCP) による名前解決、パブリックインターネット通信、
+#   および pechka プレビューが必要とする本番外部リソース (MinIO 10.20.1.60:9000, PostgreSQL 10.20.1.40:5432)
+#   へのピンポイント通信のみを許可する。
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: preview-isolation-guardrail
+spec:
+  endpointSelector:
+    matchLabels:
+      io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce: baseline
+  ingress:
+    # 1. プレビュー環境 Namespace 内の Pod 間通信を許可
+    # (CCNP はクラスタスコープのため空の matchLabels: {} にすると全 Namespace の Pod にマッチしてしまう。
+    #  baseline ラベル付き Namespace に限定することで、本番・システム Namespace と隔離しつつ Pod 間通信を許可する)
+    - fromEndpoints:
+        - matchLabels:
+            io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce: baseline
+    # 2. Ingress Controller (Cilium/Envoy) からの HTTP/HTTPS 通信を許可
+    - fromEntities:
+        - ingress
+  egress:
+    # 1. プレビュー環境 Namespace 内の Pod 間通信を許可
+    # (CCNP では matchLabels: {} がクラスタ全体の全 Namespace を指し argocd や prod Pod への通信を許してしまうため、
+    #  baseline ラベル付き Namespace に限定して本番・システム Namespace への横展開を遮断する)
+    - toEndpoints:
+        - matchLabels:
+            io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce: baseline
+    # 2. CoreDNS による名前解決のみ許可 (kube-system の DNS ポート 53 UDP/TCP)
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # 3. パブリックインターネットへの外部通信 (RFC 1918 プライベート IP 帯等の完全遮断)
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 192.168.0.0/16   # 自宅 LAN / Proxmox / PBS / ルータ等への通信を全面遮断
+            - 10.0.0.0/8       # k8s ノード / etcd / 内部ゾーン / 他 Namespace を全面遮断
+            - 172.16.0.0/12    # プライベート IP 帯全面遮断
+            - 100.64.0.0/10    # CGNAT 帯遮断
+            - 169.254.0.0/16   # リンクローカル遮断
+    # 4. pechka の本番外部リソースへの限定許可 (ピンポイント Egress)
+    # 本番 MinIO (SeaweedFS S3 VIP: 10.20.1.60/32 Port 9000 TCP)
+    - toCIDRSet:
+        - cidr: 10.20.1.60/32
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+    # 本番 PostgreSQL (初期シード用 VIP: 10.20.1.40/32 Port 5432 TCP)
+    - toCIDRSet:
+        - cidr: 10.20.1.40/32
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
