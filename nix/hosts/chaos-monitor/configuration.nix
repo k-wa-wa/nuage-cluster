@@ -18,6 +18,11 @@
     };
   };
 
+  # blackbox exporter の icmp は ping socket で送る (CapabilityBoundingSet が空で CAP_NET_RAW を持てない)。
+  # NixOS の既定 "0 2147483647" は非特権 LXC の GID の写像 (0〜65535) を超えるのでカーネルに弾かれ、
+  # ping socket が無効のまま残る。写像の中に収まる範囲にする。
+  boot.kernel.sysctl."net.ipv4.ping_group_range" = "0 65535";
+
   # Prometheus Configuration
   services.prometheus = {
     enable = true;

@@ -33,5 +33,9 @@ module "chaos-monitor" {
       }
     ]
     disk_size = 10
+    // 非特権 LXC にする。切り替え・戻し方は docs/operations/2026-11-01-egress-chaos-unprivileged-lxc.md を参照する
+    unprivileged = true
+    // /var/lib/nix-provisioning をコンテナの中から書き換えられないようにする
+    provisioning_read_only = true
   }
 }

@@ -35,6 +35,7 @@ module "egress-gateway" {
   source              = "./modules/secrets"
   host                = "192.168.5.25"
   target_host         = "egress-gateway"
+  unprivileged        = true
   ssh_host_key        = data.sops_file.host_keys.data["egress-gateway"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
@@ -42,6 +43,7 @@ module "chaos-monitor" {
   source              = "./modules/secrets"
   host                = "192.168.5.26"
   target_host         = "chaos-monitor"
+  unprivileged        = true
   ssh_host_key        = data.sops_file.host_keys.data["chaos-monitor"]
   github_access_token = data.sops_file.secrets.data["github_access_token"]
 }
