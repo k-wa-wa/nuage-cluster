@@ -6,9 +6,9 @@ metadata:
 spec:
   endpointSelector: {} # trivy-operator namespace 内の全 Pod
   ingress:
-    # 1. Prometheus / VictoriaMetrics からのメトリクス収集
-    - fromEndpoints:
-        - {}
+    # 1. VictoriaMetrics (vmagent) 等のクラスタ内監視からのメトリクス収集
+    - fromEntities:
+        - cluster
       toPorts:
         - ports:
             - port: "8080"
