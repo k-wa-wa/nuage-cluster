@@ -21,11 +21,9 @@
    - ApplicationSet の Kustomize patches で、Preview Namespace に対し Pod Security Standards の `baseline` 基準を強制する。
    - `pod-security.kubernetes.io/enforce: baseline`
    - 特権コンテナ (`privileged: true`)、ホストネットワーク (`hostNetwork: true`)、ホストパス (`hostPath`) 等の利用を拒否し、ノード脱獄を防止する。
-4. **CI ビルド・本番シークレット隔離 (Layer 4)**:
-   - PR イメージのビルド・push は信頼されたトリガーに制限し、本番用シークレットとプレビュー用リソースを分離する。
-5. **ネットワーク隔離ガードレールと恒常的検証 (Layer 5: `CiliumClusterwideNetworkPolicy` & `CronJob`)**:
-   - クラスタ全体のガードレールとして `CiliumClusterwideNetworkPolicy` (`preview-isolation-guardrail`) を配置し、`pod-security.kubernetes.io/enforce: baseline` ラベルが付与されたすべての Preview Namespace の Pod を自動捕捉する。
-   - 自宅 LAN（`192.168.0.0/16`：Proxmox, PBS, ルータ等）、クラスタ内部ゾーン（`10.0.0.0/8`：k8s ノード, Talos API, etcd 等）、プライベート・CGNAT・リンクローカル帯、および本番・システム Namespace（`argocd`, `pechka` 本番, `kube-system` 等）への通信（横展開）を全面遮断する。
+4. **ネットワーク隔離ガードレールと恒常的検証 (Layer 5: `CiliumClusterwideNetworkPolicy` & `CronJob`)**:
+   - クラスタ全体のガードレールとして `CiliumClusterwideNetworkPolicy` (`preview-isolation-guardrail`) を配置し、`pod-security.kubernetes.io/enforce: baseline` ラベルが付与された Preview Namespace の Pod を捕捉する。
+   - 自宅 LAN（`192.168.0.0/16`：Proxmox, PBS, ルータ等）、クラスタ内部ゾーン（`10.0.0.0/8`：k8s ノード, Talos API, etcd 等）、`kube-apiserver`（`10.96.0.1:443`）、プライベート・CGNAT・リンクローカル帯、および本番・システム Namespace（`argocd`, `pechka` 本番, `kube-system` 等）への通信（横展開）を全面遮断する。
    - プレビュー環境内の Pod 間通信、Ingress Controller からの流入、CoreDNS（`53/UDP`, `53/TCP`）による名前解決、パブリックインターネット通信、および `pechka` プレビューが参照する本番外部リソース（MinIO `10.20.1.60:9000/TCP`、初期シード用 PostgreSQL `10.20.1.40:5432/TCP`）のみをピンポイントで許可する。
    - プレビュー環境と同一の PSA ラベルを持つ検証用 Namespace (`preview-isolation-test`) 上で 15 分おきに検証用 `CronJob` を実行し、ポリシーの適用漏れや構成ドリフトを継続的に自動検知する。
 
@@ -112,11 +110,11 @@ jobs:
 
 ### 5.1 `CiliumClusterwideNetworkPolicy` (`manifests/apps/preview-network-policy.yaml`)
 
-アプリリポジトリ側のマニフェスト改変によって回避されないよう、`nuage-cluster` 側のクラスタスコープリソース（`CiliumClusterwideNetworkPolicy`: `preview-isolation-guardrail`）として強制する。
+`preview-apps` AppProject からは変更・削除できない `nuage-cluster` 側のクラスタスコープリソース（`CiliumClusterwideNetworkPolicy`: `preview-isolation-guardrail`）として配置する。
 
 - **捕捉条件 (`endpointSelector`)**:
   - `io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce: baseline`
-  - ApplicationSet のパッチで付与される PSA `baseline` ラベルをセレクタとすることで、新規 PR ごとに動的に生成される Preview Namespace を漏れなく自動捕捉する。
+  - Preview Namespace に付与される PSA `baseline` ラベルをセレクタとして対象 Pod を捕捉する（アプリ側マニフェスト改変による Namespace ラベル回避リスクについては §7.1 を参照）。
 - **Ingress 制御**:
   - プレビュー環境（`baseline` ラベル付き Namespace）内の Pod 間通信を許可。
   - Cilium Ingress (`fromEntities: [ingress]`) からの HTTP/HTTPS トラフィック流入を許可。
@@ -132,11 +130,14 @@ jobs:
 
 - **スケジュール**: 15 分おき（`*/15 * * * *`、`concurrencyPolicy: Forbid`）
 - **検証項目 (`run-isolation-test.sh`)**:
-  1. **遮断テスト（自宅 LAN / PBS `192.168.5.30:8007`）**: 接続がタイムアウトまたは拒否されれば PASS、疎通すれば FAIL。
-  2. **遮断テスト（k8s コントロールプレーン / Talos API `10.20.1.11:50000`）**: 接続がタイムアウトまたは拒否されれば PASS、疎通すれば FAIL。
-  3. **許可テスト（CoreDNS `10.96.0.10:53`）**: 疎通すれば PASS、遮断されれば FAIL。
-  4. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
-  5. **許可テスト（`pechka` 本番 MinIO VIP `10.20.1.60:9000`）**: 疎通すれば PASS、遮断されれば FAIL。
+  - Cilium によるパケット drop は必ずタイムアウトになるため、遮断テストではタイムアウトのみを PASS とし、疎通成功（Exit 0）だけでなく相手ホストからの TCP RST（`Connection refused`）や名前解決失敗もポリシー未機能として FAIL 扱いにする。
+  1. **遮断テスト（自宅 LAN / PBS `192.168.5.30:8007`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
+  2. **遮断テスト（k8s コントロールプレーン / Talos API `10.20.1.11:50000`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
+  3. **遮断テスト（k8s API サーバー `10.96.0.1:443`）**: タイムアウト（drop）すれば PASS、疎通または `Connection refused` なら FAIL。
+  4. **遮断テスト（他 Namespace / Argo CD Server `argocd-server.argocd.svc.cluster.local:80`）**: タイムアウト（drop）すれば PASS、疎通・`Connection refused`・名前解決失敗なら FAIL。
+  5. **許可テスト（CoreDNS `10.96.0.10:53` TCP および `nslookup` UDP 名前解決）**: 両方成功すれば PASS、いずれか失敗なら FAIL。
+  6. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
+  7. **許可テスト（`pechka` 本番外部リソース：MinIO VIP `10.20.1.60:9000` および PostgreSQL VIP `10.20.1.40:5432`）**: 両方疎通すれば PASS、いずれか遮断されれば FAIL。
 - 1 つでも違反があればスクリプトは Exit 1 で終了し、Job が `Failed` 状態として記録される（直近 3 件の失敗履歴を保持）。
 
 ## 6. マージ後のクラスタ確認・監視手順
@@ -169,14 +170,20 @@ kubectl logs -n preview-isolation-test -l job-name --tail=50
 
 多層防御を導入しても、Argo CD、Kubernetes、および Cilium の設計仕様上、以下の残存リスクが存在する：
 
-1. **Namespace の名前制限（クラスタスコープリソース）**:
+1. **Namespace の名前制限および Kustomize パッチによるラベル付与の回避リスク**:
    - Argo CD の `spec.destinations` は Namespace スコープリソースを対象とするため、クラスタスコープである `kind: Namespace` 自体の名前（`metadata.name`）は destinations による prefix 制限（`pechka-pr-*` 等）を受けない。
-   - 悪意ある PR がマニフェスト内で `metadata.name: pechka` 等の本番 Namespace を指定した場合、Server-Side Apply による設定競合や、PR クローズ時の prune により本番 Namespace が影響を受けるリスクが理論上残る。そのため、外部 PR に対する不用意なラベリングは避け、マニフェストの差分レビューを継続する。
+   - 悪意ある PR がマニフェスト内で `metadata.name: pechka` 等の本番 Namespace を指定した場合、Server-Side Apply による設定競合や、PR クローズ時の prune により本番 Namespace が影響を受けるリスクが理論上残る。
+   - さらに、現在の各 Preview ApplicationSet はアプリリポジトリ内の `kind: Namespace`（`pechka-preview` 等）をターゲットとして Kustomize パッチで `pod-security.kubernetes.io/enforce: baseline` ラベルを付与している。PR 側で `Namespace` マニフェスト自体を削除または改名した場合、Kustomize パッチはエラーにならず空振りし、`CreateNamespace=true`（または Kustomize の namespace 変換）によって**ラベル無しの `*-pr-*` Namespace** が生成され、PSA および `CiliumClusterwideNetworkPolicy` の捕捉対象から外れるリスクがある。
+   - 恒久的な対策としては、ApplicationSet の `syncPolicy.managedNamespaceMetadata` によるラベル強制、または Kubernetes の `ValidatingAdmissionPolicy` で `*-pr-*` Namespace に `pod-security.kubernetes.io/enforce: baseline` ラベルを必須化する構成が有効である。それまでは外部 PR に対する不用意なラベリングを避け、`k8s/` 配下のマニフェスト差分レビューを継続する。
 2. **入口ラベル制御の TOCTOU / 遅延時のフェイルオープン**:
    - 第三者が悪意あるコミットを push してから GitHub Actions が起動して `preview` ラベルを剥奪するまでの間にわずかな時間差（窓）が存在する。この間に ApplicationSet のポーリング（`requeueAfterSeconds: 180`）が走った場合、悪意あるコミットの SHA でデプロイが試行される可能性がある。
    - GitHub Actions の障害や遅延、API エラー発生時、ラベルは剥奪されず維持される（fail-open）。
 3. **ラベル自動再付与の振る舞い**:
    - 第三者がコミットを追加してラベルが剥奪された後、信頼された開発者（`k-wa-wa`）がその PR に対して push した場合、`auto-preview-label.yml` は再度 `preview` ラベルを自動付与する。第三者のコミットが残った状態で push すると第三者のコードがデプロイされるため、外部からのコミットが混入している PR を引き継ぐ際は、必ずコミット内容を精査した上で作業を行う。
-4. **プレビュー環境間の通信と `pechka` 本番外部リソースへのピンポイント許可**:
-   - `CiliumClusterwideNetworkPolicy` は単一のクラスタスコープポリシーであり、動的自己 Namespace 参照を持たないため、`pod-security.kubernetes.io/enforce: baseline` ラベルを持つプレビュー用 Namespace 同士の Pod 間通信は許容される（本番・システム Namespace からは完全に隔離される）。
-   - また、`pechka` プレビューの動作要件上、本番 MinIO（`10.20.1.60:9000`）および初期シード用本番 PostgreSQL（`10.20.1.40:5432`）への TCP 通信は許可されているため、ネットワーク到達性自体はすべてのプレビュー環境に開かれている（認証情報は `pechka-preview-secret` により `pechka-pr-*` にのみ配布される）。
+4. **プレビュー環境間の相互到達性と `pechka` シード済み DB・本番外部リソースへの到達性**:
+   - `CiliumClusterwideNetworkPolicy` は単一のクラスタスコープポリシーであり動的自己 Namespace 参照を持たないため、`fromEndpoints` / `toEndpoints` により `pod-security.kubernetes.io/enforce: baseline` ラベルを持つプレビュー用 Namespace 間の通信は相互に許可される（本番・システム Namespace からは隔離される）。
+   - このため、別リポジトリや別 PR のプレビュー環境から `pechka-pr-*` 内の全 Pod・全ポートへ到達可能である。`pechka-pr-*` のローカル `postgres` には `postgres-seed-from-prod` Job により本番 DB からコピーされたデータが格納されており、かつその接続情報は公開リポジトリの `k8s/overlays/preview/local-secrets.yaml` に平文で記載されているため、同時に稼働している他のプレビュー環境から本番データの写しを読み取られるリスクが残る。
+   - また、`pechka` プレビューの動作要件上、本番 MinIO（`10.20.1.60:9000`）および初期シード用本番 PostgreSQL（`10.20.1.40:5432`）への TCP 通信は許可されているため、ネットワーク到達性自体はすべてのプレビュー環境に開かれている（本番 PostgreSQL の認証情報は `pechka-preview-secret` により `pechka-pr-*` にのみ配布される）。
+5. **`kube-apiserver` への Egress 遮断に伴う `pechka` プレビューのワークフロー実行制限**:
+   - プレビュー環境から Kubernetes API サーバー（`kubernetes.default` / `10.96.0.1:443` / コントロールプレーン `6443/TCP`）への Egress は、`toEntities: [kube-apiserver]` を許可せず意図的に遮断している。
+   - そのため、`pechka` プレビュー環境において `api`（ServiceAccount `api-sa`）が Kubernetes API を呼び出して Argo Workflows の `Workflow` リソースを生成する機能（ingest・upload 時の `etl-bluray` / `subtitle-gen` 起動）および Workflow Pod（emissary）の API 通信は遮断され、プレビュー環境でのワークフロー実行は動作しない制限事項となる。プレビュー環境でワークフロー実行が必要になった場合は、RBAC スコープを精査した上で `toEntities: [kube-apiserver]`（Port `6443/TCP`）の追加を別途検討する。

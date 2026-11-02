@@ -26,15 +26,23 @@ data:
 
     echo "=== Starting Preview Environment Network Isolation Test ==="
 
+    # Cilium による パケット drop は必ずタイムアウトになる。
+    # 接続成功 (rc=0) だけでなく、相手ホストから TCP RST (Connection refused) が返った場合や
+    # 名前解決自体に失敗した場合も、ポリシーによる遮断が機能していない (または検証不能) として FAIL とする。
     check_blocked() {
       name="$1"
       host="$2"
       port="$3"
-      if nc -z -w 3 "$host" "$port" >/dev/null 2>&1; then
+      out="$(nc -z -v -w 3 "$host" "$port" 2>&1)"
+      rc=$?
+      if [ "$rc" -eq 0 ]; then
         echo "[FAIL] Blocked target reachable: ${name} (${host}:${port})"
         FAILED=1
+      elif echo "$out" | grep -qiE "refused|bad address|name or service not known|can't resolve"; then
+        echo "[FAIL] Blocked target not dropped by policy (RST or resolution error): ${name} (${host}:${port}) - ${out}"
+        FAILED=1
       else
-        echo "[PASS] Blocked target unreachable as expected: ${name} (${host}:${port})"
+        echo "[PASS] Blocked target dropped (timed out) as expected: ${name} (${host}:${port})"
       fi
     }
 
@@ -50,20 +58,40 @@ data:
       fi
     }
 
+    check_dns_udp() {
+      name="$1"
+      target_domain="$2"
+      dns_server="$3"
+      if nslookup "$target_domain" "$dns_server" >/dev/null 2>&1; then
+        echo "[PASS] Allowed DNS UDP resolution succeeded as expected: ${name} (${target_domain} via ${dns_server})"
+      else
+        echo "[FAIL] Allowed DNS UDP resolution failed: ${name} (${target_domain} via ${dns_server})"
+        FAILED=1
+      fi
+    }
+
     # 1. 遮断テスト: 自宅 LAN / Proxmox (PBS)
     check_blocked "Home LAN / PBS" "192.168.5.30" "8007"
 
     # 2. 遮断テスト: k8s コントロールプレーン (Talos API)
     check_blocked "k8s Control Plane / Talos API" "10.20.1.11" "50000"
 
-    # 3. 許可テスト: CoreDNS
-    check_allowed "CoreDNS" "10.96.0.10" "53"
+    # 3. 遮断テスト: k8s API サーバー (kubernetes.default)
+    check_blocked "k8s API Server (kubernetes.default)" "10.96.0.1" "443"
 
-    # 4. 許可テスト: パブリックインターネット
+    # 4. 遮断テスト: 他 Namespace / システム Namespace (Argo CD Server)
+    check_blocked "Other Namespace / Argo CD Server" "argocd-server.argocd.svc.cluster.local" "80"
+
+    # 5. 許可テスト: CoreDNS (TCP 53 および UDP 名前解決)
+    check_allowed "CoreDNS (TCP)" "10.96.0.10" "53"
+    check_dns_udp "CoreDNS (UDP nslookup)" "kubernetes.default.svc.cluster.local" "10.96.0.10"
+
+    # 6. 許可テスト: パブリックインターネット
     check_allowed "Public Internet (Cloudflare)" "1.1.1.1" "443"
 
-    # 5. 許可テスト: pechka 本番外部リソース (MinIO / SeaweedFS S3 VIP)
+    # 7. 許可テスト: pechka 本番外部リソース (MinIO / SeaweedFS S3 VIP および PostgreSQL VIP)
     check_allowed "pechka Prod MinIO (SeaweedFS VIP)" "10.20.1.60" "9000"
+    check_allowed "pechka Prod PostgreSQL (VIP)" "10.20.1.40" "5432"
 
     if [ "$FAILED" -ne 0 ]; then
       echo "=== Isolation Test FAILED ==="
