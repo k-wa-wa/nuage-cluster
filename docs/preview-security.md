@@ -124,9 +124,10 @@ jobs:
   - `toCIDRSet` により `0.0.0.0/0` からプライベート IP 帯（`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `100.64.0.0/10`, `169.254.0.0/16`）を除外し、パブリックインターネットへの通信のみを許可。
   - `pechka` プレビュー環境が必要とする本番 MinIO（SeaweedFS S3 VIP: `10.20.1.60/32` Port `9000/TCP`）および初期シード用本番 PostgreSQL（VIP: `10.20.1.40/32` Port `5432/TCP`）への Egress のみピンポイントで許可。
 
-### 5.2 恒常的セキュリティ検証 CronJob (`manifests/apps/preview-isolation-test.yaml`)
+### 5.2 恒常的セキュリティ検証 CronJob (`manifests/apps/preview-isolation-test/`)
 
 ネットワークポリシーの適用漏れや Cilium 設定変更時の構成ドリフトを継続的に検知するため、`preview-isolation-test` Namespace に `CronJob` (`preview-isolation-test`) を常設する。
+スクリプト本体は shellcheck による静的解析を維持するため `run-isolation-test.sh` として独立ファイルで管理し、Kustomize の `configMapGenerator` 経由で ConfigMap に展開する。
 
 - **スケジュール**: 15 分おき（`*/15 * * * *`、`concurrencyPolicy: Forbid`）
 - **検証項目 (`run-isolation-test.sh`)**:
