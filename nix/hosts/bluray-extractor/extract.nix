@@ -26,9 +26,6 @@ let
 in
 {
   sops = {
-    secrets.pechka_minio_bucket = {
-      sopsFile = ./secrets.yaml;
-    };
     secrets.pechka_minio_access_key = {
       sopsFile = ./secrets.yaml;
     };
@@ -86,9 +83,10 @@ in
         export LOCAL_MKV_DIR="/tmp/mkv"
 
         export MINIO_URL="http://10.20.1.60:9000"
+        # バケット名は秘密ではない (pechka の k8s/base/infra/configmap/configmap.yaml の minio-bucket と同じ)
+        export MINIO_BUCKET="pechka"
 
         # sops-nixで復号されたMinIOの接続情報を読み込む
-        export MINIO_BUCKET=$(cat ${config.sops.secrets.pechka_minio_bucket.path})
         export MINIO_ACCESS_KEY=$(cat ${config.sops.secrets.pechka_minio_access_key.path})
         export MINIO_SECRET_KEY=$(cat ${config.sops.secrets.pechka_minio_secret_key.path})
 
