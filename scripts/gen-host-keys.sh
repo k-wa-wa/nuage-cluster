@@ -6,6 +6,7 @@ set -euo pipefail
 # 秘密鍵は Terraform (terraform/pve/hosts-secrets) が各ホストの /var/lib/nix-provisioning へ置く。
 # 指定したホストの鍵は作り直す (ローテーション)。作り直したら .sops.yaml の受信者を更新して updatekeys をかけ、
 # hosts-secrets を apply する。平文の鍵は一時ディレクトリにだけ置き、終わったら消す。
+# .ssh/ssh_config は .ssh/known_hosts で接続先を確かめるので、ホストに新しい鍵が届くまでは入れない。その間は -o StrictHostKeyChecking=no を付ける。
 #
 # 使い方: cd nuage-cluster && bash scripts/gen-host-keys.sh <ホスト名>...
 # ホスト名は .ssh/ssh_config にあるものに限る (known_hosts に書く IP をそこから引く)。
