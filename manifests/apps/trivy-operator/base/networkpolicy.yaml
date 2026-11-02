@@ -32,17 +32,21 @@ spec:
         - protocol: TCP
           port: 53
 
-    # 2. Kubernetes API Server (クラスタ内部通信)
+    # 2. Kubernetes API Server (Talos CP VIP および 各 CP Node エンドポイント)
     - to:
         - ipBlock:
-            cidr: 10.20.1.10/32 # Talos Control Plane VIP
+            cidr: 10.20.1.10/32 # VIP
+        - ipBlock:
+            cidr: 10.20.1.11/32 # CP Node 1
+        - ipBlock:
+            cidr: 10.20.1.12/32 # CP Node 2
+        - ipBlock:
+            cidr: 10.20.1.13/32 # CP Node 3
+        - ipBlock:
+            cidr: 10.96.0.1/32  # Service ClusterIP
       ports:
         - protocol: TCP
           port: 6443
-    - to:
-        - ipBlock:
-            cidr: 10.96.0.1/32 # kubernetes service ClusterIP
-      ports:
         - protocol: TCP
           port: 443
 
