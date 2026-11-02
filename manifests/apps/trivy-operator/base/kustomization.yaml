@@ -1,6 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+resources:
+  - networkpolicy.yaml
+
 helmCharts:
   - name: trivy-operator
     repo: https://aquasecurity.github.io/helm-charts/
@@ -14,6 +17,12 @@ helmCharts:
         annotations:
           prometheus.io/scrape: "true"
           prometheus.io/port: "8080"
+        scanJobsConcurrentLimit: 1
+        vulnerabilityScannerScanOnlyCurrentRevisions: true
+        exposedSecretScannerEnabled: false
+        infraAssessmentScannerEnabled: false
+        clusterComplianceEnabled: false
+        accessGlobalSecretsAndServiceAccount: false
       resources:
         requests:
           cpu: 100m
@@ -21,12 +30,8 @@ helmCharts:
         limits:
           cpu: 500m
           memory: 512Mi
-      trivyOperator:
-        scanJobsConcurrentLimit: 1
-        vulnerabilityScannerScanOnlyCurrentRevisions: true
-        infraAssessmentScannerEnabled: false
-        clusterComplianceEnabled: false
       trivy:
+        offlineScan: true
         resources:
           requests:
             cpu: 100m
