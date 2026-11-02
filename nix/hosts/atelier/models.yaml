@@ -20,7 +20,7 @@ claude:
 
 # レビューは実装担当 (claude) と別系統のモデルに見せるため、Claude 系のモデルは入れない。
 agy:
-  high: [gemini-4-argon-high, gemini-3.8-flash-high, gpt-oss-120b-medium]
+  high: [gemini-3.8-flash-high, gpt-oss-120b-medium]
   standard: [gemini-3.8-flash-medium, gpt-oss-120b-medium]
   light: [gemini-3.8-flash-low]
 
