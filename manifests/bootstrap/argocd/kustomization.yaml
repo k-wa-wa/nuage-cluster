@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: argocd
 resources:
 - namespace.yaml
-- https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+- https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
 - avp-cmp-plugin.yaml
 
 patches:
@@ -117,7 +117,7 @@ patches:
         spec:
           initContainers:
             - name: download-avp
-              image: alpine:3.21
+              image: alpine:3.22
               command: ["sh", "-c"]
               args:
                 - |
