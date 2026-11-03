@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - networkpolicy.yaml
+  - vmscrape.yaml
 
 helmCharts:
   - name: trivy-operator
@@ -39,3 +40,12 @@ helmCharts:
           limits:
             cpu: 500m
             memory: 512Mi
+
+configMapGenerator:
+  - name: trivy-operator-dashboard
+    files:
+      - dashboards/trivy-operator.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
