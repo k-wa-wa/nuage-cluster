@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: argocd
 resources:
 - namespace.yaml
-- https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+- https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
 - avp-cmp-plugin.yaml
 
 patches:
@@ -117,7 +117,7 @@ patches:
         spec:
           initContainers:
             - name: download-avp
-              image: alpine:3.18
+              image: alpine:3.22
               command: ["sh", "-c"]
               args:
                 - |
@@ -130,7 +130,7 @@ patches:
           containers:
             - name: argocd-vault-plugin-kustomize
               # AVP実行環境には、kustomizeやgitが元から入っているArgo CD公式イメージを使います
-              image: quay.io/argoproj/argocd:v3.4.4
+              image: quay.io/argoproj/argocd:v3.5.3
               command: [/var/run/argocd/argocd-cmp-server]
               env:
                 - name: AVP_TYPE
