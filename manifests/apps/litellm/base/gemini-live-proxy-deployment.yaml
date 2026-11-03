@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: nginx:alpine
+        image: nginx:1.30-alpine
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
