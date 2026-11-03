@@ -42,6 +42,11 @@ helmCharts:
             memory: 512Mi
 
 configMapGenerator:
+  # このダッシュボードは nuage-monitoring-stack の recording rule に依存する。
+  # 定義場所は nuage-monitoring-stack の k8s/base/victoria/rules.yaml にある VMRule trivy-summary-rules である。
+  #   - nuage:trivy_image_vulnerabilities:dedup_by_image (脆弱性をイメージの digest 単位で重複を除いた件数)
+  #   - nuage:trivy_resource_configaudits:dedup_by_workload (設定不備を workload 単位にまとめた件数)
+  # ルール名や数え方を変えるときは、このダッシュボードのクエリもあわせて直す。
   - name: trivy-operator-dashboard
     files:
       - dashboards/trivy-operator.json
