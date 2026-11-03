@@ -75,6 +75,9 @@
   - chaos-monitor (NixOS LXC, ②層管理・k8s/Argo CD 非依存) に Prometheus blackbox exporter (icmp/http/tcp プローブ) + Grafana ダッシュボードを構築済み。`*.cluster.wpc` や Ingress URL、TCP ポートの到達性と死活を監視できている
 - [ ] **Dashboard 作成 (README TODO)**
   - Homepage / Homarr 系のポータルを `manifests/apps/` に足し、Argo CD・Grafana・Proxmox・TrueNAS へのリンクとヘルス表示を集約する
+- [ ] **Trivy ダッシュボードと recording rule の置き場所をそろえる**
+  - Trivy ダッシュボード (`manifests/apps/trivy-operator/base/dashboards/trivy-operator.json`) は nuage-monitoring-stack の recording rule (`k8s/base/victoria/rules.yaml` の `trivy-summary-rules`) を参照しており、定義が 2 つのリポジトリにまたがっている
+  - nuage-cluster (trivy-operator 本体と一緒) と nuage-monitoring-stack (ルール・壁掛けダッシュボードと一緒) のどちらに寄せるかを決める
 
 ## 4. リファクタ・技術的負債の返済
 

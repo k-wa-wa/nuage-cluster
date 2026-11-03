@@ -47,7 +47,7 @@
         "type": "prometheus",
         "uid": "VictoriaMetrics"
       },
-      "description": "Total number by type of security issues identified in the cluster",
+      "description": "脆弱性と設定不備は壁掛けダッシュボード (uid nuage-wall) と同じ数え方である。脆弱性はイメージの digest 単位で重複を除き (recording rule nuage:trivy_image_vulnerabilities:dedup_by_image)、設定不備は実行ごとに変わる名前を取り除いた workload 単位にまとめる (recording rule nuage:trivy_resource_configaudits:dedup_by_workload)。どちらも PR 環境は含まない。Exposed Secrets・RBAC Assessment は trivy-operator のメトリクスをそのまま合計する。",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -172,7 +172,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities)",
+          "expr": "sum(nuage:trivy_image_vulnerabilities:dedup_by_image)",
           "instant": true,
           "legendFormat": "Vulnerabilities",
           "range": false,
@@ -185,7 +185,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_resource_configaudits)",
+          "expr": "sum(nuage:trivy_resource_configaudits:dedup_by_workload)",
           "hide": false,
           "instant": true,
           "legendFormat": "Misconfiguration",
@@ -241,7 +241,7 @@
         "type": "prometheus",
         "uid": "VictoriaMetrics"
       },
-      "description": "",
+      "description": "イメージの digest 単位で重複を除いた脆弱性の件数 (recording rule nuage:trivy_image_vulnerabilities:dedup_by_image)。同じイメージを複数のワークロードで使っていても 1 回だけ数える。PR 環境は含まない。壁掛けダッシュボードと同じ数字になる。",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -366,7 +366,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Critical\"})",
+          "expr": "nuage:trivy_image_vulnerabilities:dedup_by_image{severity=\"Critical\"}",
           "instant": true,
           "legendFormat": "Critical",
           "range": false,
@@ -379,7 +379,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"High\"})",
+          "expr": "nuage:trivy_image_vulnerabilities:dedup_by_image{severity=\"High\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "High",
@@ -393,7 +393,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Medium\"})",
+          "expr": "nuage:trivy_image_vulnerabilities:dedup_by_image{severity=\"Medium\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "Medium",
@@ -407,7 +407,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Low\"})",
+          "expr": "nuage:trivy_image_vulnerabilities:dedup_by_image{severity=\"Low\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "Low",
@@ -421,7 +421,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Unknown\"})",
+          "expr": "nuage:trivy_image_vulnerabilities:dedup_by_image{severity=\"Unknown\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "Unknown",
@@ -437,7 +437,7 @@
         "type": "prometheus",
         "uid": "VictoriaMetrics"
       },
-      "description": "",
+      "description": "Namespace ごとの脆弱性の件数。対象リソースの Namespace (exported_namespace) で集計する (namespace ラベルは trivy-operator 自身を指す)。Namespace の中で同じイメージ (digest) は 1 回だけ数える。複数の Namespace で使うイメージはそれぞれで数えるため、合計は全体の件数より大きくなる。PR 環境は含まない。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -515,8 +515,8 @@
             "uid": "VictoriaMetrics"
           },
           "editorMode": "code",
-          "expr": "sum(trivy_image_vulnerabilities) by (namespace)",
-          "legendFormat": "__auto",
+          "expr": "sum by (exported_namespace) (max by (exported_namespace, image_registry, image_repository, image_digest, severity) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\"}))",
+          "legendFormat": "{{exported_namespace}}",
           "range": true,
           "refId": "A"
         }
@@ -590,6 +590,18 @@
                 "value": "json-view"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Workloads"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "auto"
+              }
+            ]
           }
         ]
       },
@@ -609,7 +621,7 @@
           ],
           "show": false
         },
-        "frameIndex": 1,
+        "frameIndex": 0,
         "showHeader": true,
         "sortBy": []
       },
@@ -622,7 +634,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Critical\"}) by (image_repository,image_tag)",
+          "expr": "max by (image_registry, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\",severity=\"Critical\"})",
           "format": "table",
           "instant": true,
           "range": false,
@@ -635,7 +647,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"High\"}) by (image_repository,image_tag)",
+          "expr": "max by (image_registry, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\",severity=\"High\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -649,7 +661,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Medium\"}) by (image_repository,image_tag)",
+          "expr": "max by (image_registry, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\",severity=\"Medium\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -663,7 +675,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Low\"}) by (image_repository,image_tag)",
+          "expr": "max by (image_registry, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\",severity=\"Low\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -677,74 +689,67 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_image_vulnerabilities{severity=\"Unknown\"}) by (image_repository,image_tag)",
+          "expr": "max by (image_registry, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\",severity=\"Unknown\"})",
           "format": "table",
           "hide": false,
           "instant": true,
           "range": false,
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "VictoriaMetrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (image_registry, image_repository, image_tag, image_digest) (count by (image_registry, image_repository, image_tag, image_digest, exported_namespace, resource_kind, resource_name) (trivy_image_vulnerabilities{job=\"trivy-operator\",exported_namespace!~\".+-pr-[0-9]+\"}))",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "range": false,
+          "refId": "F"
         }
       ],
       "title": "Vulnerability by Image",
       "transformations": [
         {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "image_repository",
-                "image_tag",
-                "Value #A",
-                "Value #B",
-                "Value #C",
-                "Value #D",
-                "Value #E"
-              ]
-            }
-          }
-        },
-        {
-          "id": "seriesToColumns",
-          "options": {
-            "byField": "image_repository"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "image_repository",
-                "Value #A",
-                "Value #B",
-                "Value #C",
-                "Value #D",
-                "Value #E",
-                "image_tag 1"
-              ]
-            }
-          }
+          "id": "merge",
+          "options": {}
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "image_tag": false
+              "Time": true,
+              "image_registry": true,
+              "image_digest": true
             },
-            "indexByName": {},
+            "indexByName": {
+              "image_repository": 0,
+              "image_tag": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #F": 7
+            },
             "renameByName": {
               "Value #A": "Critical",
               "Value #B": "High",
               "Value #C": "Medium",
               "Value #D": "Low",
               "Value #E": "Unknown",
+              "Value #F": "Workloads",
               "image_repository": "Image",
               "image_tag": "Tag"
             }
           }
         }
       ],
-      "type": "table"
+      "type": "table",
+      "description": "イメージごとの脆弱性の件数。ワークロードごとの足し算はせず、イメージ (digest) ごとの実際の件数を出す。Workloads はそのイメージを使っているワークロード (Namespace・kind・名前の組) の数で、終わった Pod (Argo Workflows の実行ごとの Pod など) も trivy のレポートが残っている間は数える。PR 環境は含まない。"
     },
     {
       "collapsed": false,
@@ -763,7 +768,7 @@
         "type": "prometheus",
         "uid": "VictoriaMetrics"
       },
-      "description": "",
+      "description": "実行ごとに変わる名前 (Argo CronWorkflow の Pod の実行時刻、ReplicaSet の hash) を取り除き、workload 単位にまとめた設定不備の件数 (recording rule nuage:trivy_resource_configaudits:dedup_by_workload)。PR 環境は含まない。壁掛けダッシュボードと同じ数字になる。",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -888,7 +893,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_resource_configaudits{severity=\"Critical\"})",
+          "expr": "nuage:trivy_resource_configaudits:dedup_by_workload{severity=\"Critical\"}",
           "instant": true,
           "legendFormat": "Critical",
           "range": false,
@@ -901,7 +906,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_resource_configaudits{severity=\"High\"})",
+          "expr": "nuage:trivy_resource_configaudits:dedup_by_workload{severity=\"High\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "High",
@@ -915,7 +920,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_resource_configaudits{severity=\"Medium\"})",
+          "expr": "nuage:trivy_resource_configaudits:dedup_by_workload{severity=\"Medium\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "Medium",
@@ -929,7 +934,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(trivy_resource_configaudits{severity=\"Low\"})",
+          "expr": "nuage:trivy_resource_configaudits:dedup_by_workload{severity=\"Low\"}",
           "hide": false,
           "instant": true,
           "legendFormat": "Low",
