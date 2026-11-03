@@ -21,7 +21,6 @@ REPOS=(
   nuage-monitoring-stack
   pechka
   bare-web-proxy
-  nuage-home
   nuage-usage-ledger
   cicerone3270
   nuage-autopilot5
