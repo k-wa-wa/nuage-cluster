@@ -26,30 +26,19 @@ age-keygen -o ~/.config/sops/age/lb_key.txt
 
 ## 2. 物理ノードのセットアップ
 
-Intel NUC・自作 PC ノードとも手順は同じ。以下の例は Ubuntu の ISO だが、実際には Proxmox VE を入れる。
+Intel NUC・自作 PC ノードとも手順は同じ。
 
 ### USB に ISO イメージを焼く (macOS)
 
 ```sh
-hdiutil convert -format UDRW -o ./ubuntu.img ~/Downloads/ubuntu-24.04.1-live-server-amd64.iso
-
 # usbメモリの確認
 diskutil list
 
 # アンマウント
 diskutil unmountDisk /dev/xxx
 
-# 書き込み(パーティションは指定しない)
-sudo dd if=./ubuntu.img.dmg of=/dev/xxx bs=1m
-```
-
-### ブート
-
-インストラクションに沿って進める。openSSH はインストールしておく。
-
-```sh
-sudo systemctl enable ssh
-sudo systemctl start ssh
+# 書き込み
+sudo dd if=./proxmox-ve_9.0-1.iso of=/dev/rdisk7 bs=1m status=progress
 ```
 
 ### ssh して設定
@@ -57,9 +46,8 @@ sudo systemctl start ssh
 公開鍵を配置する。
 
 ```sh
-cd .ssh
-vi authorized_keys
-# chmod 600 .ssh/authorized_keys
+vi ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
 ```
 
 パスワード認証を無効化する。
@@ -69,10 +57,6 @@ sudo vi /etc/ssh/sshd_config
 # PasswordAuthentication no
 # # Include ...
 ```
-
-### 固定 IP の割り当て
-
-ルーター側で物理ノードに固定 IP を振る(各ノードで設定するのが面倒なため、ルーターで一括設定する)。
 
 ## 3. Proxmox のセットアップ
 
