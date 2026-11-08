@@ -126,34 +126,54 @@ resource "proxmox_network_linux_vlan" "vmbr10_1_nuc1" {
 #   name      = "vmbr10.2"
 # }
 
-resource "proxmox_network_linux_vlan" "vmbr10_1_dm1" {
-  node_name = "dm-1"
-  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.1"
-}
-resource "proxmox_network_linux_vlan" "vmbr10_2_dm1" {
-  node_name = "dm-1"
-  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.2"
-}
-
 resource "proxmox_network_linux_vlan" "vmbr10_1_server2" {
   node_name = "server-2"
   name      = "${proxmox_network_linux_bridge.vmbr10_server2.name}.1"
+}
+
+resource "proxmox_network_linux_vlan" "vmbr10_2_server1" {
+  node_name = "server-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_server1.name}.2"
 }
 resource "proxmox_network_linux_vlan" "vmbr10_2_server2" {
   node_name = "server-2"
   name      = "${proxmox_network_linux_bridge.vmbr10_server2.name}.2"
 }
-resource "proxmox_network_linux_vlan" "vmbr10_2_server1" {
-  node_name = "server-1"
-  name      = "${proxmox_network_linux_bridge.vmbr10_server1.name}.2"
+
+resource "proxmox_network_linux_vlan" "vmbr10_3_nuc1" {
+  node_name = "nuc-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_nuc1.name}.3"
 }
 resource "proxmox_network_linux_vlan" "vmbr10_3_server1" {
   node_name = "server-1"
   name      = "${proxmox_network_linux_bridge.vmbr10_server1.name}.3"
 }
-resource "proxmox_network_linux_vlan" "vmbr10_3_nuc1" {
+
+resource "proxmox_network_linux_vlan" "vmbr10_4_nuc1" {
   node_name = "nuc-1"
-  name      = "${proxmox_network_linux_bridge.vmbr10_nuc1.name}.3"
+  name      = "${proxmox_network_linux_bridge.vmbr10_nuc1.name}.4"
+}
+resource "proxmox_network_linux_vlan" "vmbr10_4_dm1" {
+  node_name = "dm-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.4"
+}
+
+resource "proxmox_network_linux_vlan" "vmbr10_5_server1" {
+  node_name = "server-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_server1.name}.5"
+}
+resource "proxmox_network_linux_vlan" "vmbr10_5_dm1" {
+  node_name = "dm-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.5"
+}
+
+resource "proxmox_network_linux_vlan" "vmbr10_6_server2" {
+  node_name = "server-2"
+  name      = "${proxmox_network_linux_bridge.vmbr10_server2.name}.6"
+}
+resource "proxmox_network_linux_vlan" "vmbr10_6_dm1" {
+  node_name = "dm-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.6"
 }
 
 resource "proxmox_network_linux_bridge" "vmbr11_nuc1" {
