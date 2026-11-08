@@ -41,6 +41,10 @@ provider "proxmox" {
       address = "192.168.5.21"
     }
     node {
+      name    = "dm-1"
+      address = "192.168.5.23"
+    }
+    node {
       name    = "server-1"
       address = "192.168.5.25"
     }

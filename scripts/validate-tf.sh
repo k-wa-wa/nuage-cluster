@@ -9,7 +9,7 @@ echo "=== Terraform Validation ==="
 
 # 1. Terragrunt HCL Format Check
 echo "Checking Terragrunt HCL format..."
-terragrunt hclfmt --check
+terragrunt hcl format --check 2>/dev/null || terragrunt hclfmt --check
 
 # 2. TFlint Check
 echo "Running TFlint..."
@@ -30,37 +30,36 @@ TEMP_DIR=$(mktemp -d)
 age-keygen -o "$TEMP_DIR/key.txt"
 PUBKEY=$(grep "public key:" "$TEMP_DIR/key.txt" | awk '{print $4}')
 
-# ダミーの secrets.yaml を元のファイルから自動生成する
-grep '^[a-z0-9_]\+:' terraform/secrets.yaml | grep -v '^sops:' | while read -r line; do
-  key=$(echo "$line" | cut -d: -f1)
-  if [[ "$key" =~ "endpoint" ]] || [[ "$key" =~ "url" ]]; then
-    echo "$key: \"https://dummy.example.com\""
-  elif [[ "$key" =~ "token" ]] || [[ "$key" =~ "key" ]] || [[ "$key" =~ "password" ]] || [[ "$key" =~ "secret" ]]; then
-    # 40文字のダミー値（Cloudflare API Tokenなどの制限に対応）
-    echo "$key: \"0000000000000000000000000000000000000000\""
-  else
-    echo "$key: \"dummy\""
-  fi
-done > "$TEMP_DIR/dummy_secrets.yaml"
-
-# ダミーの secrets.yaml を一時鍵で暗号化
-sops --config /dev/null --encrypt --age "$PUBKEY" "$TEMP_DIR/dummy_secrets.yaml" > "$TEMP_DIR/secrets.yaml.enc"
-
 # クリーンアップ処理の登録 (trap)
 cleanup() {
-  echo "Restoring original secrets.yaml..."
-  if [ -f "terraform/secrets.yaml.orig" ]; then
-    mv "terraform/secrets.yaml.orig" "terraform/secrets.yaml"
-  fi
+  echo "Restoring original secrets.yaml files..."
+  find terraform -name "secrets.yaml.orig" | while read -r orig; do
+    target="${orig%.orig}"
+    mv "$orig" "$target"
+  done
   rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
 
-# 本物のファイルを退避し、暗号化したダミーを配置
-if [ -f "terraform/secrets.yaml" ]; then
-  mv "terraform/secrets.yaml" "terraform/secrets.yaml.orig"
-fi
-cp "$TEMP_DIR/secrets.yaml.enc" "terraform/secrets.yaml"
+# すべての secrets.yaml を元のファイルから自動生成して一時鍵で暗号化
+find terraform -name "secrets.yaml" -not -path "*/.terragrunt-cache/*" | while read -r sec; do
+  dummy_plain="$TEMP_DIR/dummy_$(echo "$sec" | tr '/' '_')"
+  dummy_enc="$TEMP_DIR/enc_$(echo "$sec" | tr '/' '_')"
+  grep '^[a-z0-9_]\+:' "$sec" | grep -v '^sops:' | while read -r line; do
+    key=$(echo "$line" | cut -d: -f1)
+    if [[ "$key" =~ "endpoint" ]] || [[ "$key" =~ "url" ]]; then
+      echo "$key: \"https://dummy.example.com\""
+    elif [[ "$key" =~ "token" ]] || [[ "$key" =~ "key" ]] || [[ "$key" =~ "password" ]] || [[ "$key" =~ "secret" ]]; then
+      # 40文字のダミー値（Cloudflare API Tokenなどの制限に対応）
+      echo "$key: \"0000000000000000000000000000000000000000\""
+    else
+      echo "$key: \"dummy\""
+    fi
+  done > "$dummy_plain"
+  sops --config /dev/null --encrypt --age "$PUBKEY" "$dummy_plain" > "$dummy_enc"
+  mv "$sec" "${sec}.orig"
+  cp "$dummy_enc" "$sec"
+done
 
 # 一時秘密鍵を環境変数に設定して Terragrunt 検証を実行
 export SOPS_AGE_KEY=$(grep -v "#" "$TEMP_DIR/key.txt")

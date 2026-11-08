@@ -20,6 +20,17 @@ resource "proxmox_network_linux_bridge" "vmbr0_nuc1" {
 #   ]
 # }
 
+resource "proxmox_network_linux_bridge" "vmbr0_dm1" {
+  node_name = "dm-1"
+  name      = "vmbr0"
+
+  address = "192.168.5.23/24"
+
+  ports = [
+    "eno1"
+  ]
+}
+
 resource "proxmox_network_linux_bridge" "vmbr0_server2" {
   node_name = "server-2"
   name      = "vmbr0"
@@ -66,6 +77,18 @@ resource "proxmox_network_linux_bridge" "vmbr10_nuc1" {
 #   ]
 # }
 
+resource "proxmox_network_linux_bridge" "vmbr10_dm1" {
+  node_name  = "dm-1"
+  name       = "vmbr10"
+  vlan_aware = true
+
+  address = "10.0.0.14/24"
+
+  ports = [
+    "enx6c1ff772646d"
+  ]
+}
+
 resource "proxmox_network_linux_bridge" "vmbr10_server2" {
   node_name  = "server-2"
   name       = "vmbr10"
@@ -102,6 +125,15 @@ resource "proxmox_network_linux_vlan" "vmbr10_1_nuc1" {
 #   node_name = "nuc-2"
 #   name      = "vmbr10.2"
 # }
+
+resource "proxmox_network_linux_vlan" "vmbr10_1_dm1" {
+  node_name = "dm-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.1"
+}
+resource "proxmox_network_linux_vlan" "vmbr10_2_dm1" {
+  node_name = "dm-1"
+  name      = "${proxmox_network_linux_bridge.vmbr10_dm1.name}.2"
+}
 
 resource "proxmox_network_linux_vlan" "vmbr10_1_server2" {
   node_name = "server-2"
@@ -149,6 +181,19 @@ resource "proxmox_network_linux_bridge" "vmbr11_nuc1" {
 #     "enxc8a362104ed6"
 #   ]
 # }
+
+resource "proxmox_network_linux_bridge" "vmbr11_dm1" {
+  node_name  = "dm-1"
+  name       = "vmbr11"
+  vlan_aware = true
+
+  address = "10.0.1.14/24"
+  gateway = "10.0.1.1"
+
+  ports = [
+    "enxc8a362104ed6"
+  ]
+}
 
 resource "proxmox_network_linux_bridge" "vmbr11_server2" {
   node_name  = "server-2"
