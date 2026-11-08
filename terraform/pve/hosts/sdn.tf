@@ -12,8 +12,7 @@ resource "proxmox_sdn_fabric_node_ospf" "main_nuc1" {
   fabric_id       = proxmox_sdn_fabric_ospf.main.id
   node_id         = "nuc-1"
   ip              = "10.254.1.21"
-  interface_names = ["vmbr10.1", "vmbr10.3"]
-
+  interface_names = ["vmbr10.1", "vmbr10.3", "vmbr10.4"]
 }
 
 # resource "proxmox_sdn_fabric_node_ospf" "main_nuc2" {
@@ -27,21 +26,21 @@ resource "proxmox_sdn_fabric_node_ospf" "main_dm1" {
   fabric_id       = proxmox_sdn_fabric_ospf.main.id
   node_id         = "dm-1"
   ip              = "10.254.1.23"
-  interface_names = ["vmbr10.1", "vmbr10.2"]
+  interface_names = ["vmbr10.4", "vmbr10.5", "vmbr10.6"]
 }
 
 resource "proxmox_sdn_fabric_node_ospf" "main_server2" {
   fabric_id       = proxmox_sdn_fabric_ospf.main.id
   node_id         = "server-2"
   ip              = "10.254.1.26"
-  interface_names = ["vmbr10.1", "vmbr10.2"]
+  interface_names = ["vmbr10.1", "vmbr10.2", "vmbr10.6"]
 }
 
 resource "proxmox_sdn_fabric_node_ospf" "main_server1" {
   fabric_id       = proxmox_sdn_fabric_ospf.main.id
   node_id         = "server-1"
   ip              = "10.254.1.25"
-  interface_names = ["vmbr10.2", "vmbr10.3"]
+  interface_names = ["vmbr10.2", "vmbr10.3", "vmbr10.5"]
 }
 
 resource "proxmox_sdn_applier" "example_applier" {
