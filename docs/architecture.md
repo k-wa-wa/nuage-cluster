@@ -10,6 +10,7 @@ Proxmox VE の物理ノード (nuc-1 / server-1 / server-2、および導入準�
 - server-1 のみ `vmbr1` (192.168.1.0/24 接続) を追加で持ち、Proxy 用に使用する
 - server-2 は lm-server (llama.cpp) をホストする
 - 各機器の型番・部品構成は [hardware-inventory.md](./hardware-inventory.md) を参照
+- ルーター・スイッチのポートごとの配線と VLAN は [physical-wiring.md](./physical-wiring.md) を参照
 
 <img src="./architecture-physical.drawio.svg" style="background-color: #121212; padding: 8px;">
 

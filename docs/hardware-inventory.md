@@ -1,15 +1,17 @@
 # 物理機器インベントリ
 
 稼働中の物理機器の構成を記録する。
+ルーター・スイッチのどのポートに何がつながっているかは [physical-wiring.md](./physical-wiring.md) に記録する。
 
 ## 1. 全体像
 
 | 区分 | 機器 | 役割 |
 | :-- | :-- | :-- |
-| 回線終端 | シンクレイヤ SGP200W (GPON ONU, Wi-Fi 内蔵) | ONU / メインルーター (192.168.1.0/24) |
+| 回線終端 | シンクレイヤ SGP200W (GPON ONU, Wi-Fi 内蔵, NURO 光) | ONU / メインルーター (192.168.1.0/24) |
 | ルーター | TP-Link Omada ER605 (ギガビット マルチ WAN VPN ルーター) | VLAN ルーター (192.168.1.201 → 192.168.5.0/24) |
 | L2 スイッチ | TP-Link Omada ES220GMP (20 ポート, PoE+ 16 ポート, 250W, SFP 2) | 管理 LAN 収容 |
-| L2 スイッチ | TP-Link TL-SG108S (8 ポート, アンマネージド) | SDN Fabric (10.0.0.0/24) 専用スイッチの候補 ※要確認 |
+| L2 スイッチ | TP-Link TL-SG108S (8 ポート, アンマネージド) | Omada 管理 (VLAN1, 192.168.0.0/24) |
+| L2 スイッチ | TP-Link TL-SG105S (5 ポート, アンマネージド) | SDN Fabric (10.0.0.0/24) 専用 |
 | Proxmox ノード | nuc-1 (Intel NUC 11) | 各アプリ基盤 (nuc-2 は 2026-09 に故障で退役) |
 | Proxmox ノード | dm-1 (HP Desktop Mini, Core i5-8500T / 32GB) | 各アプリ基盤 (nuc-2 後継機、導入中・移植待ち) |
 | Proxmox ノード | server-1 (自作 AM4, Ryzen 9 5900XT / 64GB) | 各アプリ基盤 |
