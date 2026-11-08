@@ -87,9 +87,9 @@
 | :-- | :-- |
 | 機種 | HP ProDesk / EliteDesk 400 G4 / 600 G4 / 800 G4 DM (Desktop Mini) ※ 詳細型番・M.2 スロット仕様は確認要 |
 | CPU | Intel Core i5-8500T (6C/6T, 2.1GHz - 3.5GHz) |
-| メモリ | 32GB = nuc-2 から移植した DDR4-3200 SO-DIMM 16GB × 2 (スロット 2 / 最大 64GB) |
+| メモリ | 32GB = nuc-2 から移植した DDR4 SO-DIMM 16GB × 2。**2666MT/s で動作** (定格 3200)。スロット 2 / 最大 64GB |
 | ストレージ (起動) | 付属 SSD 256GB (PVE インストール済み) |
-| ストレージ (データ) | Kingston OM8PGP41024N 1TB NVMe (server-2 より再移植予定、ZFS `local-zfs` 予定) |
+| ストレージ (データ) | Kingston OM8PGP41024N-A0 1TB NVMe (server-2 より再移植予定、ZFS `local-zfs` 予定) |
 | NIC (vmbr0) | `eno1` = オンボード Intel I219 系 1GbE (e1000e) → **vmbr0** (192.168.5.23) |
 | NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156, nuc-2 から取り外して保管中のものを流用予定) |
 | NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179, nuc-2 から取り外して保管中のものを流用予定) |

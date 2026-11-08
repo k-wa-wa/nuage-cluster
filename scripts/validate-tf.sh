@@ -9,7 +9,7 @@ echo "=== Terraform Validation ==="
 
 # 1. Terragrunt HCL Format Check
 echo "Checking Terragrunt HCL format..."
-terragrunt hcl format --check 2>/dev/null || terragrunt hclfmt --check
+terragrunt hcl format --check
 
 # 2. TFlint Check
 echo "Running TFlint..."
