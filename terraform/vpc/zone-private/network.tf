@@ -2,6 +2,7 @@ resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_private" {
   id = "private"
   nodes = [
     "nuc-1",
+    "dm-1",
     # "nuc-2",
     "server-1",
     "server-2",
@@ -11,6 +12,7 @@ resource "proxmox_virtual_environment_sdn_zone_evpn" "zone_private" {
   mtu        = 1450
   exit_nodes = [
     "nuc-1",
+    "dm-1",
     # "nuc-2",
     "server-1",
     "server-2",

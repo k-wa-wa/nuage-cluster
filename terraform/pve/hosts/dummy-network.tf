@@ -5,6 +5,13 @@ resource "proxmox_network_linux_bridge" "dummy_nuc1" {
   address = "192.168.99.21/24"
 }
 
+resource "proxmox_network_linux_bridge" "dummy_dm1" {
+  node_name = "dm-1"
+  name      = "dummy"
+
+  address = "192.168.99.23/24"
+}
+
 # resource "proxmox_network_linux_bridge" "dummy_nuc2" {
 #   node_name = "nuc-2"
 #   name      = "dummy"

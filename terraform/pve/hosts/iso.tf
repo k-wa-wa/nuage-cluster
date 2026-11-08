@@ -22,6 +22,7 @@ output "talos_schematic_id" {
 resource "proxmox_download_file" "talos_iscsi_image" {
   for_each = toset([
     "nuc-1",
+    "dm-1",
     # "nuc-2",
     "server-1",
     "server-2",
@@ -40,6 +41,7 @@ resource "proxmox_download_file" "talos_iscsi_image" {
 resource "proxmox_download_file" "nixos_base_lxc" {
   for_each = toset([
     "nuc-1",
+    "dm-1",
     # "nuc-2",
     "server-1",
     "server-2",
@@ -55,6 +57,7 @@ resource "proxmox_download_file" "nixos_base_lxc" {
 resource "proxmox_download_file" "nixos_base_vm" {
   for_each = toset([
     "nuc-1",
+    "dm-1",
     # "nuc-2",
     "server-1",
     "server-2",

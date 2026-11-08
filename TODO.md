@@ -50,7 +50,7 @@
 
 - [x] **マニフェスト・IaC・NixOS のローカル検証スクリプト整備**
   - `scripts/validate-manifests.sh` (`kustomize build --enable-helm` + kubeconform スキーマ検証 + kube-linter) を整備
-  - `scripts/validate-tf.sh` (`tofu validate` + `terragrunt hclfmt --check` + `tflint`) を整備
+  - `scripts/validate-tf.sh` (`tofu validate` + `terragrunt hcl format --check` + `tflint`) を整備
   - `scripts/validate-nix.sh` (`nix flake check`) を整備
 - [ ] **GitHub Actions によるマニフェスト / IaC 検証 CI の自動化**
   - 現状 GitHub Actions は `nix-images.yaml` (LXC イメージビルド) のみ。master push = 即本番同期 (prune + selfHeal) なので、PR / push 時にローカル検証スクリプトと同等の CI を回して壊れた変更を事前に防ぐ

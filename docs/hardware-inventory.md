@@ -13,6 +13,7 @@
 | L2 スイッチ | TP-Link TL-SG108S (8 ポート, アンマネージド) | Omada 管理 (VLAN1, 192.168.0.0/24) |
 | L2 スイッチ | TP-Link TL-SG105S (5 ポート, アンマネージド) | SDN Fabric (10.0.0.0/24) 専用 |
 | Proxmox ノード | nuc-1 (Intel NUC 11) | 各アプリ基盤 (nuc-2 は 2026-09 に故障で退役) |
+| Proxmox ノード | dm-1 (HP Desktop Mini, Core i5-8500T / 32GB) | 各アプリ基盤 (nuc-2 後継機、導入中・移植待ち) |
 | Proxmox ノード | server-1 (自作 AM4, Ryzen 9 5900XT / 64GB) | 各アプリ基盤 |
 | Proxmox ノード | server-2 (自作 AM4, Ryzen 5 5500 / 64GB / RX 7600 系 × 2) | 各アプリ基盤、GPU サーバー |
 | ストレージ | TrueNAS | バックアップ、PBS |
@@ -82,6 +83,20 @@
 | NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4。`enp9s0` → **vmbr10 (SDN Fabric)** / `enp10s0` → **vmbr11 (インターネット出口)** / `enp11s0`, `enp12s0` は未接続 |
 | 電源・ケース | SilverStone 4U ラックマウント SST-RM41-506 |
 
+### 2.5 dm-1 (HP Desktop Mini)
+
+| 項目 | 内容 |
+| :-- | :-- |
+| 機種 | HP ProDesk / EliteDesk 400 G4 / 600 G4 / 800 G4 DM (Desktop Mini) ※ 詳細型番・M.2 スロット仕様は確認要 |
+| CPU | Intel Core i5-8500T (6C/6T, 2.1GHz - 3.5GHz) |
+| メモリ | 32GB = nuc-2 から移植した DDR4 SO-DIMM 16GB × 2。**2666MT/s で動作** (定格 3200)。スロット 2 / 最大 64GB |
+| ストレージ (起動) | 付属 SSD 256GB (PVE インストール済み) |
+| ストレージ (データ) | Kingston OM8PGP41024N-A0 1TB NVMe (server-2 より再移植予定、ZFS `local-zfs` 予定) |
+| NIC (vmbr0) | `eno1` = オンボード Intel I219 系 1GbE (e1000e) → **vmbr0** (192.168.5.23) |
+| NIC (vmbr10) | `enx6c1ff772646d` = USB 2.5GbE アダプター (Realtek RTL8156, nuc-2 から取り外して保管中のものを流用予定) |
+| NIC (vmbr11) | `enxc8a362104ed6` = USB 1GbE アダプター (ASIX AX88179, nuc-2 から取り外して保管中のものを流用予定) |
+| 状態 | 故障退役した nuc-2 の後継機として導入中 (移植待ち)。現在 server-2 に退避稼働中の SSD (Kingston 1TB NVMe) の再移植、および保管中の USB NIC 2 本の接続を行い、ワークロードを復帰予定。※ 機種型番および付属 256GB SSD の種別 (M.2 か 2.5" SATA か) によって M.2 スロットの排他・拡張性に注意を要する |
+
 ## 3. ストレージ
 
 ### 3.1. TrueNAS
@@ -107,5 +122,6 @@
 | LAN ケーブル | CAT 7 / CAT 6A 等混在 |
 | Raspberry Pi 5 8GB × 4 + GeeekPi クラスターケース + 27W 電源 × 4 | 現在不使用 |
 | GeeekPi 19 インチ 1U ラックマウント品 | Raspberry Pi 5 用 |
+| DDR4 SO-DIMM 8GB × 1 | dm-1 標準搭載品 (32GB 換装に伴う余剰パーツ) |
 
 UPS は未導入。
