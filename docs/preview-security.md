@@ -126,15 +126,15 @@ jobs:
 
 ### 5.2 恒常的セキュリティ検証 CronJob (`manifests/apps/preview-isolation-test/`)
 
-ネットワークポリシーの適用漏れや Cilium 設定変更時の構成ドリフト、ならびにコンテナランタイム境界（PSA baseline 基準）の逸脱を継続的に検知するため、`preview-isolation-test` Namespace に `CronJob` (`preview-isolation-test`) を常設する。
+ネットワークポリシーの適用漏れや Cilium 設定変更時の構成ドリフト、ならびにコンテナランタイム（containerd/Talos）における既定セキュリティ境界（Masked/Read-Only パス、デバイス隔離、特権ケーパビリティ非付与）の設定ドリフトを継続的に検知するため、`preview-isolation-test` Namespace に `CronJob` (`preview-isolation-test`) を常設する。
 スクリプト本体は shellcheck による静的解析を維持するため `run-isolation-test.sh` として独立ファイルで管理し、Kustomize の `configMapGenerator` 経由で ConfigMap に展開する。
 
 - **スケジュール**: 15 分おき（`*/15 * * * *`、`concurrencyPolicy: Forbid`）
 - **ジョブ制御と耐障害性**:
   - `imagePullPolicy: IfNotPresent` を明示し、Docker Hub への毎回 pull による遅延や外部レート制限による失敗を防止する。
   - `activeDeadlineSeconds: 180` により、検証項目拡充に伴うタイムアウトを緩和しつつハングを防止する。
-  - `failedJobsHistoryLimit: 1` により、古い失敗履歴を無制限に残さず最新 1 件のみ保持する。
-  - `ttlSecondsAfterFinished: 86400`（24時間）により、完了・失敗した Job を自動クリーンアップし、Grafana 等の壁掛けモニターへのアラート（`KubeJobFailed`）残留を恒久防止する。
+  - `failedJobsHistoryLimit: 1` により、古い失敗履歴を最新 1 件のみ保持する（変更前の 3 件から削減）。
+  - `ttlSecondsAfterFinished: 86400`（24時間）により、完了・失敗した Job を自動クリーンアップする。Kubernetes CronJob は成功と失敗の履歴を独立してカウントするため、一度失敗した Job は後続 Job が成功しても即座には削除されず、TTL（最大 24 時間）経過または次の失敗発生まで残存する。これにより Grafana 壁掛けモニター等の `KubeJobFailed` アラートは最大 24 時間で自動解消される（※より迅速なアラート解消が必要な場合は、TTL 短縮や Prometheus アラート条件の見直しを検討する）。
 - **検証項目 (`run-isolation-test.sh`)**:
   - Cilium によるパケット drop は必ずタイムアウトになるため、遮断テストでは `nc -z -vv -w 3` の出力が `Connection timed out`（かつ終了コード非 0）となった場合のみを PASS とし、それ以外（疎通成功、相手ホストからの TCP RST / `Connection refused`、`No route to host`、名前解決失敗等）はすべてポリシー未機能として FAIL 扱いにする。
   1. **遮断テスト（自宅 LAN / PBS `192.168.5.30:8007`）**: `Connection timed out`（drop）なら PASS、それ以外（疎通・`Connection refused`・到達不能応答等）は FAIL。
@@ -147,9 +147,9 @@ jobs:
   8. **許可テスト（CoreDNS `10.96.0.10:53` TCP および `nslookup` UDP 名前解決）**: 両方成功すれば PASS、いずれか失敗なら FAIL。
   9. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
   10. **許可テスト（`pechka` 本番外部リソース：MinIO VIP `10.20.1.60:9000` および PostgreSQL VIP `10.20.1.40:5432`）**: 両方疎通すれば PASS、いずれか遮断されれば FAIL。
-  11. **コンテナ境界テスト（Masked / Read-Only パス）**: `/proc/sys` および `/sys` への書き込み試行が `Read-only file system` 等で拒否されることを検証。コンテナエスケープの起点となるホストカーネルパラメータ改ざん（`sysctl` や `sysfs` 経由）を防止する設計意図。
+  11. **コンテナ境界テスト（Masked / Read-Only パス）**: `/proc/self/mountinfo` で `/proc/sys` および `/sys` が `ro` マウントされていることを確認した上で、書き込み試行が `Read-only file system` (EROFS) で拒否されることを検証。コンテナエスケープの起点となるホストカーネルパラメータ改ざん（`sysctl` や `sysfs` 経由）を防止する設計意図。
   12. **コンテナ境界テスト（ホスト生ブロックデバイス非露出）**: `/dev/` 配下にホストの生ブロックデバイス（`sda*`, `vda*`, `nvme*`, `xvd*`, `dm-*` 等）が存在しないことを検証。ストレージ生パーティションの直接マウントや破壊を防止する設計意図。
-  13. **コンテナ境界テスト（Linux 特権ケーパビリティ非保持）**: `/proc/self/status` の `CapEff` を読み取り、`CAP_SYS_ADMIN`（`0x00200000`）をはじめとする危険な特権ケーパビリティ（`CAP_SYS_MODULE`, `CAP_SYS_RAWIO`, `CAP_SYS_PTRACE`, `CAP_SYS_BOOT`）が付与されていないことを検証。PSA baseline 基準の逸脱や特権コンテナ化による権限昇格を恒常的に検知する設計意図。
+  13. **コンテナ境界テスト（Linux 特権ケーパビリティ非保持）**: `/proc/self/status` の `CapEff` を読み取り、`CAP_SYS_ADMIN`（`0x00200000`）をはじめとする危険な特権ケーパビリティ（`CAP_SYS_MODULE`, `CAP_SYS_RAWIO`, `CAP_SYS_PTRACE`, `CAP_SYS_BOOT`）が付与されていないことを検証。非特権コンテナに対する containerd/Talos ランタイム既定値のドリフトを検知する設計意図（※本検証 Pod 自体は特権を要求しないため、PSA admission による特権 Pod 拒否そのものを検証するものではない点に留意）。
 - 1 つでも違反があればスクリプトは Exit 1 で終了し、Job が `Failed` 状態として記録される。
 
 ## 6. マージ後のクラスタ確認・監視手順

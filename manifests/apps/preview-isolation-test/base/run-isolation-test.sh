@@ -53,24 +53,34 @@ check_dns_udp() {
 check_readonly_path() {
   name="$1"
   path="$2"
+
+  # 1. /proc/self/mountinfo から該当マウントポイントのオプションを取得し、ro が指定されているか検証
+  if [ -r /proc/self/mountinfo ]; then
+    mount_opts="$(awk -v target="$path" '$5 == target { opts = $6 } END { print opts }' /proc/self/mountinfo)"
+    if [ -z "$mount_opts" ]; then
+      echo "[FAIL] Mount point not found in /proc/self/mountinfo: ${name} (${path})"
+      FAILED=1
+      return
+    fi
+    if ! echo "$mount_opts" | grep -Eq "(^|,)ro(,|$)"; then
+      echo "[FAIL] Mount point is not mounted read-only (opts: ${mount_opts}): ${name} (${path})"
+      FAILED=1
+      return
+    fi
+  fi
+
+  # 2. 実際の書き込み試行が EROFS (Read-only file system) で拒否されるか検証
   probe="${path}/.__isolation_test_probe_$$"
   out="$(touch "$probe" 2>&1)"
   rc=$?
-  # /proc/sys は procfs のため、新規作成が ENOENT になる環境への配慮として実在エントリでも検証
-  if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "No such file or directory" && [ -e "${path}/kernel/domainname" ]; then
-    probe="${path}/kernel/domainname"
-    out="$(touch "$probe" 2>&1)"
-    rc=$?
-  fi
-
   if [ "$rc" -eq 0 ]; then
-    [ -f "$probe" ] && [ "$probe" != "${path}/kernel/domainname" ] && rm -f "$probe" >/dev/null 2>&1 || true
+    rm -f "$probe" >/dev/null 2>&1 || true
     echo "[FAIL] Read-only path unexpectedly writable: ${name} (${path})"
     FAILED=1
-  elif echo "$out" | grep -Eqi "Read-only|Permission denied|Operation not permitted"; then
-    echo "[PASS] Read-only path write rejected as expected: ${name} (${path}) - ${out}"
+  elif echo "$out" | grep -qi "Read-only"; then
+    echo "[PASS] Read-only path verified (mount is ro and write rejected with EROFS): ${name} (${path})"
   else
-    echo "[FAIL] Read-only path write failed with unexpected error: ${name} (${path}) - ${out}"
+    echo "[FAIL] Read-only path write did not fail with EROFS (Read-only file system): ${name} (${path}) - ${out}"
     FAILED=1
   fi
 }
