@@ -264,6 +264,7 @@
             mainframeApps = [
               nuage-usage-ledger.packages.x86_64-linux.default
             ];
+            mainframeJobMetrics = nuage-usage-ledger.packages.x86_64-linux.mainframe-job-metrics;
             cicerone3270 = cicerone3270.packages.x86_64-linux.default;
           };
           modules = [
