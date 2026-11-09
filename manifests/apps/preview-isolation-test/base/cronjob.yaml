@@ -7,17 +7,19 @@ spec:
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      ttlSecondsAfterFinished: 86400
       backoffLimit: 1
-      activeDeadlineSeconds: 120
+      activeDeadlineSeconds: 180
       template:
         spec:
           restartPolicy: Never
           containers:
             - name: isolation-test
               image: busybox:latest
+              imagePullPolicy: IfNotPresent
               command:
                 - /scripts/run-isolation-test.sh
               resources:
