@@ -3,7 +3,7 @@ set -u
 
 FAILED=0
 
-echo "=== Starting Preview Environment Network Isolation Test ==="
+echo "=== Starting Preview Environment Security & Network Isolation Test ==="
 
 # Cilium による パケット drop は必ずタイムアウト (Connection timed out) になる。
 # busybox nc では -vv 指定時のみ Connection refused / Connection timed out 等が出力されるため、
@@ -50,28 +50,147 @@ check_dns_udp() {
   fi
 }
 
-# 1. 遮断テスト: 自宅 LAN / Proxmox (PBS)
+check_readonly_path() {
+  name="$1"
+  path="$2"
+  probe="${path}/.__isolation_test_probe_$$"
+  out="$(touch "$probe" 2>&1)"
+  rc=$?
+  # /proc/sys は procfs のため、新規作成が ENOENT になる環境への配慮として実在エントリでも検証
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "No such file or directory" && [ -e "${path}/kernel/domainname" ]; then
+    probe="${path}/kernel/domainname"
+    out="$(touch "$probe" 2>&1)"
+    rc=$?
+  fi
+
+  if [ "$rc" -eq 0 ]; then
+    [ -f "$probe" ] && [ "$probe" != "${path}/kernel/domainname" ] && rm -f "$probe" >/dev/null 2>&1 || true
+    echo "[FAIL] Read-only path unexpectedly writable: ${name} (${path})"
+    FAILED=1
+  elif echo "$out" | grep -Eqi "Read-only|Permission denied|Operation not permitted"; then
+    echo "[PASS] Read-only path write rejected as expected: ${name} (${path}) - ${out}"
+  else
+    echo "[FAIL] Read-only path write failed with unexpected error: ${name} (${path}) - ${out}"
+    FAILED=1
+  fi
+}
+
+check_no_host_devices() {
+  found_devs=""
+  for dev_pattern in /dev/sd* /dev/vd* /dev/nvme* /dev/xvd* /dev/dm-*; do
+    if [ -e "$dev_pattern" ]; then
+      found_devs="${found_devs} ${dev_pattern}"
+    fi
+  done
+
+  if [ -n "$found_devs" ]; then
+    echo "[FAIL] Host raw block device(s) exposed in /dev:${found_devs}"
+    FAILED=1
+  else
+    echo "[PASS] No raw host block devices exposed in /dev (/dev/sd*, /dev/vd*, /dev/nvme*, etc.)"
+  fi
+}
+
+check_capabilities() {
+  if [ ! -r /proc/self/status ]; then
+    echo "[FAIL] Cannot read /proc/self/status for capability audit"
+    FAILED=1
+    return
+  fi
+
+  capeff_hex="$(awk '/^CapEff:/ {print $2}' /proc/self/status)"
+  if [ -z "$capeff_hex" ]; then
+    echo "[FAIL] CapEff not found in /proc/self/status"
+    FAILED=1
+    return
+  fi
+
+  capeff_val=$(( 0x${capeff_hex} ))
+
+  # 危険な特権ケーパビリティビットの定義
+  # CAP_SYS_ADMIN:  bit 21 (0x00200000)
+  # CAP_SYS_MODULE: bit 16 (0x00010000)
+  # CAP_SYS_RAWIO:  bit 17 (0x00020000)
+  # CAP_SYS_PTRACE: bit 19 (0x00080000)
+  # CAP_SYS_BOOT:   bit 22 (0x00400000)
+  cap_admin=$(( 0x00200000 ))
+  cap_module=$(( 0x00010000 ))
+  cap_rawio=$(( 0x00020000 ))
+  cap_ptrace=$(( 0x00080000 ))
+  cap_boot=$(( 0x00400000 ))
+
+  found_dangerous=""
+  if [ $(( capeff_val & cap_admin )) -ne 0 ]; then
+    found_dangerous="${found_dangerous} CAP_SYS_ADMIN(0x200000)"
+  fi
+  if [ $(( capeff_val & cap_module )) -ne 0 ]; then
+    found_dangerous="${found_dangerous} CAP_SYS_MODULE(0x10000)"
+  fi
+  if [ $(( capeff_val & cap_rawio )) -ne 0 ]; then
+    found_dangerous="${found_dangerous} CAP_SYS_RAWIO(0x20000)"
+  fi
+  if [ $(( capeff_val & cap_ptrace )) -ne 0 ]; then
+    found_dangerous="${found_dangerous} CAP_SYS_PTRACE(0x80000)"
+  fi
+  if [ $(( capeff_val & cap_boot )) -ne 0 ]; then
+    found_dangerous="${found_dangerous} CAP_SYS_BOOT(0x400000)"
+  fi
+
+  if [ -n "$found_dangerous" ]; then
+    echo "[FAIL] Dangerous capability retained in CapEff (${capeff_hex}):${found_dangerous}"
+    FAILED=1
+  else
+    echo "[PASS] No dangerous capabilities retained in CapEff (${capeff_hex})"
+  fi
+}
+
+# --- 1. ネットワーク遮断テスト ---
+
+# 1.1 遮断テスト: 自宅 LAN / Proxmox (PBS)
 check_blocked "Home LAN / PBS" "192.168.5.30" "8007"
 
-# 2. 遮断テスト: k8s コントロールプレーン (Talos API)
+# 1.2 遮断テスト: k8s コントロールプレーン (Talos API)
 check_blocked "k8s Control Plane / Talos API" "10.20.1.11" "50000"
 
-# 3. 遮断テスト: k8s API サーバー (kubernetes.default)
+# 1.3 遮断テスト: ノード Kubelet API
+check_blocked "Node Kubelet API" "10.20.1.11" "10250"
+
+# 1.4 遮断テスト: Cilium ヘルスチェックポート
+check_blocked "Cilium Health Check" "10.20.1.11" "4240"
+
+# 1.5 遮断テスト: クラウド／リンクローカルメタデータ
+check_blocked "Cloud Metadata / Link-Local" "169.254.169.254" "80"
+
+# 1.6 遮断テスト: k8s API サーバー (kubernetes.default)
 check_blocked "k8s API Server (kubernetes.default)" "10.96.0.1" "443"
 
-# 4. 遮断テスト: 他 Namespace / システム Namespace (Argo CD Server)
+# 1.7 遮断テスト: 他 Namespace / システム Namespace (Argo CD Server)
 check_blocked "Other Namespace / Argo CD Server" "argocd-server.argocd.svc.cluster.local" "80"
 
-# 5. 許可テスト: CoreDNS (TCP 53 および UDP 名前解決)
+# --- 2. ネットワーク許可テスト ---
+
+# 2.1 許可テスト: CoreDNS (TCP 53 および UDP 名前解決)
 check_allowed "CoreDNS (TCP)" "10.96.0.10" "53"
 check_dns_udp "CoreDNS (UDP nslookup)" "kubernetes.default.svc.cluster.local" "10.96.0.10"
 
-# 6. 許可テスト: パブリックインターネット (Cloudflare)
+# 2.2 許可テスト: パブリックインターネット (Cloudflare)
 check_allowed "Public Internet (Cloudflare)" "1.1.1.1" "443"
 
-# 7. 許可テスト: pechka 本番外部リソース (MinIO / SeaweedFS S3 VIP および PostgreSQL VIP)
+# 2.3 許可テスト: pechka 本番外部リソース (MinIO / SeaweedFS S3 VIP および PostgreSQL VIP)
 check_allowed "pechka Prod MinIO (SeaweedFS VIP)" "10.20.1.60" "9000"
 check_allowed "pechka Prod PostgreSQL (VIP)" "10.20.1.40" "5432"
+
+# --- 3. コンテナ・ランタイム境界の健全性検証 ---
+
+# 3.1 Masked / Read-Only パスの検証
+check_readonly_path "Kernel Sysctl (/proc/sys)" "/proc/sys"
+check_readonly_path "Sysfs (/sys)" "/sys"
+
+# 3.2 ホスト生ブロックデバイスの非露出検証
+check_no_host_devices
+
+# 3.3 Linux 特権ケーパビリティの非保持検証
+check_capabilities
 
 if [ "$FAILED" -ne 0 ]; then
   echo "=== Isolation Test FAILED ==="
