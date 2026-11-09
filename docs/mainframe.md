@@ -131,7 +131,7 @@ JCL の 1 行が 80 桁なのは、紙のカード 1 枚が 80 桁だったか�
 | `nix/hosts/mainframe/kicks.nix` | KICKS for TSO 1.5.0 (CICS 互換のトランザクション処理) の配布物。導入は mvs-config が行う (5 章「KICKS (オンライン)」) |
 | `nix/hosts/mainframe/secrets.yaml` | MVS の管理者 (IBMUSER) のパスワード (SOPS) |
 | `nix/hosts/mainframe/printer.nix`, `tools/printer.py` | 帳票プリンタの印字を PDF にするプリンタ役 |
-| `nix/hosts/mainframe/job-metrics.nix`, `tools/job_metrics.py` | ジョブの成否を `mvslog.txt` から読み、node-exporter の textfile collector へ書き出す |
+| `nix/hosts/mainframe/job-metrics.nix` | ジョブの成否を `mvslog.txt` から読み、node-exporter の textfile collector へ書き出す（スクリプトは `nuage-usage-ledger` の `scripts/job_metrics.py` / `packages.x86_64-linux.mainframe-job-metrics` から受け取る） |
 | `nix/hosts/mainframe/terminal.nix`, `guide/` | 3270 端末の案内 cicerone3270 に、基盤 (`guide/`) と業務アプリの辞書を足して入れる |
 | `nix/hosts/loadbalancer/haproxy.cfg` | VIP `:3270` → `10.20.1.90:3270` の TN3270 中継 |
 
