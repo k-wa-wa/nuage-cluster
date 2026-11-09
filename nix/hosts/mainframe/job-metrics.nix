@@ -1,14 +1,10 @@
-{ pkgs, ... }:
+{ mainframeJobMetrics, ... }:
 
 # MVS のバッチジョブの成否をコンソールログ (mvslog.txt) から拾い、
 # node-exporter の textfile collector (/var/lib/prometheus/node-exporter/mvs_jobs.prom) に書き出す。
 
 let
   textfileDir = "/var/lib/prometheus/node-exporter";
-
-  mainframe-job-metrics = pkgs.writers.writePython3Bin "mainframe-job-metrics" {
-    flakeIgnore = [ "E501" ];
-  } (builtins.readFile ./tools/job_metrics.py);
 in
 {
   systemd.tmpfiles.rules = [
@@ -36,7 +32,7 @@ in
       User = "hercules";
       Group = "mainframe";
       UMask = "0022";
-      ExecStart = "${mainframe-job-metrics}/bin/mainframe-job-metrics --prom-file ${textfileDir}/mvs_jobs.prom";
+      ExecStart = "${mainframeJobMetrics}/bin/mainframe-job-metrics --prom-file ${textfileDir}/mvs_jobs.prom";
     };
   };
 }
