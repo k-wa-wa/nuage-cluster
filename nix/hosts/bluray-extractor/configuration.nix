@@ -3,7 +3,6 @@
 {
   imports = [
     ./extract.nix
-    ../../modules/node-exporter-systemd.nix
   ];
 
   environment.systemPackages = with pkgs; [
@@ -19,10 +18,4 @@
       type = "ed25519";
     }
   ];
-
-  services.prometheus.exporters.node = {
-    enable = true;
-    port = 9100;
-    openFirewall = true;
-  };
 }

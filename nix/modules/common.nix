@@ -13,6 +13,7 @@ in
     ./agent-user.nix
     ./journald-upload.nix
     ./auto-upgrade-rollback.nix
+    ./node-exporter-systemd.nix
   ];
 
   services.openssh.settings = {
@@ -35,4 +36,10 @@ in
   # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
   systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
     "-/var/lib/nix-provisioning/access-tokens-env";
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    openFirewall = true;
+  };
 }

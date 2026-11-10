@@ -10,7 +10,6 @@
     ./printer.nix
     ./job-metrics.nix
     ./terminal.nix
-    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
@@ -18,17 +17,11 @@
     nameservers = [ "8.8.8.8" ];
   };
 
-  # 各ノードのメトリクス収集用ノードエクスポーターを有効化する。
-  # node-exporter-systemd.nix により hercules.service の稼働状態も取れる
   services.prometheus.exporters.node = {
-    enable = true;
-    port = 9100;
     extraFlags = [
       "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
     ];
   };
-
-  networking.firewall.allowedTCPPorts = [ 9100 ];
 
   system.autoUpgrade.healthCheck.requiredUnits = [
     "hercules.service"
