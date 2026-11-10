@@ -36,6 +36,7 @@ let
     effective_cache_size = "6GB";
     work_mem = "32MB";
     maintenance_work_mem = "512MB";
+    autovacuum_work_mem = "128MB";
     random_page_cost = 1.1;
     effective_io_concurrency = 200;
     max_wal_size = "4GB";
