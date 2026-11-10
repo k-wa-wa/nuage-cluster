@@ -29,6 +29,20 @@ let
 
   # DCS（etcd）のホストアドレスリストを生成する
   etcdHosts = lib.mapAttrsToList (name: val: "${val.ip}:2379") hosts;
+
+  # SSD/ZFS ストレージおよび 8GB メモリ構成向けのチューニングパラメータ
+  postgresTuningParameters = {
+    shared_buffers = "2GB";
+    effective_cache_size = "6GB";
+    work_mem = "32MB";
+    maintenance_work_mem = "512MB";
+    autovacuum_work_mem = "128MB";
+    random_page_cost = 1.1;
+    effective_io_concurrency = 200;
+    max_wal_size = "4GB";
+    min_wal_size = "1GB";
+    checkpoint_completion_target = 0.9;
+  };
 in
 {
   sops = {
@@ -76,7 +90,8 @@ in
         connect_address = lib.mkForce "${myIp}:5432";
         parameters = {
           unix_socket_directories = "/tmp";
-        };
+        }
+        // postgresTuningParameters;
         authentication = {
           superuser = {
             username = "postgres";
@@ -122,7 +137,6 @@ in
             parameters = {
               synchronous_commit = "on";
               max_connections = 100;
-              shared_buffers = "1GB";
               archive_mode = "on";
               archive_command = "true";
               wal_level = "replica";
@@ -130,7 +144,8 @@ in
               max_replication_slots = 10;
               hot_standby = "on";
               unix_socket_directories = "/tmp";
-            };
+            }
+            // postgresTuningParameters;
           };
         };
         initdb = [
