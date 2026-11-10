@@ -3,6 +3,7 @@
 {
   imports = [
     ../base-lxc/configuration.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
@@ -350,6 +351,12 @@
   networking.firewall.allowedTCPPorts = [
     3000
   ];
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    openFirewall = true;
+  };
 
   system.autoUpgrade.healthCheck.requiredUnits = [
     "prometheus.service"

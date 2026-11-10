@@ -19,6 +19,7 @@
     ./devtools.nix
     ./home.nix
     ./orca.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
@@ -93,4 +94,10 @@
   system.activationScripts.atelierSetupScript = lib.stringAfter [ "users" ] ''
     install -D -m 0755 -o nixos ${./setup.sh} /home/nixos/setup.sh
   '';
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    openFirewall = true;
+  };
 }

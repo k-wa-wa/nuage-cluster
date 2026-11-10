@@ -4,6 +4,7 @@
   imports = [
     ./llama-cpp.nix
     ./gpu-reboot-once.nix
+    ../../modules/node-exporter-systemd.nix
   ];
 
   environment.systemPackages = with pkgs; [
@@ -34,6 +35,12 @@
     extraPackages = with pkgs; [
       rocmPackages.clr.icd
     ];
+  };
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    port = 9100;
+    openFirewall = true;
   };
 
   system.autoUpgrade.healthCheck.requiredUnits = [
