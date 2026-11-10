@@ -35,4 +35,19 @@ in
   # nix-daemon がトークンファイルを読み込む (ファイルが存在しない場合はエラーにならない)
   systemd.services.nix-daemon.serviceConfig.EnvironmentFile =
     "-/var/lib/nix-provisioning/access-tokens-env";
+
+  boot.kernel.sysctl = {
+    # 接続キューの拡大（バースト耐性・再接続時の接続拒否防止）
+    "net.core.somaxconn" = 32768;
+
+    # TCP 送受信バッファ上限を 16MB に拡大（BDP最適化・S3等の大容量転送の頭打ち解消）
+    "net.ipv4.tcp_rmem" = "4096 87380 16777216";
+    "net.ipv4.tcp_wmem" = "4096 65536 16777216";
+
+    # アイドル後のスロースタート抑制（Keep-Alive / コネクションプールの初速改善）
+    "net.ipv4.tcp_slow_start_after_idle" = 0;
+
+    # TIME_WAIT ソケットの再利用（LB / プロキシでのポート枯渇防止）
+    "net.ipv4.tcp_tw_reuse" = 1;
+  };
 }
