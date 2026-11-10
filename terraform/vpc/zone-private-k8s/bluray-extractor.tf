@@ -29,7 +29,8 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   node_name = "nuc-1"
   vm_id     = 240
 
-  on_boot = true
+  on_boot             = true
+  reboot_after_update = false
 
   machine       = "q35"
   bios          = "ovmf"
@@ -74,7 +75,6 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
     cache        = "none"
     discard      = "on"
     iothread     = true
-    ssd          = true
   }
 
   network_device {

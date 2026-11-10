@@ -22,7 +22,7 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
   protection          = false
   purge_on_destroy    = true
   reboot              = false
-  reboot_after_update = true
+  reboot_after_update = false
   scsi_hardware       = "virtio-scsi-single"
   started             = true
   stop_on_destroy     = false

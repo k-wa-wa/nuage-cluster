@@ -45,7 +45,8 @@ resource "proxmox_virtual_environment_vm" "atelier" {
   node_name = "server-1"
   vm_id     = 252
 
-  on_boot = true
+  on_boot             = true
+  reboot_after_update = false
 
   machine       = "q35"
   bios          = "ovmf"
@@ -91,7 +92,6 @@ resource "proxmox_virtual_environment_vm" "atelier" {
     cache        = "none"
     discard      = "on"
     iothread     = true
-    ssd          = true
   }
 
   network_device {

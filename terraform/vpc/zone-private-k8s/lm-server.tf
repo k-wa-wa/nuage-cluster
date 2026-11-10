@@ -29,7 +29,8 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   vm_id     = 230
   started   = false
 
-  on_boot = false
+  on_boot             = false
+  reboot_after_update = false
 
   machine       = "q35"
   bios          = "ovmf"
@@ -67,7 +68,6 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
     cache        = "none"
     discard      = "on"
     iothread     = true
-    ssd          = true
   }
 
   network_device {

@@ -133,7 +133,8 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
   name      = "${var.cluster_config.cluster.name}-${each.key}"
   node_name = each.value.node_name
 
-  scsi_hardware = "virtio-scsi-single"
+  reboot_after_update = false
+  scsi_hardware       = "virtio-scsi-single"
 
   cpu {
     cores = each.value.cores
