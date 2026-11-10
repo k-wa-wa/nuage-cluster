@@ -51,6 +51,7 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 curl -fsSL https://gh.io/copilot-install | bash
 
 # Orca から起動したときに「権限確認を飛ばしてよいか」の初回確認で止まらないようにする。
+# 会話履歴 (~/.claude/projects/*/*.jsonl) が 30 日で自動削除されるのを防ぐため、保持期間を延長する。
 # settings.json は Orca がフックを書き込むので、nix で管理せずキーだけを足す。
 settings="$HOME/.claude/settings.json"
 mkdir -p "$(dirname "$settings")"
