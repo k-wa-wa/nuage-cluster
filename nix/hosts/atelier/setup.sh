@@ -55,7 +55,7 @@ curl -fsSL https://gh.io/copilot-install | bash
 settings="$HOME/.claude/settings.json"
 mkdir -p "$(dirname "$settings")"
 [ -s "$settings" ] || echo '{}' >"$settings"
-jq '.skipDangerousModePermissionPrompt = true' "$settings" >"$settings.tmp"
+jq '.skipDangerousModePermissionPrompt = true | .cleanupPeriodDays = 99999' "$settings" >"$settings.tmp"
 mv "$settings.tmp" "$settings"
 
 echo "== git の名前 (bot)"
