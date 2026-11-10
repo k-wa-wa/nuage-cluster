@@ -15,6 +15,48 @@ helmCharts:
       helmProvider:
         # Argo CD 管理環境であり Helm release Secret の走査は不要なため無効化する
         enabled: false
+      rbac:
+        clusterRole:
+          # 監視対象はすべて公開イメージであり imagePullSecrets や Helm provider の Secret は不要なため、上流デフォルトから secrets 権限を除外する
+          rules:
+            - apiGroups:
+                - ""
+              resources:
+                - namespaces
+                - nodes
+              verbs:
+                - get
+                - watch
+                - list
+            - apiGroups:
+                - ""
+                - extensions
+                - apps
+                - batch
+              resources:
+                - pods
+                - replicasets
+                - replicationcontrollers
+                - statefulsets
+                - deployments
+                - daemonsets
+                - jobs
+                - cronjobs
+              verbs:
+                - get
+                - delete
+                - watch
+                - list
+                - update
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+                - pods/portforward
+              verbs:
+                - get
+                - create
+                - update
       extraEnv:
         - name: WEBHOOK_ENDPOINT
           value: "http://monitoring-pwa-backend.nuage-monitoring-stack.svc.cluster.local/webhook/keel"
