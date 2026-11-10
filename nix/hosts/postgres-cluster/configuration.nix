@@ -11,7 +11,6 @@
     ./patroni.nix
     ./haproxy.nix
     ./keepalived.nix
-    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
@@ -24,17 +23,11 @@
     "net.ipv4.ip_nonlocal_bind" = 1;
   };
 
-  # 各ノードのメトリクス収集用ノードエクスポーターを有効化する
   services.prometheus.exporters.node = {
-    enable = true;
-    port = 9100;
     extraFlags = [
       "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
     ];
   };
-
-  # メトリクス収集用ポートを開放する
-  networking.firewall.allowedTCPPorts = [ 9100 ];
 
   system.autoUpgrade.healthCheck.requiredUnits = [
     "patroni.service"

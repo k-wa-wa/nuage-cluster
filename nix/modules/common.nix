@@ -13,6 +13,7 @@ in
     ./agent-user.nix
     ./journald-upload.nix
     ./auto-upgrade-rollback.nix
+    ./node-exporter.nix
   ];
 
   services.openssh.settings = {

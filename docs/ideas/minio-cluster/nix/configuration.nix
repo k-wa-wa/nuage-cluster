@@ -9,7 +9,7 @@
   imports = [
     ./minio.nix
     ./keepalived.nix
-    ../../modules/node-exporter-systemd.nix
+    ../../modules/node-exporter.nix
   ];
 
   # 26.05 で minio パッケージが insecure マークされ (複数の CVE・アップストリーム放棄)、

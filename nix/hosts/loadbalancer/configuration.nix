@@ -5,7 +5,6 @@
     ./dns.nix
     ./haproxy.nix
     ./keepalived.nix
-    ../../modules/node-exporter-systemd.nix
   ];
 
   networking = {
@@ -18,8 +17,6 @@
   };
 
   services.prometheus.exporters.node = {
-    enable = true;
-    port = 9100;
     extraFlags = [ "--collector.textfile.directory=/var/lib/prometheus/node-exporter" ];
   };
 
