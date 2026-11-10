@@ -45,10 +45,12 @@ resource "proxmox_virtual_environment_vm" "atelier" {
   node_name = "server-1"
   vm_id     = 252
 
-  on_boot = true
+  on_boot             = true
+  reboot_after_update = false
 
-  machine = "q35"
-  bios    = "ovmf"
+  machine       = "q35"
+  bios          = "ovmf"
+  scsi_hardware = "virtio-scsi-single"
   efi_disk {
   }
   boot_order = ["virtio0", "net0"]
@@ -57,6 +59,7 @@ resource "proxmox_virtual_environment_vm" "atelier" {
   cpu {
     cores = 8
     type  = "host"
+    numa  = true
   }
 
   memory {
@@ -85,14 +88,22 @@ resource "proxmox_virtual_environment_vm" "atelier" {
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
     size         = 100
+    aio          = "io_uring"
+    cache        = "none"
+    discard      = "on"
+    iothread     = true
   }
 
   network_device {
     bridge = "prvmain"
+    model  = "virtio"
+    queues = 8
   }
 
   network_device {
     bridge = "vmbr0"
+    model  = "virtio"
+    queues = 8
   }
 
   # cloud-config を変えると VM の作り直しになる。atelier にはワークスペースやログインの状態があるので、

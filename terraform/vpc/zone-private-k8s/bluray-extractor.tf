@@ -29,10 +29,12 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
   node_name = "nuc-1"
   vm_id     = 240
 
-  on_boot = true
+  on_boot             = true
+  reboot_after_update = false
 
-  machine = "q35"
-  bios    = "ovmf"
+  machine       = "q35"
+  bios          = "ovmf"
+  scsi_hardware = "virtio-scsi-single"
   efi_disk {
     datastore_id = "local-zfs"
   }
@@ -69,14 +71,22 @@ resource "proxmox_virtual_environment_vm" "bluray_extractor" {
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
     size         = 50
+    aio          = "io_uring"
+    cache        = "none"
+    discard      = "on"
+    iothread     = true
   }
 
   network_device {
     bridge = "prvmain"
+    model  = "virtio"
+    queues = 4
   }
 
   network_device {
     bridge = "vmbr0"
+    model  = "virtio"
+    queues = 4
   }
 
   # USB Blu-ray ドライブのパススルー設定

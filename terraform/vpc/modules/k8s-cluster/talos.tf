@@ -133,9 +133,13 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
   name      = "${var.cluster_config.cluster.name}-${each.key}"
   node_name = each.value.node_name
 
+  reboot_after_update = false
+  scsi_hardware       = "virtio-scsi-single"
+
   cpu {
     cores = each.value.cores
     type  = "host"
+    numa  = each.value.cores >= 8
   }
 
   memory {
@@ -150,12 +154,22 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
     datastore_id = "local-zfs"
     interface    = "scsi0"
     size         = each.value.disk_size
+    aio          = "io_uring"
+    cache        = "none"
+    discard      = "on"
+    iothread     = true
+    ssd          = true
   }
   # データ用の空ディスク (sdb)
   disk {
     datastore_id = "local-zfs"
     interface    = "scsi1"
     size         = each.value.disk_size
+    aio          = "io_uring"
+    cache        = "none"
+    discard      = "on"
+    iothread     = true
+    ssd          = true
   }
   # インストール用のISOファイル
   cdrom {
@@ -165,6 +179,8 @@ resource "proxmox_virtual_environment_vm" "cluster_vms" {
 
   network_device {
     bridge = each.value.bridge
+    model  = "virtio"
+    queues = each.value.cores
   }
 
   initialization {

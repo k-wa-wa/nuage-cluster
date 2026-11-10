@@ -29,10 +29,12 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
   vm_id     = 230
   started   = false
 
-  on_boot = false
+  on_boot             = false
+  reboot_after_update = false
 
-  machine = "q35"
-  bios    = "ovmf"
+  machine       = "q35"
+  bios          = "ovmf"
+  scsi_hardware = "virtio-scsi-single"
   efi_disk {
   }
   boot_order = ["virtio0", "net0"]
@@ -62,10 +64,16 @@ resource "proxmox_virtual_environment_vm" "lm_server" {
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
     size         = 100
+    aio          = "io_uring"
+    cache        = "none"
+    discard      = "on"
+    iothread     = true
   }
 
   network_device {
     bridge = "vmbr0"
+    model  = "virtio"
+    queues = 4
   }
 
   hostpci {
