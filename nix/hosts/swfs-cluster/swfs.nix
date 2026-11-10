@@ -169,6 +169,8 @@ in
         # 空き容量が 5% を下回ったら read-only にして、ディスク枯渇を防ぐ
         "-minFreeSpace=5"
         "-mserver=${endpoints ports.master}"
+        # コンパクション時の I/O バーストを制限し、ZFS への急激な負荷とアクセス遅延を防ぐ
+        "-compactionMBps=100"
       ];
     };
 
@@ -198,6 +200,8 @@ in
         "-config=${s3Config}"
         # 使用しない Iceberg REST Catalog の待ち受けを無効化する
         "-port.iceberg=0"
+        # S3 GET に対する 1GB インメモリチャンクキャッシュを有効化する
+        "-cacheCapacityMB=1024"
       ];
       serviceConfig.ExecStartPre = checkS3Config;
     };
