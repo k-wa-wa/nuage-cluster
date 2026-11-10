@@ -18,6 +18,7 @@ helmCharts:
       rbac:
         clusterRole:
           # 監視対象はすべて公開イメージであり imagePullSecrets や Helm provider の Secret は不要なため、上流デフォルトから secrets 権限を除外する
+          # チャート 1.2.3 の上流デフォルトから secrets ルールだけを除いた写しであり、チャート更新時は上流 values.yaml の rbac.clusterRole.rules と突き合わせる
           rules:
             - apiGroups:
                 - ""
