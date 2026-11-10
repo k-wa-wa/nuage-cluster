@@ -7,8 +7,8 @@
 #   および本番・システム Namespace (argocd, pechka, kube-system 等) への横展開を全面遮断する。
 # - プレビュー環境内の Pod 間通信、Ingress Controller からの HTTP/HTTPS 流入、
 #   CoreDNS (53/UDP, 53/TCP) による名前解決、パブリックインターネット通信、
-#   および pechka プレビューが必要とする本番外部リソース (MinIO 10.20.1.60:9000, PostgreSQL 10.20.1.40:5432)
-#   へのピンポイント通信のみを許可する。
+#   pechka プレビューが必要とする本番外部リソース (MinIO 10.20.1.60:9000, PostgreSQL 10.20.1.40:5432)、
+#   および侵入検知ハニーポット (nuage-honeytrap) への誘導通信のみを許可する。
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -69,3 +69,7 @@ spec:
         - ports:
             - port: "5432"
               protocol: TCP
+    # 5. 侵入検知ハニーポット (nuage-honeytrap) への限定許可 (トラップへの誘導)
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: nuage-honeytrap

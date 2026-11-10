@@ -12,6 +12,9 @@ spec:
       - appName: bare-web-proxy
         url: https://github.com/k-wa-wa/bare-web-proxy
         revision: HEAD
+      - appName: nuage-honeytrap
+        url: https://github.com/k-wa-wa/nuage-honeytrap
+        revision: HEAD
       - appName: nuage-monitoring-stack
         url: https://github.com/k-wa-wa/nuage-monitoring-stack
         revision: HEAD

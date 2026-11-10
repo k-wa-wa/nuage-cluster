@@ -25,6 +25,7 @@
    - クラスタ全体のガードレールとして `CiliumClusterwideNetworkPolicy` (`preview-isolation-guardrail`) を配置し、`pod-security.kubernetes.io/enforce: baseline` ラベルが付与された Preview Namespace の Pod を捕捉する。
    - 自宅 LAN（`192.168.0.0/16`：Proxmox, PBS, ルータ等）、クラスタ内部ゾーン（`10.0.0.0/8`：k8s ノード, Talos API, etcd 等）、`kube-apiserver`（`10.96.0.1:443`）、プライベート・CGNAT・リンクローカル帯、および本番・システム Namespace（`argocd`, `pechka` 本番, `kube-system` 等）への通信（横展開）を全面遮断する。
    - プレビュー環境内の Pod 間通信、Ingress Controller からの流入、CoreDNS（`53/UDP`, `53/TCP`）による名前解決、パブリックインターネット通信、および `pechka` プレビューが参照する本番外部リソース（MinIO `10.20.1.60:9000/TCP`、初期シード用 PostgreSQL `10.20.1.40:5432/TCP`）のみをピンポイントで許可する。
+   - クラスタ内部探索を試みた攻撃者を早期に検知して構造化ログへ記録するトラップ導線として、独立した Namespace で稼働するマルチプロトコル侵入検知ハニーポット（`nuage-honeytrap`）への限定 Egress を明示的に許可する（ハニーポット側の Egress 制限およびアラート整備は後続課題）。
    - プレビュー環境と同一の PSA ラベルを持つ検証用 Namespace (`preview-isolation-test`) 上で 15 分おきに検証用 `CronJob` を実行し、ポリシーの適用漏れや構成ドリフトを継続的に自動検知する。
 
 ## 3. アプリケーションリポジトリ側 GitHub Actions 設定
@@ -123,6 +124,7 @@ jobs:
   - `kube-system` Namespace の CoreDNS (`k8s-app: kube-dns`) に対する `53/UDP` および `53/TCP` のみ許可。
   - `toCIDRSet` により `0.0.0.0/0` からプライベート IP 帯（`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `100.64.0.0/10`, `169.254.0.0/16`）を除外し、パブリックインターネットへの通信のみを許可。
   - `pechka` プレビュー環境が必要とする本番 MinIO（SeaweedFS S3 VIP: `10.20.1.60/32` Port `9000/TCP`）および初期シード用本番 PostgreSQL（VIP: `10.20.1.40/32` Port `5432/TCP`）への Egress のみピンポイントで許可。
+  - 侵入検知ハニーポット（`nuage-honeytrap`）への限定 Egress 許可（`toEndpoints` による `io.kubernetes.pod.namespace: nuage-honeytrap`）。プレビュー環境からクラスタ内部への横展開やポートスキャンを試みた攻撃者をハニーポットへ誘引し、攻撃試行を構造化ログに記録するトラップ導線として機能させる。なお、`nuage-honeytrap` は PSA `restricted` 準拠の非特権 Namespace で動作するが、honeytrap Pod 自体の外向き通信（Egress）制限および Prometheus アラート定義は未整備である（残存リスクと後続課題については §7.6 を参照）。
 
 ### 5.2 恒常的セキュリティ検証 CronJob (`manifests/apps/preview-isolation-test/`)
 
@@ -199,3 +201,7 @@ kubectl logs -n preview-isolation-test -l job-name --tail=50
 5. **`kube-apiserver` への Egress 遮断に伴う `pechka` プレビューのワークフロー実行制限**:
    - プレビュー環境から Kubernetes API サーバー（`kubernetes.default` / `10.96.0.1:443` / コントロールプレーン `6443/TCP`）への Egress は、`toEntities: [kube-apiserver]` を許可せず意図的に遮断している。
    - そのため、`pechka` プレビュー環境において `api`（ServiceAccount `api-sa`）が Kubernetes API を呼び出して Argo Workflows の `Workflow` リソースを生成する機能（ingest・upload 時の `etl-bluray` / `subtitle-gen` 起動）および Workflow Pod（emissary）の API 通信は遮断され、プレビュー環境でのワークフロー実行は動作しない制限事項となる。プレビュー環境でワークフロー実行が必要になった場合は、RBAC スコープを精査した上で `toEntities: [kube-apiserver]`（Port `6443/TCP`）の追加を別途検討する。
+6. **ハニーポット（`nuage-honeytrap`）経由のネットワーク迂回リスクとアラート未整備**:
+   - `nuage-honeytrap` Namespace は PSA `restricted` により非特権 Pod として動作しノード権限昇格は防止されているが、現在 `nuage-honeytrap` 側のマニフェストには Egress を制限する NetworkPolicy が配置されていない。
+   - そのため、仮にハニーポットのプロトコルパーサ（SSH/HTTP/PostgreSQL）に脆弱性があり侵害された場合、プレビュー環境からハニーポットを経由して内部ネットワーク（自宅 LAN や k8s コントロールプレーン等）へアクセスされる迂回路となるリスクが存在する。恒久対策として、`nuage-honeytrap` リポジトリ側で CoreDNS 以外の全 Egress を遮断する NetworkPolicy の配備が必要である。
+   - また、現行の `nuage-honeytrap` は検知したプローブや攻撃を標準出力に JSON 構造化ログとして出力するのみであり、`nuage-monitoring-stack` 側のアラートルール（Prometheus / Alertmanager）は未整備である。検知時に即時通知を行うには、ログ監視またはメトリクス連携によるアラート定義の追加が必要である。
