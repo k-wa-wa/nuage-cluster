@@ -23,7 +23,7 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
   purge_on_destroy    = true
   reboot              = false
   reboot_after_update = true
-  scsi_hardware       = "virtio-scsi-pci"
+  scsi_hardware       = "virtio-scsi-single"
   started             = true
   stop_on_destroy     = false
   tablet_device       = true
@@ -54,17 +54,17 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
     backup            = true
     cache             = "none"
     datastore_id      = "local-zfs"
-    discard           = "ignore"
+    discard           = "on"
     file_format       = "raw"
     file_id           = ""
     import_from       = ""
     interface         = "scsi0"
-    iothread          = false
+    iothread          = true
     path_in_datastore = "vm-1163-disk-0"
     replicate         = true
     serial            = ""
     size              = 20
-    ssd               = false
+    ssd               = true
   }
   initialization {
     datastore_id = "local-lvm"
@@ -108,7 +108,7 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
     mac_address = "BC:24:11:07:AD:24"
     model       = "virtio"
     mtu         = 0
-    queues      = 0
+    queues      = 2
     rate_limit  = 0
     trunks      = ""
     vlan_id     = 0
@@ -121,7 +121,7 @@ resource "proxmox_virtual_environment_vm" "oc1-omada" {
     mac_address = "BC:24:11:F9:AA:A6"
     model       = "virtio"
     mtu         = 0
-    queues      = 0
+    queues      = 2
     rate_limit  = 0
     trunks      = ""
     vlan_id     = 0
