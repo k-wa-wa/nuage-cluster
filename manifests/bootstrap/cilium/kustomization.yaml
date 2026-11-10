@@ -10,5 +10,4 @@ helmCharts:
     namespace: kube-system
 
 resources:
-  - rbac.yaml
   - hubble-ingress.yaml
