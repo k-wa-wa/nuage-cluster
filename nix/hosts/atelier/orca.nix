@@ -16,7 +16,7 @@ let
   pairingAddress = "ws://${lanAddress}:${toString port}";
 in
 {
-  # 配布バイナリ (Orca・claude・agy・copilot) を動かす。
+  # 配布バイナリ (Orca・claude・agy・codex) を動かす。
   # Orca は Electron 製なので、headless (orca serve) でも GTK・X11 系のライブラリを要求する。
   programs.nix-ld = {
     enable = true;

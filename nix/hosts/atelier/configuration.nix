@@ -1,7 +1,7 @@
 # atelier: エージェントと一緒に開発する作業場。
 #
 # Orca サーバー (orca serve) を常駐させ、スマホや PC の Orca から同じワークスペースに入る。
-# 窓口エージェント (claude / agy / copilot) が人間と話し、任された仕事は autopilot5 の
+# 窓口エージェント (claude / agy / codex) が人間と話し、任された仕事は autopilot5 の
 # autopilot-run が裏で完走させる。
 #
 # nix では変わりにくいもの (ツール・ライブラリ・常駐ユニット) だけを定義する。

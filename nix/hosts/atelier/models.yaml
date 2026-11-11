@@ -11,7 +11,7 @@
 #
 # 反映: push 後の自動更新 (毎日)。急ぐときは atelier で `sudo systemctl start nixos-upgrade` を実行する。
 # 確認: atelier で `autopilot-run models` を実行する。書き間違いはビルドで落ちる。
-# 使えるモデル: `agy models`、`claude --help` の --model、`copilot --help` の --model。
+# 使えるモデル: `agy models`、`claude --help` の --model。
 
 claude:
   high: [claude-opus-5-5@high]
@@ -23,5 +23,3 @@ agy:
   high: [gemini-3.8-flash-high, gpt-oss-120b-medium]
   standard: [gemini-3.8-flash-medium, gpt-oss-120b-medium]
   light: [gemini-3.8-flash-low]
-
-# copilot は bot の token で認証できないため、まだ使っていない。
