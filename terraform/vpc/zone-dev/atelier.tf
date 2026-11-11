@@ -10,7 +10,7 @@
 # 既定経路は prvmain 側に置き、LAN 側は家の中の Mac から踏み台なしで入るために使う。
 # 外 (出先のスマホ・Mac) からは、別サーバーの Tailscale (subnet router) 経由で LAN 側に入る。
 #
-# シークレット (GitHub の bot token、Claude / Antigravity / Copilot のログイン) は SOPS で配布しない。
+# シークレット (GitHub の bot token、Claude / Antigravity / Codex のログイン) は SOPS で配布しない。
 # 万一の流出時の影響が大きいため、VM 起動後に手作業で配置・ログインする運用とする。
 # ただし SSH のホスト鍵だけは cloud-config で渡す。sops-nix がこの鍵で nix/hosts/atelier/secrets.yaml を開くので、
 # VM を作り直しても同じ鍵で戻るようにする (bluray-extractor と同じ)。

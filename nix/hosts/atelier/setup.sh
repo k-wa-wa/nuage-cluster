@@ -48,7 +48,8 @@ mkdir -p "$BIN"
 echo "== エージェント CLI"
 curl -fsSL https://claude.ai/install.sh | bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash
-curl -fsSL https://gh.io/copilot-install | bash
+# 対話の確認 (インストール後に Codex を起動するか) で止まらないよう、非対話にする。
+curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
 
 # Orca から起動したときに「権限確認を飛ばしてよいか」の初回確認で止まらないようにする。
 # 会話履歴 (~/.claude/projects/*/*.jsonl) が 30 日で自動削除されるのを防ぐため、保持期間を延長する。
