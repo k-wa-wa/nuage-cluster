@@ -17,7 +17,7 @@
 | `vpn-staging.wpcapp.net` |
 
 - 個別の CNAME はワイルドカード A レコード（`*.wpcapp.net`）より優先されるため、社内向けのサービス名には影響しない。社内で使っている名前（`pechka`・`grafana` 等）を囮に使ってはならない。
-- 一覧を変えたら、nuage-honeytrap の `k8s/base/registrar-cronjob.yaml`（`REGISTRAR_DOMAINS`、urlscan.io / Wayback Machine への登録対象）も揃える。名前解決できないドメインは登録 Job が失敗するので、こちらを先に apply する。
+- 一覧を変えたら、nuage-honeytrap の `k8s/base/registrar-cronjob.yaml`（`REGISTRAR_DOMAINS`、urlscan.io への登録対象）も揃える。名前解決できないドメインは登録 Job が失敗するので、こちらを先に apply する。
 
 ## 1. 認証情報管理ポリシー
 
