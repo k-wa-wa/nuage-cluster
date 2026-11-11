@@ -99,3 +99,67 @@ resource "cloudflare_dns_record" "honeytrap_cname" {
     }
   }
 }
+
+# ハニーポット宛てのリクエストを Cloudflare エッジのセキュリティ機能で弾かず素通しする
+# エッジの既定の保護（Browser Integrity Check・Security Level・マネージド WAF 等）が攻撃ボットや
+# スキャナーを転送前に遮断し、ハニーポットまで届かなくなるのを防ぐ。
+# 対象は staging-ext.wpcapp.net のみ。L7 DDoS 防御は Cloudflare 側で常時有効であり、ここでは切れない。
+resource "cloudflare_ruleset" "honeytrap_bypass" {
+  zone_id     = local.zone_id
+  name        = "nuage-honeytrap bypass"
+  description = "ハニーポット (staging-ext.wpcapp.net) 宛てのリクエストをエッジのセキュリティ機能で検査せず素通しする"
+  kind        = "zone"
+  phase       = "http_request_firewall_custom"
+
+  rules = [
+    {
+      description = "staging-ext.wpcapp.net 宛てをすべて素通し"
+      expression  = "(http.host eq \"staging-ext.wpcapp.net\")"
+      action      = "skip"
+      action_parameters = {
+        # このフェーズ内の残りのカスタムルール
+        ruleset = "current"
+        # レート制限ルールとマネージド WAF ルール
+        phases = [
+          "http_ratelimit",
+          "http_request_firewall_managed",
+        ]
+        # 旧来のセキュリティ機能（BIC・Security Level・User-Agent ブロック等）
+        products = [
+          "bic",
+          "hot",
+          "rateLimit",
+          "securityLevel",
+          "uaBlock",
+          "waf",
+          "zoneLockdown",
+        ]
+      }
+      enabled = true
+    }
+  ]
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
+}
+
+# Bot Fight Mode と AI クローラーのブロックを無効化する
+# Free プランの Bot Fight Mode はホスト単位で skip できないため、ゾーン全体で OFF にする。
+# proxied = true なのは staging-ext だけ（`*` は proxied = false）なので、
+# ゾーン全体の設定でも実際に影響を受けるのはハニーポットのみである。
+resource "cloudflare_bot_management" "honeytrap_bypass" {
+  zone_id            = local.zone_id
+  fight_mode         = false
+  ai_bots_protection = "disabled"
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
+}
