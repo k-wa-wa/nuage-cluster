@@ -61,7 +61,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "honeytrap_config" {
   config = {
     ingress = [
       {
-        hostname = "staging.ext.wpcapp.net"
+        hostname = "staging-ext.wpcapp.net"
         service  = "http://nuage-honeytrap.nuage-honeytrap.svc.cluster.local:80"
       },
       {
@@ -82,10 +82,10 @@ output "honeytrap_tunnel_token" {
   sensitive = true
 }
 
-# ハニーポット公開用 CNAME レコード (staging.ext.wpcapp.net -> <tunnel_id>.cfargotunnel.com)
+# ハニーポット公開用 CNAME レコード (staging-ext.wpcapp.net -> <tunnel_id>.cfargotunnel.com)
 resource "cloudflare_dns_record" "honeytrap_cname" {
   zone_id = local.zone_id
-  name    = "staging.ext"
+  name    = "staging-ext"
   content = "${cloudflare_zero_trust_tunnel_cloudflared.honeytrap.id}.cfargotunnel.com"
   type    = "CNAME"
   ttl     = 1
