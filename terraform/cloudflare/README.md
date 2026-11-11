@@ -11,17 +11,18 @@
 
 ## 2. API トークン発行と必要スコープ
 
-Cloudflare ダッシュボード ([My Profile > API Tokens](https://dash.cloudflare.com/profile/api-tokens)) にて **Custom Token** を作成する。
+Cloudflare のベストプラクティスに基づき、個人ユーザーに依存しない **Account API Token**（サービスアカウント型トークン）を使用する。
+
+Cloudflare ダッシュボードの左側メニュー **Manage Account（アカウントの管理） > Account API Tokens** にて作成する。
 
 ### 必要スコープ (Permissions)
 | リソース種別 | 権限レベル | 用途 |
 | :--- | :--- | :--- |
-| **Account > Cloudflare Tunnel** | **Edit** | ハニーポット公開用 Zero Trust Tunnel の作成・設定 |
-| **Zone > DNS** | **Edit** | `staging-ext.wpcapp.net` CNAME および内部 DNS レコードの作成 |
-| **Zone > Zone** | **Read** | ゾーン情報の参照 |
+| **Cloudflare Tunnel** | **Edit** | ハニーポット公開用 Zero Trust Tunnel の作成・設定 |
+| **DNS** | **Edit** | `staging-ext.wpcapp.net` CNAME および内部 DNS レコードの作成 |
+| **Zone** | **Read** | ゾーン情報の参照 |
 
-- **Account Resources**: 対象アカウントを選択（または All accounts）
-- **Zone Resources**: `wpcapp.net` を選択（または All zones）
+- **Resources**: `wpcapp.net` を選択（または All zones）
 - **TTL**: 7 日間など一時的な有効期限を設定することを推奨
 
 ## 3. リリース手順 (疎通までのステップ)
