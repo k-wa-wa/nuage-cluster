@@ -24,7 +24,7 @@
 4. **ネットワーク隔離ガードレールと恒常的検証 (Layer 5: `CiliumClusterwideNetworkPolicy` & `CronJob`)**:
    - クラスタ全体のガードレールとして `CiliumClusterwideNetworkPolicy` (`preview-isolation-guardrail`) を配置し、`pod-security.kubernetes.io/enforce: baseline` ラベルが付与された Preview Namespace の Pod を捕捉する。
    - 自宅 LAN（`192.168.0.0/16`：Proxmox, PBS, ルータ等）、クラスタ内部ゾーン（`10.0.0.0/8`：k8s ノード, Talos API, etcd 等）、`kube-apiserver`（`10.96.0.1:443`）、プライベート・CGNAT・リンクローカル帯、および本番・システム Namespace（`argocd`, `pechka` 本番, `kube-system` 等）への通信（横展開）を全面遮断する。
-   - プレビュー環境内の Pod 間通信、Ingress Controller からの流入、CoreDNS（`53/UDP`, `53/TCP`）による名前解決、パブリックインターネット通信、および `pechka` プレビューが参照する本番外部リソース（SeaweedFS S3 実ノード `10.20.1.61〜63:9000/TCP` と VIP `10.20.1.60:9000/TCP`、初期シード用 PostgreSQL `10.20.1.40:5432/TCP`）のみをピンポイントで許可する。
+   - プレビュー環境内の Pod 間通信、Ingress Controller からの流入、CoreDNS（`53/UDP`, `53/TCP`）による名前解決、パブリックインターネット通信、および `pechka` プレビューが参照する本番外部リソース（SeaweedFS S3 実ノード `10.20.1.61〜63:9000/TCP`、初期シード用 PostgreSQL `10.20.1.40:5432/TCP`）のみをピンポイントで許可する。
    - クラスタ内部探索を試みた攻撃者を早期に検知して構造化ログへ記録するトラップ導線として、独立した Namespace で稼働するマルチプロトコル侵入検知ハニーポット（`nuage-honeytrap`）への限定 Egress を明示的に許可する（ハニーポット側の Egress 制限およびアラート整備は後続課題）。
    - プレビュー環境と同一の PSA ラベルを持つ検証用 Namespace (`preview-isolation-test`) 上で 15 分おきに検証用 `CronJob` を実行し、ポリシーの適用漏れや構成ドリフトを継続的に自動検知する。
 
@@ -123,7 +123,7 @@ jobs:
   - プレビュー環境（`baseline` ラベル付き Namespace）内の Pod 間通信を許可。なお、`CiliumClusterwideNetworkPolicy` はクラスタスコープであるため、空の `matchLabels: {}` を指定するとクラスタ内の全 Namespace（`argocd` や本番 Namespace を含む）への通信が許可されてしまう。これを防ぐため、`toEndpoints` / `fromEndpoints` にも `io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce: baseline` を指定し、本番・システム Namespace への横展開を遮断する。
   - `kube-system` Namespace の CoreDNS (`k8s-app: kube-dns`) に対する `53/UDP` および `53/TCP` のみ許可。
   - `toCIDRSet` により `0.0.0.0/0` からプライベート IP 帯（`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `100.64.0.0/10`, `169.254.0.0/16`）を除外し、パブリックインターネットへの通信のみを許可。
-  - `pechka` プレビュー環境が必要とする本番 SeaweedFS S3（実ノード `10.20.1.61/32`〜`10.20.1.63/32` と VIP `10.20.1.60/32`、Port `9000/TCP`。VIP は廃止まで残す）および初期シード用本番 PostgreSQL（VIP: `10.20.1.40/32` Port `5432/TCP`）への Egress のみピンポイントで許可。
+  - `pechka` プレビュー環境が必要とする本番 SeaweedFS S3（実ノード `10.20.1.61/32`〜`10.20.1.63/32`、Port `9000/TCP`）および初期シード用本番 PostgreSQL（VIP: `10.20.1.40/32` Port `5432/TCP`）への Egress のみピンポイントで許可。
   - 侵入検知ハニーポット（`nuage-honeytrap`）への限定 Egress 許可（`toEndpoints` による `io.kubernetes.pod.namespace: nuage-honeytrap`）。プレビュー環境からクラスタ内部への横展開やポートスキャンを試みた攻撃者をハニーポットへ誘引し、攻撃試行を構造化ログに記録するトラップ導線として機能させる。なお、`nuage-honeytrap` は PSA `restricted` 準拠の非特権 Namespace で動作するが、honeytrap Pod 自体の外向き通信（Egress）制限および Prometheus アラート定義は未整備である（残存リスクと後続課題については §7.6 を参照）。
 
 ### 5.2 恒常的セキュリティ検証 CronJob (`manifests/apps/preview-isolation-test/`)
@@ -148,7 +148,7 @@ jobs:
   7. **遮断テスト（他 Namespace / Argo CD Server `argocd-server.argocd.svc.cluster.local:80`）**: `Connection timed out`（drop）なら PASS、それ以外は FAIL。
   8. **許可テスト（CoreDNS `10.96.0.10:53` TCP および `nslookup` UDP 名前解決）**: 両方成功すれば PASS、いずれか失敗なら FAIL。
   9. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
-  10. **許可テスト（`pechka` 本番外部リソース：MinIO VIP `10.20.1.60:9000` および PostgreSQL VIP `10.20.1.40:5432`）**: 両方疎通すれば PASS、いずれか遮断されれば FAIL。
+  10. **許可テスト（`pechka` 本番外部リソース：SeaweedFS S3 実ノード `10.20.1.61〜63:9000` の 3 台および PostgreSQL VIP `10.20.1.40:5432`）**: すべて疎通すれば PASS、いずれか遮断されれば FAIL。
   11. **コンテナ境界テスト（Masked / Read-Only パス）**: `/proc/self/mountinfo` で `/proc/sys` および `/sys` が `ro` マウントされていることを確認した上で、書き込み試行が `Read-only file system` (EROFS) で拒否されることを検証。コンテナエスケープの起点となるホストカーネルパラメータ改ざん（`sysctl` や `sysfs` 経由）を防止する設計意図。
   12. **コンテナ境界テスト（ホスト生ブロックデバイス非露出）**: `/dev/` 配下にホストの生ブロックデバイス（`sda*`, `vda*`, `nvme*`, `xvd*`, `dm-*` 等）が存在しないことを検証。ストレージ生パーティションの直接マウントや破壊を防止する設計意図。
   13. **コンテナ境界テスト（Linux 特権ケーパビリティ非保持）**: `/proc/self/status` の `CapEff` を読み取り、`CAP_SYS_ADMIN`（`0x00200000`）をはじめとする危険な特権ケーパビリティ（`CAP_SYS_MODULE`, `CAP_SYS_RAWIO`, `CAP_SYS_PTRACE`, `CAP_SYS_BOOT`）が付与されていないことを検証。非特権コンテナに対する containerd/Talos ランタイム既定値のドリフトを検知する設計意図（※本検証 Pod 自体は特権を要求しないため、PSA admission による特権 Pod 拒否そのものを検証するものではない点に留意）。
@@ -197,7 +197,7 @@ kubectl logs -n preview-isolation-test -l job-name --tail=50
 4. **プレビュー環境間の相互到達性と `pechka` シード済み DB・本番外部リソースへの到達性**:
    - `CiliumClusterwideNetworkPolicy` は単一のクラスタスコープポリシーであり動的自己 Namespace 参照を持たないため、`fromEndpoints` / `toEndpoints` により `pod-security.kubernetes.io/enforce: baseline` ラベルを持つプレビュー用 Namespace 間の通信は相互に許可される（本番・システム Namespace からは隔離される）。
    - このため、別リポジトリや別 PR のプレビュー環境から `pechka-pr-*` 内の全 Pod・全ポートへ到達可能である。`pechka-pr-*` のローカル `postgres` には `postgres-seed-from-prod` Job により本番 DB からコピーされたデータが格納されており、かつその接続情報は公開リポジトリの `k8s/overlays/preview/local-secrets.yaml` に平文で記載されているため、同時に稼働している他のプレビュー環境から本番データの写しを読み取られるリスクが残る。
-   - また、`pechka` プレビューの動作要件上、本番 SeaweedFS S3（`10.20.1.60〜63:9000`）および初期シード用本番 PostgreSQL（`10.20.1.40:5432`）への TCP 通信は許可されているため、ネットワーク到達性自体はすべてのプレビュー環境に開かれている（本番 PostgreSQL の認証情報は `pechka-preview-secret` により `pechka-pr-*` にのみ配布される）。
+   - また、`pechka` プレビューの動作要件上、本番 SeaweedFS S3（`10.20.1.61〜63:9000`）および初期シード用本番 PostgreSQL（`10.20.1.40:5432`）への TCP 通信は許可されているため、ネットワーク到達性自体はすべてのプレビュー環境に開かれている（本番 PostgreSQL の認証情報は `pechka-preview-secret` により `pechka-pr-*` にのみ配布される）。
 5. **`kube-apiserver` への Egress 遮断に伴う `pechka` プレビューのワークフロー実行制限**:
    - プレビュー環境から Kubernetes API サーバー（`kubernetes.default` / `10.96.0.1:443` / コントロールプレーン `6443/TCP`）への Egress は、`toEntities: [kube-apiserver]` を許可せず意図的に遮断している。
    - そのため、`pechka` プレビュー環境において `api`（ServiceAccount `api-sa`）が Kubernetes API を呼び出して Argo Workflows の `Workflow` リソースを生成する機能（ingest・upload 時の `etl-bluray` / `subtitle-gen` 起動）および Workflow Pod（emissary）の API 通信は遮断され、プレビュー環境でのワークフロー実行は動作しない制限事項となる。プレビュー環境でワークフロー実行が必要になった場合は、RBAC スコープを精査した上で `toEntities: [kube-apiserver]`（Port `6443/TCP`）の追加を別途検討する。
