@@ -4,3 +4,4 @@
 
 provider.tf
 backend.tf
+secrets.local.yaml
