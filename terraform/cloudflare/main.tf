@@ -1,6 +1,6 @@
 locals {
-  account_id = "PLACEHOLDER_CLOUDFLARE_ACCOUNT_ID" # 人間が記入
-  zone_id    = "PLACEHOLDER_CLOUDFLARE_ZONE_ID"    # 人間が記入
+  account_id = "33b475909437e0591f6d9ac47b2a4dd7"
+  zone_id    = "f48bce472f942ffe63cd9d992ff7be7d"
 }
 
 # ワイルドカード A レコード (*.wpcapp.net -> 192.168.5.200)
