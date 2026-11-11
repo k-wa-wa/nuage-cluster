@@ -1,10 +1,6 @@
-data "sops_file" "secrets" {
-  source_file = "${path.module}/secrets.yaml"
-}
-
 locals {
-  secrets = data.sops_file.secrets.data
-  zone_id = local.secrets["cloudflare_zone_id"]
+  account_id = "33b475909437e0591f6d9ac47b2a4dd7"
+  zone_id    = "f48bce472f942ffe63cd9d992ff7be7d"
 }
 
 # ワイルドカード A レコード (*.wpcapp.net -> 192.168.5.200)
@@ -16,6 +12,13 @@ resource "cloudflare_dns_record" "wildcard_a" {
   ttl     = 1 # 1 = Automatic
   proxied = false
   comment = "Wildcard A record for internal k8s services"
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
 }
 
 # ルートドメイン A レコード (wpcapp.net -> 192.168.5.200)
@@ -29,3 +32,70 @@ resource "cloudflare_dns_record" "wildcard_a" {
 #   proxied = false
 #   comment = "Root A record for wpcapp.net"
 # }
+
+# ハニーポット用 Cloudflare Tunnel Secret
+resource "random_id" "tunnel_secret" {
+  byte_length = 35
+}
+
+# ハニーポット用 Cloudflare Zero Trust Tunnel
+resource "cloudflare_zero_trust_tunnel_cloudflared" "honeytrap" {
+  account_id    = local.account_id
+  name          = "nuage-honeytrap-ext"
+  config_src    = "cloudflare"
+  tunnel_secret = random_id.tunnel_secret.b64_std
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.account_id, "PLACEHOLDER")
+      error_message = "local.account_id に実際の Cloudflare Account ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
+}
+
+# ハニーポット用 Tunnel Ingress ルール設定
+resource "cloudflare_zero_trust_tunnel_cloudflared_config" "honeytrap_config" {
+  account_id = local.account_id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.honeytrap.id
+
+  config = {
+    ingress = [
+      {
+        hostname = "staging-ext.wpcapp.net"
+        service  = "http://nuage-honeytrap.nuage-honeytrap.svc.cluster.local:80"
+      },
+      {
+        service = "http_status:404"
+      }
+    ]
+  }
+}
+
+# ハニーポット用 Tunnel Token 取得
+data "cloudflare_zero_trust_tunnel_cloudflared_token" "honeytrap_token" {
+  account_id = local.account_id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.honeytrap.id
+}
+
+output "honeytrap_tunnel_token" {
+  value     = data.cloudflare_zero_trust_tunnel_cloudflared_token.honeytrap_token.token
+  sensitive = true
+}
+
+# ハニーポット公開用 CNAME レコード (staging-ext.wpcapp.net -> <tunnel_id>.cfargotunnel.com)
+resource "cloudflare_dns_record" "honeytrap_cname" {
+  zone_id = local.zone_id
+  name    = "staging-ext"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.honeytrap.id}.cfargotunnel.com"
+  type    = "CNAME"
+  ttl     = 1
+  proxied = true
+  comment = "Cloudflare Tunnel CNAME for nuage-honeytrap"
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
+}

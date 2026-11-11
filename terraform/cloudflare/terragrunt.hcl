@@ -1,8 +1,10 @@
 locals {
-  secrets = yamldecode(sops_decrypt_file("${get_terragrunt_dir()}/secrets.yaml"))
+  has_local_secrets = fileexists("${get_terragrunt_dir()}/secrets.local.yaml")
+  local_secrets     = local.has_local_secrets ? yamldecode(file("${get_terragrunt_dir()}/secrets.local.yaml")) : {}
+  cloudflare_token  = try(local.local_secrets.cloudflare_api_token, "")
 }
 
-# Cloudflare プロバイダーと SOPS プロバイダーを動的に生成
+# Cloudflare プロバイダーと Random プロバイダーを動的に生成
 generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
@@ -13,15 +15,17 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "5.22.0"
     }
-    sops = {
-      source  = "carlpett/sops"
-      version = "1.4.1"
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
     }
   }
 }
 
 provider "cloudflare" {
-  api_token = "${local.secrets.cloudflare_api_token}"
+%{if local.cloudflare_token != ""~}
+  api_token = "${local.cloudflare_token}"
+%{endif~}
 }
 EOF
 }
