@@ -191,12 +191,6 @@
               node = "pg-cluster-3";
             };
           }
-          {
-            targets = [ "10.20.1.40" ];
-            labels = {
-              node = "pg-cluster-vip";
-            };
-          }
         ];
         relabel_configs = [
           {
@@ -270,9 +264,24 @@
         };
         static_configs = [
           {
-            targets = [ "10.20.1.40:5432" ];
+            targets = [ "10.20.1.41:5432" ];
             labels = {
-              service = "postgres";
+              service = "postgres-1";
+              node = "pg-cluster-1";
+            };
+          }
+          {
+            targets = [ "10.20.1.42:5432" ];
+            labels = {
+              service = "postgres-2";
+              node = "pg-cluster-2";
+            };
+          }
+          {
+            targets = [ "10.20.1.43:5432" ];
+            labels = {
+              service = "postgres-3";
+              node = "pg-cluster-3";
             };
           }
         ];
