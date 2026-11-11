@@ -186,12 +186,14 @@ check_dns_udp "CoreDNS (UDP nslookup)" "kubernetes.default.svc.cluster.local" "1
 # 2.2 許可テスト: パブリックインターネット (Cloudflare)
 check_allowed "Public Internet (Cloudflare)" "1.1.1.1" "443"
 
-# 2.3 許可テスト: pechka 本番外部リソース (SeaweedFS S3 実ノード 3 台および PostgreSQL VIP)
-# NetworkPolicy は実ノードを /32 ずつ許可しているので、3 台とも確かめる
+# 2.3 許可テスト: pechka 本番外部リソース (SeaweedFS S3 実ノード 3 台および PostgreSQL 実ノード 3 台)
+# NetworkPolicy は実ノードを /32 ずつ許可しているので、各ノードとも確かめる
 check_allowed "pechka Prod SeaweedFS S3 (swfs-cluster-1)" "10.20.1.61" "9000"
 check_allowed "pechka Prod SeaweedFS S3 (swfs-cluster-2)" "10.20.1.62" "9000"
 check_allowed "pechka Prod SeaweedFS S3 (swfs-cluster-3)" "10.20.1.63" "9000"
-check_allowed "pechka Prod PostgreSQL (VIP)" "10.20.1.40" "5432"
+check_allowed "pechka Prod PostgreSQL (pg-cluster-1)" "10.20.1.41" "5432"
+check_allowed "pechka Prod PostgreSQL (pg-cluster-2)" "10.20.1.42" "5432"
+check_allowed "pechka Prod PostgreSQL (pg-cluster-3)" "10.20.1.43" "5432"
 
 # --- 3. コンテナ・ランタイム境界の健全性検証 ---
 

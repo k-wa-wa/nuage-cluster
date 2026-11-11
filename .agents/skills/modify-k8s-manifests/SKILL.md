@@ -66,6 +66,6 @@ talosctl -e 192.168.5.200:50000 -n 10.20.1.11 etcd status
 
 ## 注意点・既知の罠
 
-- Argo CD の `resource.exclusions` は EndpointSlice を除外対象外にしてある (pg-cluster の VIP 管理のため)。同種の設定変更時は影響を確認する
+- Argo CD の `resource.exclusions` は EndpointSlice を除外対象外にしてある (external-service の実ノード EndpointSlice 管理のため)。同種の設定変更時は影響を確認する
 - 外部リポジトリアプリのマニフェスト変更は、このリポジトリではなく対象リポジトリ (`../pechka` 等) 側の `k8s/` を変更する
 - イメージ更新の自動化には keel (`manifests/apps/keel`) が動いている
