@@ -4,7 +4,7 @@ locals {
   zone_name  = "wpcapp.net"
 
   # ハニーポット (nuage-honeytrap) に転送する囮のサブドメイン
-  # 変更したら nuage-honeytrap の k8s/base/registrar-cronjob.yaml (REGISTRAR_DOMAINS) も揃える
+  # 変更したら nuage-honeytrap の k8s/base/decoy-certificate.yaml (dnsNames、CT ログへの公開) も揃える
   honeytrap_hostnames = toset([
     "staging-ext",
     "dev-portal",
