@@ -8,7 +8,7 @@
 # - プレビュー環境内の Pod 間通信、Ingress Controller からの HTTP/HTTPS 流入、
 #   CoreDNS (53/UDP, 53/TCP) による名前解決、パブリックインターネット通信、
 #   pechka プレビューが必要とする本番外部リソース (SeaweedFS S3 実ノード 10.20.1.61〜63:9000,
-#   PostgreSQL 10.20.1.40:5432)、
+#   PostgreSQL 実ノード 10.20.1.41〜43:5432 と VIP 10.20.1.40:5432)、
 #   および侵入検知ハニーポット (nuage-honeytrap) への誘導通信のみを許可する。
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
@@ -67,9 +67,14 @@ spec:
         - ports:
             - port: "9000"
               protocol: TCP
-    # 本番 PostgreSQL (初期シード用 VIP: 10.20.1.40/32 Port 5432 TCP)
+    # 本番 PostgreSQL (Port 5432 TCP)。
+    # pechka プレビューの初期シード等は実ノード 3 台 (10.20.1.41〜43) を参照する。
+    # 移行期間中の後方互換性のため VIP (10.20.1.40) も残す。
     - toCIDRSet:
         - cidr: 10.20.1.40/32
+        - cidr: 10.20.1.41/32
+        - cidr: 10.20.1.42/32
+        - cidr: 10.20.1.43/32
       toPorts:
         - ports:
             - port: "5432"

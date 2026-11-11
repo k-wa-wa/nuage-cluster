@@ -19,6 +19,10 @@ ports:
 - port: 5432
   protocol: TCP
 endpoints:
+# PostgreSQL / Patroni クラスタの実ノード 3 台。
+# 接続元クライアントは multi-host DSN (target_session_attrs=read-write) によりプライマリを自律検出する
 - addresses:
-  - 10.20.1.40
+  - 10.20.1.41
+  - 10.20.1.42
+  - 10.20.1.43
   conditions: {}
