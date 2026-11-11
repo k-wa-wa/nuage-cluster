@@ -46,7 +46,7 @@ ssh pg-cluster-1 "systemctl status patroni"
 ssh <host> "journalctl -u <service> -n 50 --no-pager"
 ```
 
-- PostgreSQL の VIP (`10.20.1.40`) は keepalived (`nix/hosts/postgres-cluster/keepalived.nix`) が管理。k8s からの宛先 IP は EndpointSlice (`manifests/apps/pg-cluster/base/service.yaml`) で定義しており、両者は別管理のためズレていないか確認する
+- PostgreSQL は VIP を持たず、実ノード 3 台 (`10.20.1.41-43`) で稼働する。k8s からの宛先 IP は EndpointSlice (`manifests/apps/external-service/base/postgres.yaml`) で定義され、クライアントはマルチホスト DSN (`target_session_attrs=read-write`) によりプライマリへ自律接続する
 - DB のユーザー・データベース作成は `nix/hosts/postgres-cluster/patroni.nix` の `bootstrap.post_init` で行われる
 
 ## 修正の適用手段

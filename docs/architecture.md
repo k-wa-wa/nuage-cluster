@@ -35,7 +35,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 - **API アクセス**: `kubectl` / `talosctl` は HAProxy の外部 VIP `192.168.5.200` (6443 / 50000) 経由でアクセスする。ソース `192.168.5.0/24` のみ許可
 - **DNS**: lb 上の CoreDNS が `*.cluster.wpc` / `*.nuage.cluster.wpc` を `192.168.5.200` に解決する。それ以外は `8.8.8.8` へフォワード
-- **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3) で稼働し、keepalived の VIP `10.20.1.40` が primary を指す。k8s からは `external-service` namespace の Service `postgres` + EndpointSlice (`10.20.1.40`) 経由で参照する。
+- **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3) で稼働する。VIP は持たず、クライアントは実ノード 3 台 (`10.20.1.41-43`) のマルチホスト DSN (`target_session_attrs=read-write`) によりプライマリを自律検出して接続する。k8s からは `external-service` namespace の Service `postgres` + EndpointSlice (`10.20.1.41-43`) 経由で参照する。
 - **動的ボリューム**: local-path-provisioner (`/var/local-path-provisioner` への hostPath) により PVC の動的プロビジョニングを提供する
 
 ## 4. IaC・GitOps 運用ワークフロー
@@ -82,7 +82,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | controlplane-01/02/03 | 201-203 | nuc-1 / server-2 / server-1 | 10.20.1.11-13 | - | Talos CP (VIP: 10.20.1.10) |
 | worker-01/02/03 | 206-208 | nuc-1 / server-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
 | lb-1/2/3 | 211-213 | nuc-1 / server-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
-| pg-cluster-1/2/3 | 241-243 | nuc-1 / server-2 / server-1 | 10.20.1.41-43 | - | PostgreSQL (Patroni, primary VIP: 10.20.1.40) |
+| pg-cluster-1/2/3 | 241-243 | nuc-1 / server-2 / server-1 | 10.20.1.41-43 | - | PostgreSQL (Patroni, VIP なし。実ノード 3 台へのマルチホスト接続) |
 | swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP なし。S3 へのアクセスは pechka の Nginx が 3 台へ振り分ける) |
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
