@@ -1,6 +1,6 @@
 # MinIO の移行先 S3 互換ストレージ (SeaweedFS)。master の raft に 3 台が必要なため、
 # nuc-1 / server-2 / server-1 に 1 台ずつ配置する。
-# VIP は 10.20.1.60 (keepalived, nix/hosts/swfs-cluster/keepalived.nix)
+# VIP は持たない。S3 へのアクセスは pechka の Nginx が 3 台の実ノードへ振り分ける
 locals {
   swfs_nodes = {
     "swfs-cluster-1" = {
