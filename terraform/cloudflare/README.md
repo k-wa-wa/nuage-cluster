@@ -2,7 +2,22 @@
 
 本ディレクトリでは、Cloudflare 上の DNS レコード、Zero Trust Tunnel (ハニーポット公開用)、およびハニーポット宛てのエッジ素通し設定をコード管理する。
 
-エッジ素通し設定は、Cloudflare エッジの既定の保護（Browser Integrity Check・Security Level・マネージド WAF・Bot Fight Mode・AI クローラーのブロック）が攻撃トラフィックを転送前に遮断し、ハニーポットまで届かなくなるのを防ぐためのものである。WAF のカスタムルール（skip）は `staging-ext.wpcapp.net` 宛てのみに効く。Bot 設定はゾーン全体の設定だが、proxied なレコードは `staging-ext` だけなので、実際に影響を受けるのはハニーポットのみである。
+エッジ素通し設定は、Cloudflare エッジの既定の保護（Browser Integrity Check・Security Level・マネージド WAF・Bot Fight Mode・AI クローラーのブロック）が攻撃トラフィックを転送前に遮断し、ハニーポットまで届かなくなるのを防ぐためのものである。WAF のカスタムルール（skip）は囮ドメイン宛てのみに効く。Bot 設定はゾーン全体の設定だが、proxied なレコードは囮ドメインの CNAME だけなので、実際に影響を受けるのはハニーポットのみである。
+
+## 囮ドメイン
+
+ハニーポットに転送する囮のサブドメインは、`main.tf` の `local.honeytrap_hostnames` で一元管理する。Tunnel の転送ルール・CNAME レコード・エッジ素通しのルールは、すべてこの一覧から作られる。
+
+| ドメイン |
+| :--- |
+| `staging-ext.wpcapp.net` |
+| `dev-portal.wpcapp.net` |
+| `admin-stg.wpcapp.net` |
+| `jenkins-dev.wpcapp.net` |
+| `vpn-staging.wpcapp.net` |
+
+- 個別の CNAME はワイルドカード A レコード（`*.wpcapp.net`）より優先されるため、社内向けのサービス名には影響しない。社内で使っている名前（`pechka`・`grafana` 等）を囮に使ってはならない。
+- 一覧を変えたら、nuage-honeytrap の `k8s/base/decoy-certificate.yaml`（`dnsNames`、証明書の透明性ログ (CT ログ) に公開する名前）も揃える。CT ログに載るとすぐにスキャナーが来るので、こちらを先に apply する。
 
 ## 1. 認証情報管理ポリシー
 
@@ -18,7 +33,7 @@ Tunnel（アカウントリソース）と DNS・WAF・Bot 設定（ゾーンリ
 ### 必要スコープ (Permissions)
 | リソース種別 | 権限レベル | 用途 |
 | :--- | :--- | :--- |
-| **Zone > DNS** | **Edit** | `staging-ext.wpcapp.net` CNAME および内部 DNS レコードの作成 |
+| **Zone > DNS** | **Edit** | 囮ドメインの CNAME および内部 DNS レコードの作成 |
 | **Zone > Zone** | **Read** | ゾーン情報の参照 |
 | **Zone > Zone WAF** | **Edit** | ハニーポット宛てを素通しする WAF カスタムルール（skip）の作成 |
 | **Zone > Bot Management** | **Edit** | Bot Fight Mode・AI クローラーのブロックの無効化 |
