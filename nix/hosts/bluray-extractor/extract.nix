@@ -82,7 +82,9 @@ in
         export DEVICE="/dev/sr1"
         export LOCAL_MKV_DIR="/tmp/mkv"
 
-        export MINIO_URL="http://10.20.1.60:9000"
+        # swfs の VIP (10.20.1.60) を廃止するため、pechka の Nginx S3 プロキシ (Ingress) 経由にする。
+        # Nginx が swfs 実ノード 3 台へ振り分け、止まったノードを外す (pechka PR #105)。
+        export MINIO_URL="https://s3.wpcapp.net"
         # バケット名は秘密ではない (pechka の k8s/base/infra/configmap/configmap.yaml の minio-bucket と同じ)
         export MINIO_BUCKET="pechka"
 
