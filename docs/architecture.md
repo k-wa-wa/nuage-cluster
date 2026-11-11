@@ -35,7 +35,7 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 - **API アクセス**: `kubectl` / `talosctl` は HAProxy の外部 VIP `192.168.5.200` (6443 / 50000) 経由でアクセスする。ソース `192.168.5.0/24` のみ許可
 - **DNS**: lb 上の CoreDNS が `*.cluster.wpc` / `*.nuage.cluster.wpc` を `192.168.5.200` に解決する。それ以外は `8.8.8.8` へフォワード
-- **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3) で稼働する。VIP は持たず、クライアントは実ノード 3 台 (`10.20.1.41-43`) のマルチホスト DSN (`target_session_attrs=read-write`) によりプライマリを自律検出して接続する。k8s からは `external-service` namespace の Service `postgres` + EndpointSlice (`10.20.1.41-43`) 経由で参照する。
+- **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3) で稼働する。VIP は持たない。k8s の Service `postgres.external-service` は実ノード 3 台 (`10.20.1.41-43`) へラウンドロビン転送され（読み取り・疎通確認用）、プライマリへの書き込みを行う本番アプリケーションは各実ノードの IP を直接指定したマルチホスト DSN (`target_session_attrs=read-write`) によりプライマリを自律検出して接続する。
 - **動的ボリューム**: local-path-provisioner (`/var/local-path-provisioner` への hostPath) により PVC の動的プロビジョニングを提供する
 
 ## 4. IaC・GitOps 運用ワークフロー

@@ -20,7 +20,8 @@ ports:
   protocol: TCP
 endpoints:
 # PostgreSQL / Patroni クラスタの実ノード 3 台。
-# 接続元クライアントは multi-host DSN (target_session_attrs=read-write) によりプライマリを自律検出する
+# Service (postgres.external-service) 経由のトラフィックは 3 台へラウンドロビン転送されるため読み取り・疎通確認用として機能する。
+# プライマリへの書き込みを行うクライアントは、実ノード IP を直接指定したマルチホスト DSN (target_session_attrs=read-write) によりプライマリを自律検出する
 - addresses:
   - 10.20.1.41
   - 10.20.1.42
