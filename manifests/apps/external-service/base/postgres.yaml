@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true,Force=true
 spec:
   clusterIP: None
   ports:
@@ -22,7 +24,7 @@ ports:
 endpoints:
 # PostgreSQL / Patroni クラスタの実ノード 3 台。
 # Headless Service (clusterIP: None) により名前解決時に実ノード 3 台の A レコードを直接返し、
-# クライアント (libpq / pgx) がマルチホストとして認識し Primary 検出・フェイルオーバーを行う。
+# クライアント (libpq / pgx) が target_session_attrs=read-write 指定時にマルチホストとして認識し Primary 検出・フェイルオーバーを行う。
 - addresses:
   - 10.20.1.41
   - 10.20.1.42

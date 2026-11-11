@@ -9,10 +9,6 @@ spec:
     protocol: TCP
     port: 9000
     targetPort: 9000
-  - name: console
-    protocol: TCP
-    port: 9001
-    targetPort: 9001
 ---
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
@@ -24,9 +20,6 @@ addressType: IPv4
 ports:
 - name: api
   port: 9000
-  protocol: TCP
-- name: console
-  port: 9001
   protocol: TCP
 endpoints:
 # SeaweedFS (swfs S3) クラスタの実ノード 3 台。

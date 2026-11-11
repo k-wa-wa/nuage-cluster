@@ -46,7 +46,7 @@ ssh pg-cluster-1 "systemctl status patroni"
 ssh <host> "journalctl -u <service> -n 50 --no-pager"
 ```
 
-- PostgreSQL は VIP を持たず、実ノード 3 台 (`10.20.1.41-43`) で稼働する。k8s からの Service (`postgres.external-service`) は EndpointSlice で 3 台へ転送される（読み取り・疎通確認用）。書き込みを行うクライアントはマルチホスト DSN (`target_session_attrs=read-write`) で実ノードへ直接接続する
+- PostgreSQL は VIP を持たず、実ノード 3 台 (`10.20.1.41-43`) で稼働する。k8s からの Headless Service (`postgres.external-service`) により実ノード 3 台の A レコードが返る。書き込みを行うクライアントはマルチホスト DSN (`target_session_attrs=read-write`) でプライマリを自律検出して接続する
 - DB のユーザー・データベース作成は `nix/hosts/postgres-cluster/patroni.nix` の `bootstrap.post_init` で行われる
 
 ## 修正の適用手段

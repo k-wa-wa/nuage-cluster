@@ -35,9 +35,9 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 - **API アクセス**: `kubectl` / `talosctl` は HAProxy の外部 VIP `192.168.5.200` (6443 / 50000) 経由でアクセスする。ソース `192.168.5.0/24` のみ許可
 - **DNS**: lb 上の CoreDNS が `*.cluster.wpc` / `*.nuage.cluster.wpc` を `192.168.5.200` に解決する。それ以外は `8.8.8.8` へフォワード
-- **外部サービスの引き込み (Headless Service)**: クラスター外のミドルウェア（PostgreSQL, SeaweedFS）は `external-service` namespace の Headless Service (`clusterIP: None`) および EndpointSlice として k8s 内に抽象化している。DNS レベルで実ノード 3 台の A レコードを直接返すことで、死ノード発生時の ClusterIP 経由での再送失敗を排除し、クライアント側の決定論的なフォールバックを可能にする:
-  - **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3, `10.20.1.41-43`) で稼働する。VIP は持たない。Headless Service `postgres.external-service` の名前解決結果からクライアント (libpq / pgx) がマルチホストとしてプライマリを自律検出しフェイルオーバーする。
-  - **SeaweedFS (swfs S3)**: クラスター外の LXC (swfs-cluster-1/2/3, `10.20.1.61-63`) で稼働する。VIP は持たない。Headless Service `minio.external-service` (port 9000 api, 9001 console) として公開し、Nginx upstream が起動時に 3 台へ展開してラウンドロビン・フェイルオーバーを行う。
+- **外部サービスの引き込み (Headless Service)**: クラスター外のミドルウェア（PostgreSQL, SeaweedFS）は `external-service` namespace の Headless Service (`clusterIP: None`) および EndpointSlice として k8s 内に抽象化している。DNS レベルで実ノード 3 台の A レコードを直接返すことで、通常の ClusterIP 経由で発生しうる同一死ノードへの確率的再転送を排除し、クライアント側（libpq のマルチホスト順次試行や Nginx upstream）で複数 IP を認識して決定論的に別ノードへフォールバックできるようにしている（※EndpointSlice は静的定義のため DNS から死ノードが除外されるわけではなく、クライアント側が順に試行する。libpq では待機時間を抑えるため `connect_timeout` の指定を前提とする）:
+  - **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3, `10.20.1.41-43`) で稼働する。VIP は持たない。Headless Service `postgres.external-service` の名前解決結果からクライアント (libpq / pgx) が `target_session_attrs=read-write` 指定時にマルチホストとしてプライマリを自律検出しフェイルオーバーする。
+  - **SeaweedFS (swfs S3)**: クラスター外の LXC (swfs-cluster-1/2/3, `10.20.1.61-63`) で稼働する。VIP は持たない。Headless Service `minio.external-service` (port 9000 api) として公開し、Nginx upstream が起動時に 3 台へ展開してラウンドロビン・フェイルオーバーを行う。
 - **動的ボリューム**: local-path-provisioner (`/var/local-path-provisioner` への hostPath) により PVC の動的プロビジョニングを提供する
 
 ## 4. IaC・GitOps 運用ワークフロー
