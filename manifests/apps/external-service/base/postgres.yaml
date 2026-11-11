@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: postgres
 spec:
+  clusterIP: None
   ports:
   - protocol: TCP
     port: 5432
@@ -20,8 +21,8 @@ ports:
   protocol: TCP
 endpoints:
 # PostgreSQL / Patroni クラスタの実ノード 3 台。
-# Service (postgres.external-service) 経由のトラフィックは 3 台へラウンドロビン転送されるため読み取り・疎通確認用として機能する。
-# プライマリへの書き込みを行うクライアントは、実ノード IP を直接指定したマルチホスト DSN (target_session_attrs=read-write) によりプライマリを自律検出する
+# Headless Service (clusterIP: None) により名前解決時に実ノード 3 台の A レコードを直接返し、
+# クライアント (libpq / pgx) がマルチホストとして認識し Primary 検出・フェイルオーバーを行う。
 - addresses:
   - 10.20.1.41
   - 10.20.1.42

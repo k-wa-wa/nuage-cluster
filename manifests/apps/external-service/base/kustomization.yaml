@@ -6,4 +6,5 @@ kind: Kustomization
 resources:
 - namespace.yaml
 - postgres.yaml
+- minio.yaml
 - lm-server.yaml
