@@ -30,12 +30,6 @@
     ];
   };
 
-  # keepalived (SeaweedFS の VIP) を撤去した後も、notify スクリプトが書いた状態ファイルがノードに残り、
-  # node-exporter が古い keepalived_instance_state を出し続けるため削除する
-  systemd.tmpfiles.rules = [
-    "r /var/lib/prometheus/node-exporter/keepalived_VI_SWFS.prom - - - - -"
-  ];
-
   system.autoUpgrade.healthCheck.requiredUnits = [
     "swfs-master.service"
     "swfs-volume.service"
