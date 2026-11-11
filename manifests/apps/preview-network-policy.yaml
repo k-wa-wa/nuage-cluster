@@ -7,8 +7,8 @@
 #   および本番・システム Namespace (argocd, pechka, kube-system 等) への横展開を全面遮断する。
 # - プレビュー環境内の Pod 間通信、Ingress Controller からの HTTP/HTTPS 流入、
 #   CoreDNS (53/UDP, 53/TCP) による名前解決、パブリックインターネット通信、
-#   pechka プレビューが必要とする本番外部リソース (SeaweedFS S3 実ノード 10.20.1.61〜63:9000 と
-#   VIP 10.20.1.60:9000, PostgreSQL 10.20.1.40:5432)、
+#   pechka プレビューが必要とする本番外部リソース (SeaweedFS S3 実ノード 10.20.1.61〜63:9000,
+#   PostgreSQL 10.20.1.40:5432)、
 #   および侵入検知ハニーポット (nuage-honeytrap) への誘導通信のみを許可する。
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
@@ -59,9 +59,7 @@ spec:
     # 本番 SeaweedFS S3 (Port 9000 TCP)。
     # pechka プレビューの nginx は、ローカルに無い既存コンテンツの読み取りを実ノード 3 台
     # (10.20.1.61〜63) へ直接フォールバックする (書き込みは pechka 側の nginx で禁止している)。
-    # VIP (10.20.1.60) は廃止するまで残す。
     - toCIDRSet:
-        - cidr: 10.20.1.60/32
         - cidr: 10.20.1.61/32
         - cidr: 10.20.1.62/32
         - cidr: 10.20.1.63/32
