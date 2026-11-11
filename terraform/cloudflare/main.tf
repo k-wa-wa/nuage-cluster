@@ -12,6 +12,13 @@ resource "cloudflare_dns_record" "wildcard_a" {
   ttl     = 1 # 1 = Automatic
   proxied = false
   comment = "Wildcard A record for internal k8s services"
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
 }
 
 # ルートドメイン A レコード (wpcapp.net -> 192.168.5.200)
@@ -37,6 +44,13 @@ resource "cloudflare_zero_trust_tunnel_cloudflared" "honeytrap" {
   name          = "nuage-honeytrap-ext"
   config_src    = "cloudflare"
   tunnel_secret = random_id.tunnel_secret.b64_std
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.account_id, "PLACEHOLDER")
+      error_message = "local.account_id に実際の Cloudflare Account ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
 }
 
 # ハニーポット用 Tunnel Ingress ルール設定
@@ -77,4 +91,11 @@ resource "cloudflare_dns_record" "honeytrap_cname" {
   ttl     = 1
   proxied = true
   comment = "Cloudflare Tunnel CNAME for nuage-honeytrap"
+
+  lifecycle {
+    precondition {
+      condition     = !startswith(local.zone_id, "PLACEHOLDER")
+      error_message = "local.zone_id に実際の Cloudflare Zone ID を設定する必要がある（プレースホルダーのままでは適用不可）。"
+    }
+  }
 }
