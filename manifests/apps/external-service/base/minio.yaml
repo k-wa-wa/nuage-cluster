@@ -23,8 +23,7 @@ ports:
   protocol: TCP
 endpoints:
 # SeaweedFS (swfs S3) クラスタの実ノード 3 台。
-# Headless Service (clusterIP: None) により名前解決時に 3 台の A レコードを直接返し、
-# Nginx upstream が起動時に個別サーバーとして展開してラウンドロビン・フェイルオーバーを行う。
+# Headless Service (clusterIP: None) により名前解決時に 3 台の A レコードを直接返す。
 - addresses:
   - 10.20.1.61
   - 10.20.1.62

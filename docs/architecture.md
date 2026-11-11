@@ -35,9 +35,9 @@ Talos Linux の 6 ノードクラスターを `prvmain` VNet (10.20.1.0/24) 上�
 
 - **API アクセス**: `kubectl` / `talosctl` は HAProxy の外部 VIP `192.168.5.200` (6443 / 50000) 経由でアクセスする。ソース `192.168.5.0/24` のみ許可
 - **DNS**: lb 上の CoreDNS が `*.cluster.wpc` / `*.nuage.cluster.wpc` を `192.168.5.200` に解決する。それ以外は `8.8.8.8` へフォワード
-- **外部サービスの引き込み (Headless Service)**: クラスター外のミドルウェア（PostgreSQL, SeaweedFS）は `external-service` namespace の Headless Service (`clusterIP: None`) および EndpointSlice として k8s 内に抽象化している。DNS レベルで実ノード 3 台の A レコードを直接返すことで、通常の ClusterIP 経由で発生しうる同一死ノードへの確率的再転送を排除し、クライアント側（libpq のマルチホスト順次試行や Nginx upstream）で複数 IP を認識して決定論的に別ノードへフォールバックできるようにしている（※EndpointSlice は静的定義のため DNS から死ノードが除外されるわけではなく、クライアント側が順に試行する。libpq では待機時間を抑えるため `connect_timeout` の指定を前提とする）:
+- **外部サービスの引き込み (Headless Service)**: クラスター外のミドルウェア（PostgreSQL, SeaweedFS）は `external-service` namespace の Headless Service (`clusterIP: None`) および EndpointSlice として k8s 内に抽象化している。DNS レベルで実ノード 3 台の A レコードを直接返すことで、通常の ClusterIP 経由で発生しうる同一死ノードへの確率的再転送を排除し、クライアント側で複数 IP を認識して決定論的に別ノードへフォールバックできるようにしている（※EndpointSlice は静的定義のため DNS から死ノードが除外されるわけではなく、クライアント側が順に試行する。libpq では待機時間を抑えるため `connect_timeout` の指定を前提とする）:
   - **PostgreSQL**: クラスター外の LXC (pg-cluster-1/2/3, `10.20.1.41-43`) で稼働する。VIP は持たない。Headless Service `postgres.external-service` の名前解決結果からクライアント (libpq / pgx) が `target_session_attrs=read-write` 指定時にマルチホストとしてプライマリを自律検出しフェイルオーバーする。
-  - **SeaweedFS (swfs S3)**: クラスター外の LXC (swfs-cluster-1/2/3, `10.20.1.61-63`) で稼働する。VIP は持たない。Headless Service `minio.external-service` (port 9000 api) として公開し、Nginx upstream が起動時に 3 台へ展開してラウンドロビン・フェイルオーバーを行う。
+  - **SeaweedFS (swfs S3)**: クラスター外の LXC (swfs-cluster-1/2/3, `10.20.1.61-63`) で稼働する。VIP は持たない。Headless Service `minio.external-service` (port 9000 api) として公開し、名前解決時に 3 台の A レコードを直接返す。
 - **動的ボリューム**: local-path-provisioner (`/var/local-path-provisioner` への hostPath) により PVC の動的プロビジョニングを提供する
 
 ## 4. IaC・GitOps 運用ワークフロー
@@ -85,7 +85,7 @@ SOPS + Age による暗号化で全シークレットを Git 管理する。マ�
 | worker-01/02/03 | 206-208 | nuc-1 / server-2 / server-1 | 10.20.1.16-18 | - | Talos Worker |
 | lb-1/2/3 | 211-213 | nuc-1 / server-2 / server-1 | 10.20.1.21-23 | 192.168.5.201-203 | HAProxy + keepalived + CoreDNS (VIP: 10.20.1.20 / 192.168.5.200) |
 | pg-cluster-1/2/3 | 241-243 | nuc-1 / server-2 / server-1 | 10.20.1.41-43 | - | PostgreSQL (Patroni, VIP なし。Headless Service `postgres.external-service` 経由でマルチホスト接続) |
-| swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP なし。Headless Service `minio.external-service` 経由で Nginx 等が 3 台へ振り分ける) |
+| swfs-cluster-1/2/3 | 261-263 | nuc-1 / server-2 / server-1 | 10.20.1.61-63 | - | SeaweedFS (VIP なし。Headless Service `minio.external-service` 経由で 3 台へ接続) |
 | egress-gateway | 220 | server-1 | 10.20.1.30 | 192.168.5.220 | .5.0/24 への Gateway (llama.cpp 中継 → 192.168.5.222:8080) |
 | chaos-monitor | 250 | server-2 | 10.20.1.250 | 192.168.5.250 | 外部監視 |
 | atelier | 252 | server-1 | 10.20.1.52 | 192.168.5.252 | エージェントと開発する作業場。Orca サーバー + autopilot5 (8c/16GB, zone-dev で管理)。出先からは既存の Tailscale 経由で LAN 側に入る |
