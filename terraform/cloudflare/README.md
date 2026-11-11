@@ -1,6 +1,8 @@
 # Cloudflare インフラ管理 (Terragrunt / Terraform)
 
-本ディレクトリでは、Cloudflare 上の DNS レコードおよび Zero Trust Tunnel (ハニーポット公開用) をコード管理する。
+本ディレクトリでは、Cloudflare 上の DNS レコード、Zero Trust Tunnel (ハニーポット公開用)、およびハニーポット宛てのエッジ素通し設定をコード管理する。
+
+エッジ素通し設定は、Cloudflare エッジの既定の保護（Browser Integrity Check・Security Level・マネージド WAF・Bot Fight Mode・AI クローラーのブロック）が攻撃トラフィックを転送前に遮断し、ハニーポットまで届かなくなるのを防ぐためのものである。WAF のカスタムルール（skip）は `staging-ext.wpcapp.net` 宛てのみに効く。Bot 設定はゾーン全体の設定だが、proxied なレコードは `staging-ext` だけなので、実際に影響を受けるのはハニーポットのみである。
 
 ## 1. 認証情報管理ポリシー
 
@@ -11,13 +13,15 @@
 
 ## 2. API トークン発行と必要スコープ
 
-Tunnel（アカウントリソース）と DNS（ゾーンリソース）を同時に管理するため、**My Profile（マイプロフィール） > API Tokens** から Custom Token を作成する。
+Tunnel（アカウントリソース）と DNS・WAF・Bot 設定（ゾーンリソース）を同時に管理するため、**My Profile（マイプロフィール） > API Tokens** から Custom Token を作成する。
 
 ### 必要スコープ (Permissions)
 | リソース種別 | 権限レベル | 用途 |
 | :--- | :--- | :--- |
 | **Zone > DNS** | **Edit** | `staging-ext.wpcapp.net` CNAME および内部 DNS レコードの作成 |
 | **Zone > Zone** | **Read** | ゾーン情報の参照 |
+| **Zone > Zone WAF** | **Edit** | ハニーポット宛てを素通しする WAF カスタムルール（skip）の作成 |
+| **Zone > Bot Management** | **Edit** | Bot Fight Mode・AI クローラーのブロックの無効化 |
 | **Account > Cloudflare Tunnel** | **Edit** | ハニーポット公開用 Zero Trust Tunnel の作成・設定 |
 
 - **Account Resources**: 対象アカウント（または All accounts）
@@ -47,9 +51,15 @@ Tunnel（アカウントリソース）と DNS（ゾーンリソース）を同�
 # 差分確認 (precondition ガードを通過することを確認)
 terragrunt --working-dir terraform/cloudflare plan
 
-# 適用 (Tunnel と CNAME レコードを作成)
+# 適用 (Tunnel・CNAME レコード・エッジ素通し設定を作成)
 terragrunt --working-dir terraform/cloudflare apply
 ```
+
+> [!NOTE]
+> ゾーンにカスタムルールのエントリポイント ruleset（`http_request_firewall_custom`）がすでにある場合（ダッシュボードでカスタムルールを作ったことがある等）、`cloudflare_ruleset.honeytrap_bypass` の作成は失敗する。その場合は既存の ruleset を取り込んでから再度 apply する。取り込んだ ruleset の既存ルールは、この定義で置き換わる。
+> ```bash
+> terragrunt --working-dir terraform/cloudflare import cloudflare_ruleset.honeytrap_bypass zones/<zone_id>/<ruleset_id>
+> ```
 
 ### Step 3: Tunnel トークンの取得
 ```bash
