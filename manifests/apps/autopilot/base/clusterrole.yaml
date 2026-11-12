@@ -17,6 +17,8 @@ rules:
       - nodes
       - namespaces
       - configmaps
+      - persistentvolumeclaims
+      - persistentvolumes
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources:
@@ -37,4 +39,9 @@ rules:
   - apiGroups: ["events.k8s.io"]
     resources:
       - events
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources:
+      - applications
+      - applicationsets
     verbs: ["get", "list", "watch"]
