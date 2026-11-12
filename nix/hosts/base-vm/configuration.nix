@@ -72,16 +72,18 @@
     '';
   };
 
-  # イメージ側のディスクパーティション構造に合わせたマウント定義
-  fileSystems."/" = {
-    device = lib.mkDefault "/dev/disk/by-label/nixos";
-    fsType = lib.mkDefault "ext4";
-    options = lib.mkDefault [
+  # イメージ側のディスクパーティション構造に合わせたマウント定義 (lib.mkDefault で他構成との競合を回避)
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+    options = [
       "x-systemd.growfs"
       "x-initrd.mount"
     ];
   };
 
+  # /boot は nixos-generators の formats/qcow-efi.nix が device/fsType を通常優先度で定義するため、
+  # 全体を mkDefault にすると options が破棄される。device/fsType のみ mkDefault にし、options は通常優先度で定義する。
   fileSystems."/boot" = {
     device = lib.mkDefault "/dev/disk/by-label/ESP";
     fsType = lib.mkDefault "vfat";
