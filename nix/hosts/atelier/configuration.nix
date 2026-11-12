@@ -71,7 +71,7 @@
   programs.autopilot5 = {
     enable = true;
     user = "nixos";
-    # 作業ごとのモデルの並び。モデルの更新はこのファイルだけで行う。
+    # 担当 CLI の優先順と段階ごとのモデル。担当・モデルの更新はこのファイルだけで行う。
     models = ./models.yaml;
     # Mac と共通の個人のルール (nix-config の rules.md)。Mac だけのルール (git は人間が扱う) は入れない。
     extraRules = [ agentRules ];

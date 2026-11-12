@@ -236,9 +236,14 @@ orca-ide serve --port 6769 --pairing-address ws://192.168.5.252:6769 --mobile-pa
 systemctl --user start orca-serve
 ```
 
-#### モデルの更新
+#### 担当とモデルの更新
 
-autopilot5 が作業ごとに使うモデルは `nix/hosts/atelier/models.yaml` だけに書く (エージェント → 賢さの段階 → 前から順に試すモデル)。
+autopilot5 の担当 CLI の優先順とモデルは `nix/hosts/atelier/models.yaml` だけに書く。
+通常は実装 agy・レビュー claude とし、認証切れ・利用上限・会話切れで利用不能になった場合だけ、
+実装は agy → codex → claude、レビューは claude → codex → agy の順に切り替える。
+`roles.impl` / `roles.review` が担当順、各エージェントの high / standard / light がモデルと effort を定義する。
+実装に成功した CLI とモデルは修正でも維持し、再開に失敗したら停止する。
+窓口は特別な指示がない限り `--impl` / `--reviewers` を指定せず、同じ CLI のレビューも別セッションで行う。
 書き換えて push すると翌日の自動更新で反映される。急ぐときは atelier で `sudo systemctl start nixos-upgrade` を実行する。
 今の並びは atelier で `autopilot-run models` で確認する。書き間違いは nix のビルドで落ちる。
 
