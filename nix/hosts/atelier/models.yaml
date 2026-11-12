@@ -23,12 +23,15 @@ claude:
   standard: [claude-sonnet-5-5@medium]
   light: [claude-haiku-5-5@low]
 
+# Gemini 4 Argon は利用枠が小さいため採用しない。
+# GPT-OSS 120B は使用しない。
 agy:
-  high: [gemini-3.8-flash-high, gpt-oss-120b-medium]
-  standard: [gemini-3.8-flash-medium, gpt-oss-120b-medium]
+  high: [gemini-3.8-flash-high]
+  standard: [gemini-3.8-flash-medium]
   light: [gemini-3.8-flash-low]
 
+# Claude の各段階に役割を揃える（性能が同等であることは保証しない）。
 codex:
-  high: [gpt-6.1-sol@high]
+  high: [gpt-6-astra@high]
   standard: [gpt-6.1-sol@medium]
-  light: [gpt-6.1-sol@low]
+  light: [gpt-6-luna@low]
