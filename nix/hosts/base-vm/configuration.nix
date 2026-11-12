@@ -85,7 +85,7 @@
   fileSystems."/boot" = lib.mkDefault {
     device = "/dev/disk/by-label/ESP";
     fsType = "vfat";
-    options = [ "defaults" ];
+    options = [ "umask=0077" ];
   };
 
   # 初回ブートストラップ（ロック保持）が完了するまで自動アップグレードを実行しない
