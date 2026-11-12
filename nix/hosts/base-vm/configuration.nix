@@ -72,19 +72,19 @@
     '';
   };
 
-  # イメージ側のディスクパーティション構造に合わせたマウント定義 (lib.mkDefault で他構成との競合を回避)
-  fileSystems."/" = lib.mkDefault {
-    device = "/dev/disk/by-label/nixos";
-    fsType = "ext4";
-    options = [
+  # イメージ側のディスクパーティション構造に合わせたマウント定義
+  fileSystems."/" = {
+    device = lib.mkDefault "/dev/disk/by-label/nixos";
+    fsType = lib.mkDefault "ext4";
+    options = lib.mkDefault [
       "x-systemd.growfs"
       "x-initrd.mount"
     ];
   };
 
-  fileSystems."/boot" = lib.mkDefault {
-    device = "/dev/disk/by-label/ESP";
-    fsType = "vfat";
+  fileSystems."/boot" = {
+    device = lib.mkDefault "/dev/disk/by-label/ESP";
+    fsType = lib.mkDefault "vfat";
     options = [ "umask=0077" ];
   };
 
