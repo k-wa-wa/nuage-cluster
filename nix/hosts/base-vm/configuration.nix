@@ -82,10 +82,12 @@
     ];
   };
 
-  fileSystems."/boot" = lib.mkDefault {
-    device = "/dev/disk/by-label/ESP";
-    fsType = "vfat";
-    options = [ "defaults" ];
+  # /boot は nixos-generators の formats/qcow-efi.nix が device/fsType を通常優先度で定義するため、
+  # 全体を mkDefault にすると options が破棄される。device/fsType のみ mkDefault にし、options は通常優先度で定義する。
+  fileSystems."/boot" = {
+    device = lib.mkDefault "/dev/disk/by-label/ESP";
+    fsType = lib.mkDefault "vfat";
+    options = [ "umask=0077" ];
   };
 
   # 初回ブートストラップ（ロック保持）が完了するまで自動アップグレードを実行しない
