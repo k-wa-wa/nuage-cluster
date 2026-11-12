@@ -87,7 +87,7 @@ resource "proxmox_virtual_environment_vm" "atelier" {
     datastore_id = "local-zfs"
     import_from  = "local:import/nixos-base-vm.qcow2"
     interface    = "virtio0"
-    size         = 100
+    size         = 150
     aio          = "io_uring"
     cache        = "none"
     discard      = "on"
