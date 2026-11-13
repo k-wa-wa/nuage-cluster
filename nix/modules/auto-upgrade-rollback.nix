@@ -24,7 +24,7 @@ let
     set -u
     mkdir -p /run/nixos-upgrade
     rm -f /run/nixos-upgrade/pre-upgrade-profile
-    ${pkgs.coreutils}/bin/readlink -f /nix/var/nix/profiles/system > /run/nixos-upgrade/pre-upgrade-profile
+    ${pkgs.coreutils}/bin/readlink -e /nix/var/nix/profiles/system > /run/nixos-upgrade/pre-upgrade-profile
   '';
 
   # 自動ヘルスチェック＆ロールバックスクリプト
@@ -84,7 +84,7 @@ let
 
         # 2. 更新前後のプロファイルおよび世代確認
         pre_profile=$(cat /run/nixos-upgrade/pre-upgrade-profile 2>/dev/null || true)
-        current_profile=$(readlink -f /nix/var/nix/profiles/system || true)
+        current_profile=$(readlink -e /nix/var/nix/profiles/system || true)
         current_link=$(readlink /nix/var/nix/profiles/system || true)
         current_gen=$(echo "$current_link" | sed -n 's/.*system-\([0-9]*\)-link/\1/p')
 
@@ -193,7 +193,7 @@ let
         else
           system_state=$(${systemctl} is-system-running 2>/dev/null || true)
           pending_jobs=$(${systemctl} list-jobs --no-legend --plain 2>/dev/null) || pending_jobs=unknown
-          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 | tr '\n' ' ' || true)
+          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null) || failed_units=unknown
 
           failure_detail="system_state=$system_state"
           if [ "$pending_jobs" = "unknown" ]; then
@@ -202,8 +202,11 @@ let
             jobs_summary=$(printf '%s\n' "$pending_jobs" | awk '{printf "%s(%s) ", $2, $3}' | sed 's/ $//')
             failure_detail="$failure_detail, pending_jobs=[$jobs_summary]"
           fi
-          if [ -n "$failed_units" ]; then
-            failure_detail="$failure_detail, failed_units=[$failed_units]"
+          if [ "$failed_units" = "unknown" ]; then
+            failure_detail="$failure_detail, failed_units=[failed to retrieve]"
+          elif [ -n "$failed_units" ]; then
+            units_summary=$(printf '%s\n' "$failed_units" | awk '{printf "%s ", $1}' | sed 's/ $//')
+            failure_detail="$failure_detail, failed_units=[$units_summary]"
           fi
           if [ "$units_ok" != "true" ]; then
             failure_detail="$failure_detail, required units not active"

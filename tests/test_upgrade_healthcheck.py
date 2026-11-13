@@ -41,13 +41,15 @@ class UpgradeHealthcheckTest(unittest.TestCase):
 
     def run_check(self, *, state="starting", jobs="452 nixos-upgrade.service start running",
                   failed="", required=True, previous="same", service_result="success",
-                  jobs_exit=0, units_exit=0):
+                  jobs_exit=0, units_exit=0, jobs_after_first=None, timeout_sec=0,
+                  rollback_exit=0, current_missing=False):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             (tmp / "bootstrapped").touch()
             (tmp / "system-3-link").symlink_to(tmp / "current")
             (tmp / "system").symlink_to("system-3-link")
-            (tmp / "current").touch()
+            if not current_missing:
+                (tmp / "current").touch()
             if previous != "unknown":
                 (tmp / "pre").write_text(str(tmp / ("current" if previous == "same" else "old")))
             fake = tmp / "systemctl"
@@ -60,6 +62,11 @@ case "$1" in
     ;;
   list-jobs)
     if [ "${TEST_JOBS_EXIT:-0}" != "0" ]; then exit "$TEST_JOBS_EXIT"; fi
+    if [ -e "$TEST_JOBS_QUERIED" ] && [ "${TEST_JOBS_AFTER_FIRST+x}" = x ]; then
+      printf '%s\\n' "$TEST_JOBS_AFTER_FIRST"
+      exit 0
+    fi
+    touch "$TEST_JOBS_QUERIED"
     printf '%s\\n' "$TEST_JOBS"
     ;;
   is-active) test "$TEST_REQUIRED" = true ;;
@@ -67,7 +74,7 @@ esac
 ''')
             fake.chmod(0o755)
             rollback = tmp / "rollback"
-            rollback.write_text('#!/bin/sh\ntouch "' + str(tmp / "rolled-back") + '"\n')
+            rollback.write_text('#!/bin/sh\ntouch "' + str(tmp / "rolled-back") + '"\nexit "$TEST_ROLLBACK_EXIT"\n')
             rollback.chmod(0o755)
             script = self.script
             script = re_sub_exact(r'/nix/store/[^ /]+/bin/systemctl', str(fake), script)
@@ -84,12 +91,17 @@ esac
                 self.assertNotIn(old, script)
             script = replace_exact(script, "sleep 5", "sleep 0")
             script = replace_exact(script, "sleep 3", "sleep 0.01")
-            script = replace_exact(script, "+ 90 ))", "+ 0 ))")
+            script = replace_exact(script, "+ 90 ))", f"+ {timeout_sec} ))")
             self.assertNotIn("sleep 5", script)
             self.assertNotIn("+ 90 ))", script)
             env = dict(os.environ, TEST_STATE=state, TEST_JOBS=jobs, TEST_FAILED=failed,
                        TEST_REQUIRED=str(required).lower(), SERVICE_RESULT=service_result,
-                       TEST_JOBS_EXIT=str(jobs_exit), TEST_UNITS_EXIT=str(units_exit))
+                       TEST_JOBS_EXIT=str(jobs_exit), TEST_UNITS_EXIT=str(units_exit),
+                       TEST_JOBS_QUERIED=str(tmp / "jobs-queried"),
+                       TEST_ROLLBACK_EXIT=str(rollback_exit))
+            env.pop("TEST_JOBS_AFTER_FIRST", None)
+            if jobs_after_first is not None:
+                env["TEST_JOBS_AFTER_FIRST"] = jobs_after_first
             result = subprocess.run(["bash"], input=script, env=env, text=True,
                                     capture_output=True, timeout=10)
             return result, (tmp / "rolled-back").exists()
@@ -116,17 +128,23 @@ esac
             self.assertEqual(pre_file.read_text().strip(), str(target_gen.resolve()))
 
     def test_pre_check_fails_when_profile_missing(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            run_dir = tmp / "run"
-            missing_system = tmp / "nonexistent-dir" / "system"
+        for missing in ("parent", "link", "target"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
+                tmp = Path(tmp)
+                run_dir = tmp / "run"
+                missing_system = tmp / "system"
+                if missing == "parent":
+                    missing_system = tmp / "nonexistent-dir" / "system"
+                elif missing == "target":
+                    missing_system.symlink_to(tmp / "missing-target")
 
-            script = self.pre_script
-            script = replace_exact(script, "/run/nixos-upgrade", str(run_dir))
-            script = replace_exact(script, "/nix/var/nix/profiles/system", str(missing_system))
+                script = self.pre_script
+                script = replace_exact(script, "/run/nixos-upgrade", str(run_dir))
+                script = replace_exact(script, "/nix/var/nix/profiles/system", str(missing_system))
 
-            result = subprocess.run(["bash"], input=script, text=True, capture_output=True, timeout=5)
-            self.assertNotEqual(result.returncode, 0)
+                result = subprocess.run(["bash"], input=script, text=True, capture_output=True, timeout=5)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((run_dir / "pre-upgrade-profile").read_text(), "")
 
     def test_starting_with_only_upgrade_job_succeeds(self):
         result, rolled_back = self.run_check()
@@ -143,6 +161,16 @@ esac
         result, _ = self.run_check(jobs="")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Healthcheck failed within", result.stderr)
+
+    def test_other_startup_job_finishes_while_waiting(self):
+        result, rolled_back = self.run_check(
+            jobs="452 nixos-upgrade.service start running\n453 other.service start waiting",
+            jobs_after_first="452 nixos-upgrade.service start running",
+            timeout_sec=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Healthcheck passed", result.stdout)
+        self.assertFalse(rolled_back)
 
     def test_failed_or_required_unit_does_not_pass(self):
         for kwargs in ({"failed": "broken.service"}, {"required": False}):
@@ -161,6 +189,13 @@ esac
         result, _ = self.run_check(state="running", units_exit=1)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Healthcheck failed within", result.stderr)
+        self.assertIn("failed_units=[failed to retrieve]", result.stderr)
+
+    def test_missing_current_profile_is_not_treated_as_unchanged(self):
+        result, rolled_back = self.run_check(current_missing=True, required=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("previous profile is unknown", result.stderr)
+        self.assertFalse(rolled_back)
 
     def test_unknown_previous_profile_is_not_treated_as_unchanged(self):
         result, rolled_back = self.run_check(previous="unknown", required=False)
@@ -179,6 +214,25 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Healthcheck failed within", result.stderr)
         self.assertTrue(rolled_back)
+
+    def test_changed_profile_rolls_back_on_main_process_failure(self):
+        result, rolled_back = self.run_check(previous="changed", service_result="exit-code")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main process failed after switching profile", result.stderr)
+        self.assertTrue(rolled_back)
+        self.assertIn("SUCCESS: Rolled back", result.stdout)
+
+    def test_rollback_failure_is_reported(self):
+        for service_result in ("success", "exit-code"):
+            with self.subTest(service_result=service_result):
+                result, rolled_back = self.run_check(
+                    previous="changed", required=False, service_result=service_result,
+                    rollback_exit=1,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(rolled_back)
+                self.assertIn("CRITICAL: nixos-rebuild switch --rollback failed!", result.stderr)
+                self.assertNotIn("SUCCESS: Rolled back", result.stdout)
 
 
 if __name__ == "__main__":
