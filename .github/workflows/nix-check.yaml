@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "nix/**"
+      - "tests/**"
+      - ".github/workflows/nix-check.yaml"
 
 jobs:
   flake-check:
@@ -19,3 +21,6 @@ jobs:
 
       - name: Check Flake Evaluation
         run: nix flake check ./nix
+
+      - name: Test Upgrade Healthcheck
+        run: python3 -B -m unittest tests.test_upgrade_healthcheck
