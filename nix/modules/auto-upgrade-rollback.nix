@@ -158,7 +158,7 @@ let
         deadline=$(( $(date +%s) + ${toString cfg.timeoutSec} ))
         healthy=false
 
-        while [ $(date +%s) -le $deadline ]; do
+        while true; do
           system_state=$(${systemctl} is-system-running 2>/dev/null || true)
           failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null) || failed_units=unknown
           # 起動時はこのサービス自身の start job が終了するまで systemd は starting のままになる。
@@ -174,8 +174,12 @@ let
             fi
           done
 
-          if { [ "$system_state" = "running" ] || { [ "$system_state" = "starting" ] && [ "$only_upgrade_job" = "true" ]; }; } && [ -z "$failed_units" ] && [ "$units_ok" = "true" ]; then
+          if [ "$pending_jobs" != "unknown" ] && [ -z "$failed_units" ] && [ "$units_ok" = "true" ] && { [ "$system_state" = "running" ] || { [ "$system_state" = "starting" ] && [ "$only_upgrade_job" = "true" ]; }; }; then
             healthy=true
+            break
+          fi
+
+          if [ $(date +%s) -ge $deadline ]; then
             break
           fi
 
@@ -188,9 +192,16 @@ let
           exit 0
         else
           system_state=$(${systemctl} is-system-running 2>/dev/null || true)
+          pending_jobs=$(${systemctl} list-jobs --no-legend --plain 2>/dev/null) || pending_jobs=unknown
           failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 | tr '\n' ' ' || true)
 
           failure_detail="system_state=$system_state"
+          if [ "$pending_jobs" = "unknown" ]; then
+            failure_detail="$failure_detail, pending_jobs=[failed to retrieve]"
+          elif [ -n "$pending_jobs" ]; then
+            jobs_summary=$(printf '%s\n' "$pending_jobs" | awk '{printf "%s(%s) ", $2, $3}' | sed 's/ $//')
+            failure_detail="$failure_detail, pending_jobs=[$jobs_summary]"
+          fi
           if [ -n "$failed_units" ]; then
             failure_detail="$failure_detail, failed_units=[$failed_units]"
           fi
