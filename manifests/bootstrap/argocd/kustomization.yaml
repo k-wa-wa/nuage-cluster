@@ -7,6 +7,8 @@ resources:
 - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.7/manifests/install.yaml
 - avp-cmp-plugin.yaml
 
+# Argo CD v3.5.7 で検出された Critical 脆弱性（CVE-2026-31789, CVE-2026-33186 等）に対応するためイメージタグを上書きする。
+# Argo CD 本体をバージョンアップ（v3.6系以降等）する際は、upstream 側のイメージタグを確認し、この上書きを見直すか外すこと。
 images:
 - name: ghcr.io/dexidp/dex
   newTag: v2.46.1
