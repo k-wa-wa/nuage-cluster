@@ -7,6 +7,12 @@ resources:
 - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.7/manifests/install.yaml
 - avp-cmp-plugin.yaml
 
+images:
+- name: ghcr.io/dexidp/dex
+  newTag: v2.46.1
+- name: public.ecr.aws/docker/library/redis
+  newTag: 8.2.11-alpine
+
 patches:
 - path: notifications.yaml
 
