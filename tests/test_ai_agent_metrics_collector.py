@@ -2807,6 +2807,10 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertAlmostEqual(costs[fix_base], 0.72, places=8)
 
         self.assertEqual(
+            sessions['agent="codex",branch="feat/codex-metrics",phase="implement",repo="nuage-cluster"'],
+            1,
+        )
+        self.assertEqual(
             sessions['agent="codex",branch="feat/codex-metrics",phase="fix",repo="nuage-cluster"'],
             1,
         )
@@ -3058,6 +3062,139 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(len(collector_err.state["counters"]["tokens"]), 0)
         self.assertEqual(len(collector_err.state["counters"]["cost_usd"]), 0)
         self.assertNotIn(err_jsonl, collector_err.state["codex_offsets"])
+
+    def test_codex_sessions_consistent_across_incremental_and_batch(self):
+        # 逐次（毎分）収集と一括収集で nuage_ai_agent_sessions_total のフェーズ別件数が一致すること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-codex-sess")
+        os.makedirs(ws_dir, exist_ok=True)
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        jsonl_path = os.path.join(codex_dir, "rollout-resume.jsonl")
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "codex" in p else []
+        try:
+            # 1. session_meta と AGENTS.md だけが書き出された瞬間 -> phase="unknown" を誤計上しないこと
+            with open(jsonl_path, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "session_meta",
+                    "payload": {
+                        "cwd": ws_dir,
+                        "source": "exec",
+                        "originator": "codex_exec",
+                        "git": {"branch": "feat/resume-consistency"},
+                    },
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "# AGENTS.md instructions\n..."}],
+                    },
+                }) + "\n")
+
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_codex()
+            c1._save_state()
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+
+            # 2. implement ターン実行 -> implement=1 が計上されること
+            with open(jsonl_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"}],
+                    },
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {
+                        "response_id": "resp-r1",
+                        "usage": {"input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100},
+                    },
+                }) + "\n")
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.collect_codex()
+            c2._save_state()
+            self.assertEqual(
+                c2.state["counters"]["sessions"],
+                {'agent="codex",branch="feat/resume-consistency",phase="implement",repo="nuage-cluster"': 1},
+            )
+
+            # 3. 同一ターンのトークン追記のみ -> セッション数は増えないこと
+            with open(jsonl_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {
+                        "response_id": "resp-r2",
+                        "usage": {"input_tokens": 2000, "cached_input_tokens": 1000, "output_tokens": 200},
+                    },
+                }) + "\n")
+
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_codex()
+            c3._save_state()
+            self.assertEqual(
+                c3.state["counters"]["sessions"],
+                {'agent="codex",branch="feat/resume-consistency",phase="implement",repo="nuage-cluster"': 1},
+            )
+
+            # 4. codex exec resume で fix を 2 回実行 -> fix=2 が加算されること
+            for idx in range(2):
+                with open(jsonl_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [{"type": "input_text", "text": f"次のファイルを読み、直すべきものを直す。\n- レビュー結果: .autopilot/review-{idx + 1}-claude.md"}],
+                        },
+                    }) + "\n")
+                    f.write(json.dumps({
+                        "type": "token_usage_record",
+                        "payload": {
+                            "response_id": f"resp-fix-{idx}",
+                            "usage": {"input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 50},
+                        },
+                    }) + "\n")
+
+            c4 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c4.collect_codex()
+
+            expected_sessions = {
+                'agent="codex",branch="feat/resume-consistency",phase="implement",repo="nuage-cluster"': 1,
+                'agent="codex",branch="feat/resume-consistency",phase="fix",repo="nuage-cluster"': 2,
+            }
+            self.assertEqual(c4.state["counters"]["sessions"], expected_sessions)
+
+            # 5. 一括収集（新しい state ファイルから最初から読み直し）でも完全に一致すること
+            batch_state = os.path.join(self.test_dir, "batch-state.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.collect_codex()
+            self.assertEqual(c_batch.state["counters"]["sessions"], expected_sessions)
+        finally:
+            collector_mod.glob.glob = orig_glob
 
 
 

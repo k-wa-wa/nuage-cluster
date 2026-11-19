@@ -1508,7 +1508,13 @@ class MetricsCollector:
                     continue
 
                 new_offset = prev_offset
-                is_new_session = prev_offset == 0
+                session_counted = (
+                    bool(prev_meta["session_counted"])
+                    if "session_counted" in prev_meta
+                    else (prev_offset > 0)
+                )
+                saw_activity = False
+                detected_session_phases: list[str] = []
 
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo", "unknown")
@@ -1652,10 +1658,12 @@ class MetricsCollector:
                         if not is_portal:
                             prompt_content = self._extract_codex_user_prompt(rec_type, payload)
                             if prompt_content:
+                                saw_activity = True
                                 detected = detect_phase(prompt_content)
                                 if detected in ("implement", "review", "fix", "summarize"):
                                     context = "autopilot"
                                     phase = detected
+                                    detected_session_phases.append(detected)
                                 elif is_exec and phase == "unknown":
                                     fb_phase = get_phase_from_run_log(ws_path or path)
                                     if fb_phase in ("implement", "review", "fix", "summarize"):
@@ -1674,6 +1682,8 @@ class MetricsCollector:
                             if rid in seen_ids:
                                 continue
                             seen_ids[rid] = True
+
+                        saw_activity = True
 
                         if not is_portal and is_exec and phase == "unknown":
                             fb_phase = get_phase_from_run_log(ws_path or path)
@@ -1730,9 +1740,22 @@ class MetricsCollector:
                 )
 
                 # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
-                if is_new_session and new_offset > 0:
-                    s_key = f'agent="codex",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
-                    temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                # exec セッションは同一ファイルへの codex exec resume でフェーズが遷移するため、
+                # 定型プロンプト出現ごとに該当フェーズで 1 セッション計上し、収集タイミングによる食い違いを防ぐ
+                if is_portal:
+                    if not session_counted and new_offset > 0:
+                        s_key = f'agent="codex",branch="{branch}",phase="portal",repo="{repo}"'
+                        temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                        session_counted = True
+                else:
+                    for sess_phase in detected_session_phases:
+                        s_key = f'agent="codex",branch="{branch}",phase="{sess_phase}",repo="{repo}"'
+                        temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                        session_counted = True
+                    if not session_counted and saw_activity and new_offset > 0:
+                        s_key = f'agent="codex",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
+                        temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                        session_counted = True
 
                 self._commit_collected_metrics(
                     temp_counters, temp_costs, temp_sessions, temp_unpriced_models
@@ -1751,6 +1774,7 @@ class MetricsCollector:
                     "source": prev_source,
                     "originator": prev_originator,
                     "model": current_model,
+                    "session_counted": session_counted,
                     "seen_response_ids": recent_ids,
                 }
 
