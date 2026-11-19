@@ -407,25 +407,25 @@ AUTOPILOT_PHASES = ("implement", "review", "fix", "summarize", "gate")
 
 @functools.lru_cache(maxsize=32)
 def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
-    """run.log から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
+    """run.log の最新 start 行以降から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
     steps = []
+    step_map = {
+        "implementing": "implement",
+        "reviewing": "review",
+        "fixing": "fix",
+        "summarizing": "summarize",
+        "gating": "gate",
+    }
     try:
         with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                m = re.search(
-                    r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing|gating)",
-                    line,
-                )
-                if m:
-                    step = m.group(1)
-                    step_map = {
-                        "implementing": "implement",
-                        "reviewing": "review",
-                        "fixing": "fix",
-                        "summarizing": "summarize",
-                        "gating": "gate",
-                    }
-                    steps.append(step_map.get(step, "unknown"))
+            latest_content = _extract_latest_run_log_content(f.read())
+        for line in latest_content.splitlines():
+            m = re.search(
+                r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing|gating)",
+                line,
+            )
+            if m:
+                steps.append(step_map.get(m.group(1), "unknown"))
     except Exception:
         pass
     return steps

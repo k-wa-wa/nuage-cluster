@@ -245,6 +245,7 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             auto_dir = os.path.join(tmp_dir, ".autopilot")
             os.makedirs(auto_dir, exist_ok=True)
             log_path = os.path.join(auto_dir, "run.log")
+            # 1. start 行が無い run.log では従来どおり全体を対象とする
             with open(log_path, "w", encoding="utf-8") as f:
                 f.write(
                     "[10:00:00] == implementing (claude)\n"
@@ -255,8 +256,32 @@ class TestNormalizationAndExtraction(unittest.TestCase):
                     "[10:05:00] == fixing (round 1)\n"
                     "[10:08:00] == gating (round 2: agy)\n"
                 )
+            _read_run_log_steps.cache_clear()
             steps = _read_run_log_steps(log_path, 1.0)
             self.assertEqual(steps, ["implement", "gate", "fix", "gate"])
+            self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "gate")
+
+            # 2. 複数の start 行がある場合、最新の start 行より後のみを対象とする
+            #    前回実行が == gating で終了し、最新 start 行の後が == specifying / == spec reviewing のみなら [] / "unknown"
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] start impl=agy level=high reviewers=claude base=aaaa1111 from=implement\n"
+                    "[10:01:00] == implementing (agy)\n"
+                    "[10:05:00] == gating (round 1: claude)\n"
+                    "[10:10:00] == needs-human: ゲート失敗\n"
+                    "[11:00:00] start impl=agy level=high reviewers=claude base=aaaa1111 from=spec\n"
+                    "[11:00:01] == specifying (agy)\n"
+                    "[11:05:00] == spec reviewing (round 1: claude)\n"
+                )
+            _read_run_log_steps.cache_clear()
+            self.assertEqual(_read_run_log_steps(log_path, 2.0), [])
+            self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "unknown")
+
+            # 3. 最新 start 行の後に == implementing や == gating が進めばそれを返す
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write("[11:10:00] == implementing (agy)\n[11:15:00] == gating (round 1: codex)\n")
+            _read_run_log_steps.cache_clear()
+            self.assertEqual(_read_run_log_steps(log_path, 3.0), ["implement", "gate"])
             self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "gate")
 
     def test_detect_phase(self):
