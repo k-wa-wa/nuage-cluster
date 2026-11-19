@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794959817,
-        "narHash": "sha256-R+AafR7Yu/JZ0Nc3nGWfHY0GseQWmhIcDF/zqx0j1qQ=",
+        "lastModified": 1795059582,
+        "narHash": "sha256-bK2tUezq+ANvtC/QI6Hn5c5DWyQzjpIxBD6faN1RKOo=",
         "owner": "k-wa-wa",
         "repo": "nuage-autopilot5",
-        "rev": "1c4403358333ff0308cdf21c3a1028129c164f5c",
+        "rev": "e66c0e3887796319867508c52869d1ebe37bde2c",
         "type": "github"
       },
       "original": {
