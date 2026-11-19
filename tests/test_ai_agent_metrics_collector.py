@@ -1549,7 +1549,27 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(rates["gemini-3.8-flash"]["cache_read"], 0.025)
 
         self.assertIn("gemini-4-argon", rates)
+        self.assertIn("gemini-4-hydrogen", rates)
+        self.assertEqual(rates["gemini-4-hydrogen"]["input"], 1.50)
+        self.assertEqual(rates["gemini-4-hydrogen"]["output"], 7.50)
+        self.assertEqual(rates["gemini-4-hydrogen"]["cache_read"], 0.075)
         self.assertIn("gpt-oss-120b", rates)
+        self.assertIn("gpt-6-astra", rates)
+        self.assertEqual(rates["gpt-6-astra"]["input"], 10.00)
+        self.assertEqual(rates["gpt-6-astra"]["output"], 50.00)
+        self.assertEqual(rates["gpt-6-astra"]["cache_read"], 1.00)
+        self.assertIn("gpt-6.1-sol", rates)
+        self.assertEqual(rates["gpt-6.1-sol"]["input"], 2.00)
+        self.assertEqual(rates["gpt-6.1-sol"]["output"], 10.00)
+        self.assertEqual(rates["gpt-6.1-sol"]["cache_read"], 0.10)
+        self.assertIn("gpt-6-luna", rates)
+        self.assertEqual(rates["gpt-6-luna"]["input"], 0.10)
+        self.assertEqual(rates["gpt-6-luna"]["output"], 0.50)
+        self.assertEqual(rates["gpt-6-luna"]["cache_read"], 0.01)
+        self.assertIn("gpt-6.1-terra", rates)
+        self.assertEqual(rates["gpt-6.1-terra"]["input"], 1.00)
+        self.assertEqual(rates["gpt-6.1-terra"]["output"], 5.00)
+        self.assertEqual(rates["gpt-6.1-terra"]["cache_read"], 0.05)
         self.assertIn("claude-sonnet-5-5", rates)
         self.assertIn("claude-haiku-5-5", rates)
 
@@ -1589,6 +1609,11 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(match_model_rate_key("Gemini 3.8 Flash (High)", rates), "gemini-3.8-flash")
         self.assertEqual(match_model_rate_key("gemini-4-argon-high", rates), "gemini-4-argon")
         self.assertEqual(match_model_rate_key("Gemini 4 Argon (High)", rates), "gemini-4-argon")
+        self.assertEqual(match_model_rate_key("gemini-4-hydrogen-high", rates), "gemini-4-hydrogen")
+        self.assertEqual(match_model_rate_key("gemini-4-hydrogen-xhigh", rates), "gemini-4-hydrogen")
+        self.assertEqual(match_model_rate_key("gemini-4-hydrogen-medium", rates), "gemini-4-hydrogen")
+        self.assertEqual(match_model_rate_key("gemini-4-hydrogen-low", rates), "gemini-4-hydrogen")
+        self.assertEqual(match_model_rate_key("Gemini 4 Hydrogen (High)", rates), "gemini-4-hydrogen")
         self.assertEqual(match_model_rate_key("claude-opus-5-5", rates), "claude-opus-5-5")
         self.assertEqual(match_model_rate_key("claude-opus-5-5@high", rates), "claude-opus-5-5")
         self.assertEqual(match_model_rate_key("claude-opus-5-5-low", rates), "claude-opus-5-5")
@@ -1596,6 +1621,13 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(match_model_rate_key("claude-sonnet-5-5-low", rates), "claude-sonnet-5-5")
         self.assertEqual(match_model_rate_key("claude-haiku-5-5@low", rates), "claude-haiku-5-5")
         self.assertEqual(match_model_rate_key("gpt-oss-120b-medium", rates), "gpt-oss-120b")
+        self.assertEqual(match_model_rate_key("gpt-6-astra", rates), "gpt-6-astra")
+        self.assertEqual(match_model_rate_key("gpt-6-astra@high", rates), "gpt-6-astra")
+        self.assertEqual(match_model_rate_key("gpt-6.1-sol", rates), "gpt-6.1-sol")
+        self.assertEqual(match_model_rate_key("gpt-6-1-sol", rates), "gpt-6.1-sol")
+        self.assertEqual(match_model_rate_key("gpt-6-luna", rates), "gpt-6-luna")
+        self.assertEqual(match_model_rate_key("gpt-6.1-terra", rates), "gpt-6.1-terra")
+        self.assertEqual(match_model_rate_key("gpt-6-1-terra", rates), "gpt-6.1-terra")
 
         # 未定義モデルは None
         self.assertIsNone(match_model_rate_key("unknown", rates))
@@ -2636,6 +2668,396 @@ class TestMetricsCollector(unittest.TestCase):
         old_agy_cost_key = 'agent="agy",branch="feature/ai-agent-ledger",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="feature/ai-agent-ledger"'
         self.assertIn(old_agy_cost_key, costs2)
         self.assertAlmostEqual(costs2[old_agy_cost_key], 0.02, places=8)
+
+    def test_codex_collection_cost_dedup_and_phases(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-codex")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(auto_dir, exist_ok=True)
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/feat/codex-metrics\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# Codex メトリクス収集対応\n\n詳細\n")
+
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        jsonl_path = os.path.join(codex_dir, "rollout-exec.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "session_id": "sess-codex-1",
+                    "cwd": ws_dir,
+                    "source": "exec",
+                    "originator": "codex_exec",
+                    "git": {"branch": "feat/codex-metrics"},
+                },
+            }) + "\n")
+            # AGENTS.md ラッパーはフェーズ誤判定を起こさないこと
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "# AGENTS.md instructions\n\nあなたはコードレビュアーではない"}],
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6-astra"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"}],
+                },
+            }) + "\n")
+            # input_tokens=500,000, cached=400,000 -> non-cached input=100,000 ($1.00)
+            # output=20,000 ($1.00), cache_read=400,000 ($0.40) -> 合計 $2.40
+            usage_rec = {
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-dup-1",
+                    "usage": {
+                        "input_tokens": 500_000,
+                        "cached_input_tokens": 400_000,
+                        "cache_write_input_tokens": 0,
+                        "output_tokens": 20_000,
+                        "reasoning_output_tokens": 5_000,
+                        "total_tokens": 520_000,
+                    },
+                },
+            }
+            f.write(json.dumps(usage_rec) + "\n")
+            # 同一 response_id の重複レコードは無視されること
+            f.write(json.dumps(usage_rec) + "\n")
+            # 同一セッション内で codex exec resume により fix フェーズへ遷移しモデルも変更
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6.1-sol"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "次のファイルを読み、直すべきものを直す。\n- レビュー結果: .autopilot/review-1-claude.md"}],
+                },
+            }) + "\n")
+            # gpt-6.1-sol: non-cached input=100,000 ($0.20) + output=50,000 ($0.50) + cache_read=200,000 ($0.02) = $0.72
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-fix-1",
+                    "usage": {
+                        "input_tokens": 300_000,
+                        "cached_input_tokens": 200_000,
+                        "cache_write_input_tokens": 0,
+                        "output_tokens": 50_000,
+                        "reasoning_output_tokens": 10_000,
+                        "total_tokens": 350_000,
+                    },
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+            rates_file=repo_rates_path,
+        )
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "codex" in p else []
+        try:
+            collector.collect_codex()
+            collector._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+        sessions = collector.state["counters"]["sessions"]
+
+        impl_base = 'agent="codex",branch="feat/codex-metrics",model="gpt-6-astra",phase="implement",repo="nuage-cluster",task="Codex メトリクス収集対応"'
+        self.assertEqual(tokens[f'{impl_base},type="input"'], 100_000)
+        self.assertEqual(tokens[f'{impl_base},type="output"'], 20_000)
+        self.assertEqual(tokens[f'{impl_base},type="cache_read"'], 400_000)
+        self.assertEqual(tokens[f'{impl_base},type="thinking"'], 5_000)
+        self.assertAlmostEqual(costs[impl_base], 2.40, places=8)
+
+        fix_base = 'agent="codex",branch="feat/codex-metrics",model="gpt-6-1-sol",phase="fix",repo="nuage-cluster",task="Codex メトリクス収集対応"'
+        self.assertEqual(tokens[f'{fix_base},type="input"'], 100_000)
+        self.assertEqual(tokens[f'{fix_base},type="output"'], 50_000)
+        self.assertEqual(tokens[f'{fix_base},type="cache_read"'], 200_000)
+        self.assertEqual(tokens[f'{fix_base},type="thinking"'], 10_000)
+        self.assertAlmostEqual(costs[fix_base], 0.72, places=8)
+
+        self.assertEqual(
+            sessions['agent="codex",branch="feat/codex-metrics",phase="fix",repo="nuage-cluster"'],
+            1,
+        )
+
+        # 差分追記: 重複 response_id は無視され、新規 response_id と不完全行を正しく扱うこと
+        with open(jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-fix-1",
+                    "usage": {"input_tokens": 999_999, "cached_input_tokens": 0, "output_tokens": 999_999},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-fix-2",
+                    "usage": {
+                        "input_tokens": 150_000,
+                        "cached_input_tokens": 100_000,
+                        "cache_write_input_tokens": 0,
+                        "output_tokens": 10_000,
+                        "reasoning_output_tokens": 0,
+                        "total_tokens": 160_000,
+                    },
+                },
+            }) + "\n")
+            # 改行なしの不完全行
+            f.write('{"type": "token_usage_record", "payload": {"response_id": "resp-partial"')
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+            rates_file=repo_rates_path,
+        )
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "codex" in p else []
+        try:
+            collector2.collect_codex()
+            collector2._save_state()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens2 = collector2.state["counters"]["tokens"]
+        costs2 = collector2.state["counters"]["cost_usd"]
+        self.assertEqual(tokens2[f'{fix_base},type="input"'], 150_000)
+        self.assertEqual(tokens2[f'{fix_base},type="output"'], 60_000)
+        self.assertEqual(tokens2[f'{fix_base},type="cache_read"'], 300_000)
+        # +50,000 input ($0.10) + 10,000 output ($0.10) + 100,000 cache_read ($0.01) = +$0.21 -> $0.93
+        self.assertAlmostEqual(costs2[fix_base], 0.93, places=8)
+
+        # 不完全行に改行を補完して3回目の収集で加算されること
+        with open(jsonl_path, "a", encoding="utf-8") as f:
+            f.write(', "usage": {"input_tokens": 10000, "cached_input_tokens": 0, "cache_write_input_tokens": 5000, "output_tokens": 2000}}}\n')
+
+        collector3 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "codex" in p else []
+        try:
+            collector3.collect_codex()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertEqual(collector3.state["counters"]["tokens"][f'{fix_base},type="input"'], 160_000)
+        self.assertEqual(collector3.state["counters"]["tokens"][f'{fix_base},type="cache_creation"'], 5_000)
+        self.assertEqual(collector3.state["counters"]["tokens"][f'{fix_base},type="output"'], 62_000)
+
+    def test_codex_portal_unknown_runlog_and_error_rollback(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-monitoring-stack", "ws-codex-portal")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        os.makedirs(auto_dir, exist_ok=True)
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# ポータルと混同しないタスク\n")
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] == reviewing (round 1: codex)\n")
+
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+
+        # 1. portal セッション (source=cli): レビュー文言や run.log があっても phase="portal", task="portal" 固定
+        portal_jsonl = os.path.join(codex_dir, "rollout-portal.jsonl")
+        with open(portal_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "cwd": ws_dir,
+                    "source": "cli",
+                    "originator": "codex-tui",
+                    "git": {"branch": "bot-wa-wa/portal-branch"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6.1-terra"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "あなたはコードレビュアーである。レビューする。"}],
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-portal-1",
+                    "usage": {
+                        "input_tokens": 120_000,
+                        "cached_input_tokens": 20_000,
+                        "output_tokens": 10_000,
+                    },
+                },
+            }) + "\n")
+
+        # 2. exec セッションだが定型外プロンプト + run.log なし (/tmp smoke test) -> repo="tmp", phase="unknown"
+        smoke_jsonl = os.path.join(codex_dir, "rollout-smoke.jsonl")
+        with open(smoke_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "cwd": "/tmp/autopilot-codex-smoke-xyz",
+                    "source": "exec",
+                    "originator": "codex_exec",
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6-luna"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Reply with exactly OK."}],
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-smoke-1",
+                    "usage": {
+                        "input_tokens": 200_000,
+                        "cached_input_tokens": 100_000,
+                        "output_tokens": 20_000,
+                    },
+                },
+            }) + "\n")
+
+        # 3. exec セッション + 定型外プロンプト + run.log あり -> run.log のフェーズ (review) を引き継ぐ
+        runlog_jsonl = os.path.join(codex_dir, "rollout-runlog.jsonl")
+        with open(runlog_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "cwd": ws_dir,
+                    "source": "exec",
+                    "originator": "codex_exec",
+                    "git": {"branch": "feat/runlog-fb"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6-luna"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-runlog-1",
+                    "usage": {"input_tokens": 100_000, "cached_input_tokens": 0, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [portal_jsonl, smoke_jsonl, runlog_jsonl] if "codex" in p else []
+        try:
+            collector.collect_codex()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+
+        portal_base = 'agent="codex",branch="bot-wa-wa/portal-branch",model="gpt-6-1-terra",phase="portal",repo="nuage-monitoring-stack",task="portal"'
+        self.assertEqual(tokens[f'{portal_base},type="input"'], 100_000)
+        # gpt-6.1-terra: 100k*$1 + 10k*$5 + 20k*$0.05 = $0.10 + $0.05 + $0.001 = $0.151
+        self.assertAlmostEqual(costs[portal_base], 0.151, places=8)
+
+        smoke_base = 'agent="codex",branch="unknown",model="gpt-6-luna",phase="unknown",repo="tmp",task="unknown"'
+        self.assertEqual(tokens[f'{smoke_base},type="input"'], 100_000)
+        # gpt-6-luna: 100k*$0.10 + 20k*$0.50 + 100k*$0.01 = $0.01 + $0.01 + $0.001 = $0.021
+        self.assertAlmostEqual(costs[smoke_base], 0.021, places=8)
+
+        runlog_base = 'agent="codex",branch="feat/runlog-fb",model="gpt-6-luna",phase="review",repo="nuage-monitoring-stack",task="feat/runlog-fb"'
+        self.assertEqual(tokens[f'{runlog_base},type="input"'], 100_000)
+
+        # 4. エラー発生時はファイル単位でロールバックされ、オフセットもカウンタも更新されないこと
+        err_jsonl = os.path.join(codex_dir, "rollout-err.jsonl")
+        with open(err_jsonl, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-ok-before-err",
+                    "usage": {"input_tokens": 500, "cached_input_tokens": 0, "output_tokens": 50},
+                },
+            }) + "\n")
+            f.write('{"type": "token_usage_record", "payload": {"response_id": "resp-bad", "usage": {"input_tokens": "NOT_INT"}}}\n')
+
+        collector_err = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        collector_mod.glob.glob = lambda p: [err_jsonl] if "codex" in p else []
+        try:
+            collector_err.collect_codex()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertTrue(collector_err.has_errors)
+        self.assertEqual(len(collector_err.state["counters"]["tokens"]), 0)
+        self.assertEqual(len(collector_err.state["counters"]["cost_usd"]), 0)
+        self.assertNotIn(err_jsonl, collector_err.state["codex_offsets"])
 
 
 

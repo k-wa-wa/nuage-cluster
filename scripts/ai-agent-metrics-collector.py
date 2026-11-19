@@ -2,7 +2,7 @@
 """
 AI Agent 使用量メトリクスの収集と VictoriaMetrics 連携スクリプト。
 
-Orca および autopilot で稼働した AI Agent (Claude Code, Antigravity) の
+Orca および autopilot で稼働した AI Agent (Claude Code, Antigravity, Codex) の
 使用量（トークン数、セッション時間、autopilot 実行実績）を集計し、
 作業コンテキスト（branch, phase, task, pr）を付与して
 Prometheus exposition format で VictoriaMetrics へ送信する。
@@ -99,7 +99,7 @@ def normalize_repo_name(raw: str) -> str:
                 return known
         return normalize_identifier(part)
 
-    if "/projects/-tmp/" in raw or raw.endswith("-tmp") or raw == "/tmp" or raw.endswith("/tmp"):
+    if "/projects/-tmp/" in raw or raw.endswith("-tmp") or raw == "/tmp" or raw.endswith("/tmp") or raw.startswith("/tmp/"):
         return "tmp"
 
     return normalize_identifier(raw)
@@ -881,6 +881,7 @@ class MetricsCollector:
                             data["version"] = CURRENT_STATE_VERSION
                             data["claude_offsets"] = {}
                             data["agy_offsets"] = {}
+                            data["codex_offsets"] = {}
                             data["last_orca_stats_timestamp"] = 0
                             data["autopilot_runs"] = {}
                             data["counters"] = {
@@ -900,6 +901,7 @@ class MetricsCollector:
             "version": CURRENT_STATE_VERSION,
             "claude_offsets": {},
             "agy_offsets": {},
+            "codex_offsets": {},
             "last_orca_stats_timestamp": 0,
             "orca_sessions": {},
             "portal_cids": {},
@@ -1430,6 +1432,331 @@ class MetricsCollector:
             except Exception as e:
                 self.error(f"Antigravity ログ処理失敗 ({path}): {e}")
 
+    @staticmethod
+    def _extract_codex_user_prompt(rec_type: str, payload: dict) -> str:
+        """Codex のレコードからユーザー指示テキストを抽出する（AGENTS.md 等の定型ラッパーは除外）"""
+        prompt_content = ""
+        if rec_type == "response_item" and payload.get("type") == "message" and payload.get("role") == "user":
+            content_val = payload.get("content")
+            if isinstance(content_val, str):
+                prompt_content = content_val
+            elif isinstance(content_val, list):
+                parts = [
+                    item["text"]
+                    for item in content_val
+                    if isinstance(item, dict)
+                    and item.get("type") in ("input_text", "text")
+                    and isinstance(item.get("text"), str)
+                ]
+                prompt_content = "\n".join(parts)
+        elif rec_type == "event_msg" and payload.get("type") == "user_message":
+            msg_val = payload.get("message")
+            if isinstance(msg_val, str):
+                prompt_content = msg_val
+
+        stripped = prompt_content.lstrip()
+        if not stripped or stripped.startswith(("# AGENTS.md", "<environment_context>")):
+            return ""
+        return prompt_content
+
+    def _commit_collected_metrics(
+        self,
+        temp_counters: dict[str, int],
+        temp_costs: dict[str, float],
+        temp_sessions: dict[str, int],
+        temp_unpriced_models: set[str],
+    ):
+        """一時集計したファイル単位のメトリクスを本番カウンタへ反映し、未定義モデル警告を出力する"""
+        counters = self.state.setdefault("counters", {}).setdefault("tokens", {})
+        costs = self.state.setdefault("counters", {}).setdefault("cost_usd", {})
+        sessions = self.state.setdefault("counters", {}).setdefault("sessions", {})
+
+        for um in sorted(temp_unpriced_models):
+            self._warn_unpriced_model(um)
+        for k, v in temp_counters.items():
+            counters[k] = counters.get(k, 0) + v
+        for k, v in temp_costs.items():
+            costs[k] = round(costs.get(k, 0.0) + v, 10)
+        for k, v in temp_sessions.items():
+            sessions[k] = sessions.get(k, 0) + v
+
+    def collect_codex(self):
+        """Codex のセッションログを差分パース"""
+        home = os.path.expanduser("~")
+        files = glob.glob(os.path.join(home, ".codex", "sessions", "*", "*", "*", "*.jsonl"))
+        offsets = self.state.setdefault("codex_offsets", {})
+
+        for path in files:
+            try:
+                file_size = os.path.getsize(path)
+                prev_data = offsets.get(path, {})
+                if isinstance(prev_data, int):
+                    prev_offset = prev_data
+                    prev_meta = {}
+                elif isinstance(prev_data, dict):
+                    prev_offset = prev_data.get("offset", 0)
+                    prev_meta = prev_data
+                else:
+                    prev_offset = 0
+                    prev_meta = {}
+
+                if prev_offset > file_size:
+                    prev_offset = 0
+                    prev_meta = {}
+
+                if file_size == prev_offset:
+                    continue
+
+                new_offset = prev_offset
+                is_new_session = prev_offset == 0
+
+                # 前回のパース状態からメタデータを復元
+                repo = prev_meta.get("repo", "unknown")
+                branch = prev_meta.get("branch", "unknown")
+                ws_path = prev_meta.get("ws_path", "")
+                prev_branch = prev_meta.get("branch", "unknown")
+                prev_brief_task = prev_meta.get("brief_task", "unknown")
+                branch_brief_tasks: dict[str, str] = {}
+                if prev_branch != "unknown" and prev_brief_task != "unknown":
+                    branch_brief_tasks[prev_branch] = prev_brief_task
+                checked_ws_paths: dict[str, tuple[str, str]] = {}
+                if ws_path and branch != "unknown":
+                    checked_ws_paths[ws_path] = (
+                        get_git_branch_from_worktree(ws_path),
+                        extract_task_from_brief(ws_path),
+                    )
+                    ws_branch, ws_task = checked_ws_paths[ws_path]
+                    if ws_branch == branch and ws_task != "unknown":
+                        branch_brief_tasks[branch] = ws_task
+
+                prev_source = str(prev_meta.get("source", "")).strip().lower()
+                prev_originator = str(prev_meta.get("originator", "")).strip().lower()
+                is_portal = prev_source in ("cli", "vscode") or prev_originator in ("codex-tui", "orca_desktop")
+                is_exec = prev_source == "exec" or prev_originator == "codex_exec"
+                context = "portal" if is_portal else prev_meta.get("context", "portal")
+                phase = "portal" if is_portal else (prev_meta.get("phase") or ("portal" if context == "portal" else "unknown"))
+                current_model = prev_meta.get("model", "unknown")
+                seen_ids = {rid: True for rid in prev_meta.get("seen_response_ids", [])}
+
+                temp_counters: dict[str, int] = {}
+                temp_costs: dict[str, float] = {}
+                temp_unpriced_models: set[str] = set()
+                temp_sessions: dict[str, int] = {}
+
+                with open(path, "rb") as f:
+                    f.seek(prev_offset)
+                    while True:
+                        line_start = f.tell()
+                        raw_line = f.readline()
+                        if not raw_line:
+                            break
+                        # 不完全な行は次回に回す
+                        if not raw_line.endswith(b"\n"):
+                            f.seek(line_start)
+                            break
+                        new_offset = f.tell()
+
+                        try:
+                            line = raw_line.decode("utf-8", errors="replace")
+                            record = json.loads(line)
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            continue
+
+                        if not isinstance(record, dict):
+                            continue
+                        rec_type = record.get("type", "")
+                        payload = record.get("payload")
+                        if not isinstance(payload, dict):
+                            payload = {}
+
+                        # session_meta から起動元・cwd・git.branch を抽出
+                        if rec_type == "session_meta":
+                            src_val = str(payload.get("source") or "").strip().lower()
+                            orig_val = str(payload.get("originator") or "").strip().lower()
+                            if src_val:
+                                prev_source = src_val
+                            if orig_val:
+                                prev_originator = orig_val
+                            if src_val in ("cli", "vscode") or orig_val in ("codex-tui", "orca_desktop"):
+                                is_portal = True
+                                is_exec = False
+                                context = "portal"
+                                phase = "portal"
+                            elif src_val == "exec" or orig_val == "codex_exec":
+                                is_exec = True
+                                is_portal = False
+                                context = "autopilot"
+                                if phase == "portal":
+                                    phase = "unknown"
+
+                            git_info = payload.get("git")
+                            if isinstance(git_info, dict):
+                                rec_branch = git_info.get("branch", "")
+                                if rec_branch and rec_branch != "HEAD":
+                                    norm_br = normalize_branch_name(rec_branch)
+                                    if norm_br != "unknown":
+                                        branch = norm_br
+
+                            cwd = payload.get("cwd", "")
+                            if cwd:
+                                ws_path = cwd
+                                extracted_repo = normalize_repo_name(cwd)
+                                if extracted_repo != "unknown":
+                                    repo = extracted_repo
+                                if ws_path not in checked_ws_paths:
+                                    checked_ws_paths[ws_path] = (
+                                        get_git_branch_from_worktree(ws_path),
+                                        extract_task_from_brief(ws_path),
+                                    )
+                                if branch == "unknown":
+                                    extracted_branch = checked_ws_paths[ws_path][0]
+                                    if extracted_branch != "unknown":
+                                        branch = extracted_branch
+
+                        elif rec_type == "event_msg" and payload.get("type") == "thread_settings_applied":
+                            thread_settings = payload.get("thread_settings")
+                            if isinstance(thread_settings, dict):
+                                raw_model = thread_settings.get("model")
+                                if raw_model:
+                                    current_model = normalize_model_name(str(raw_model))
+                                ts_cwd = thread_settings.get("cwd", "")
+                                if ts_cwd and not ws_path:
+                                    ws_path = ts_cwd
+                                    extracted_repo = normalize_repo_name(ts_cwd)
+                                    if extracted_repo != "unknown":
+                                        repo = extracted_repo
+
+                        elif rec_type == "turn_context":
+                            raw_model = payload.get("model")
+                            if raw_model and current_model == "unknown":
+                                current_model = normalize_model_name(str(raw_model))
+                            tc_cwd = payload.get("cwd", "")
+                            if tc_cwd and not ws_path:
+                                ws_path = tc_cwd
+                                extracted_repo = normalize_repo_name(tc_cwd)
+                                if extracted_repo != "unknown":
+                                    repo = extracted_repo
+
+                        # ワークスペースの現在のブランチと記録の branch が一致するときのみ brief.md のタスク名を採用する
+                        if ws_path and branch != "unknown":
+                            if ws_path not in checked_ws_paths:
+                                checked_ws_paths[ws_path] = (
+                                    get_git_branch_from_worktree(ws_path),
+                                    extract_task_from_brief(ws_path),
+                                )
+                            ws_branch, ws_task = checked_ws_paths[ws_path]
+                            if ws_branch == branch and ws_task != "unknown":
+                                branch_brief_tasks[branch] = ws_task
+
+                        # ユーザープロンプトからフェーズを判定（portal セッションは portal 固定）
+                        if not is_portal:
+                            prompt_content = self._extract_codex_user_prompt(rec_type, payload)
+                            if prompt_content:
+                                detected = detect_phase(prompt_content)
+                                if detected in ("implement", "review", "fix", "summarize"):
+                                    context = "autopilot"
+                                    phase = detected
+                                elif is_exec and phase == "unknown":
+                                    fb_phase = get_phase_from_run_log(ws_path or path)
+                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                        phase = fb_phase
+                                        context = "autopilot"
+
+                        if rec_type != "token_usage_record":
+                            continue
+
+                        usage = payload.get("usage")
+                        if not isinstance(usage, dict) or not usage:
+                            continue
+
+                        rid = payload.get("response_id")
+                        if rid:
+                            if rid in seen_ids:
+                                continue
+                            seen_ids[rid] = True
+
+                        if not is_portal and is_exec and phase == "unknown":
+                            fb_phase = get_phase_from_run_log(ws_path or path)
+                            if fb_phase in ("implement", "review", "fix", "summarize"):
+                                phase = fb_phase
+                                context = "autopilot"
+
+                        effective_phase = "portal" if (is_portal or context == "portal") else phase
+                        brief_task = branch_brief_tasks.get(branch, "unknown")
+                        effective_task = resolve_task_label(
+                            phase=effective_phase,
+                            branch=branch,
+                            brief_task=brief_task,
+                        )
+
+                        raw_input_tokens = int(usage.get("input_tokens", 0) or 0)
+                        cache_read = int(usage.get("cached_input_tokens", 0) or 0)
+                        cache_creation = int(usage.get("cache_write_input_tokens", 0) or 0)
+                        output_tokens = int(usage.get("output_tokens", 0) or 0)
+                        thinking = int(usage.get("reasoning_output_tokens", 0) or 0)
+                        # OpenAI/Codex は cached_input_tokens が input_tokens の内数のため差し引いて非キャッシュ入力を求める
+                        non_cached_input = max(0, raw_input_tokens - cache_read)
+
+                        for token_type, count in [
+                            ("input", non_cached_input),
+                            ("output", output_tokens),
+                            ("cache_read", cache_read),
+                            ("cache_creation", cache_creation),
+                            ("thinking", thinking),
+                        ]:
+                            if count > 0 or token_type in ("input", "output"):
+                                key = f'agent="codex",branch="{branch}",model="{current_model}",phase="{effective_phase}",repo="{repo}",task="{effective_task}",type="{token_type}"'
+                                temp_counters[key] = temp_counters.get(key, 0) + count
+
+                        if non_cached_input > 0 or output_tokens > 0 or cache_read > 0 or cache_creation > 0:
+                            cost_inc = self.calculate_cost_usd(
+                                model=current_model,
+                                input_tokens=non_cached_input,
+                                output_tokens=output_tokens,
+                                cache_read=cache_read,
+                                cache_creation=cache_creation,
+                                unpriced_models=temp_unpriced_models,
+                            )
+                            cost_key = f'agent="codex",branch="{branch}",model="{current_model}",phase="{effective_phase}",repo="{repo}",task="{effective_task}"'
+                            temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
+
+                effective_phase = "portal" if (is_portal or context == "portal") else phase
+                effective_context = "portal" if (is_portal or context == "portal") else ("autopilot" if is_exec else context)
+                brief_task = branch_brief_tasks.get(branch, "unknown")
+                effective_task = resolve_task_label(
+                    phase=effective_phase,
+                    branch=branch,
+                    brief_task=brief_task,
+                )
+
+                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
+                if is_new_session and new_offset > 0:
+                    s_key = f'agent="codex",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
+                    temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+
+                self._commit_collected_metrics(
+                    temp_counters, temp_costs, temp_sessions, temp_unpriced_models
+                )
+
+                recent_ids = list(seen_ids.keys())[-500:]
+                offsets[path] = {
+                    "offset": new_offset,
+                    "repo": repo,
+                    "branch": branch,
+                    "ws_path": ws_path,
+                    "phase": effective_phase,
+                    "task": effective_task,
+                    "brief_task": brief_task,
+                    "context": effective_context,
+                    "source": prev_source,
+                    "originator": prev_originator,
+                    "model": current_model,
+                    "seen_response_ids": recent_ids,
+                }
+
+            except Exception as e:
+                self.error(f"Codex ログ処理失敗 ({path}): {e}")
+
     def update_active_sessions(self):
         """last-status.json から稼働中ペインの情報を更新蓄積"""
         home = os.path.expanduser("~")
@@ -1744,6 +2071,7 @@ class MetricsCollector:
         self.update_active_sessions()
         self.collect_claude()
         self.collect_antigravity()
+        self.collect_codex()
         self.collect_orca_stats()
         self.collect_autopilot_runs()
 
