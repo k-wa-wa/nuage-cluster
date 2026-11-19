@@ -981,7 +981,12 @@ class MetricsCollector:
                     continue
 
                 new_offset = prev_offset
-                is_new_session = (prev_offset == 0)
+                session_counted = (
+                    bool(prev_meta["session_counted"])
+                    if "session_counted" in prev_meta
+                    else (prev_offset > 0)
+                )
+                saw_usage = False
 
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
@@ -1128,6 +1133,7 @@ class MetricsCollector:
                             if mid in seen_ids:
                                 continue
                             seen_ids[mid] = True
+                        saw_usage = True
 
                         model = (
                             msg.get("model")
@@ -1185,10 +1191,12 @@ class MetricsCollector:
                     brief_task=brief_task,
                 )
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
-                if is_new_session and new_offset > 0:
+                # 分類確定またはトークン観測までセッション計上を保留し、先頭メタ行のみの先行収集での誤計上を防ぐ
+                ready_to_count = is_cli or (phase in AUTOPILOT_PHASES) or saw_usage
+                if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="claude",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                    session_counted = True
 
                 for um in sorted(temp_unpriced_models):
                     self._warn_unpriced_model(um)
@@ -1212,6 +1220,7 @@ class MetricsCollector:
                     "context": effective_context,
                     "entrypoint": "cli" if is_cli else ("sdk-cli" if is_sdk else prev_entrypoint),
                     "model": saved_model,
+                    "session_counted": session_counted,
                     "seen_message_ids": recent_ids,
                 }
 
@@ -1251,12 +1260,18 @@ class MetricsCollector:
                     continue
 
                 new_offset = prev_offset
-                is_new_session = (prev_offset == 0)
+                session_counted = (
+                    bool(prev_meta["session_counted"])
+                    if "session_counted" in prev_meta
+                    else (prev_offset > 0)
+                )
+                saw_usage = False
 
                 m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
                 cid = m_cid.group(1) if m_cid else ""
                 cid_map = self.state.get("cid_to_meta") or self.state.get("cid_to_repo", {})
                 portal_cids = self.state.get("portal_cids", {})
+                saw_user_input = False
 
                 # メタデータの復元
                 repo = prev_meta.get("repo", "unknown")
@@ -1326,6 +1341,9 @@ class MetricsCollector:
                         if m_model:
                             current_model = normalize_model_name(m_model.group(1))
 
+                        if record.get("type") == "USER_INPUT":
+                            saw_user_input = True
+
                         # context および phase 検出
                         # last-status.json の portal に載っている conversation は常に portal を維持
                         if cid and cid in portal_cids:
@@ -1380,6 +1398,7 @@ class MetricsCollector:
                         cache_read = int(record.get("cache_read_tokens", 0) or 0)
 
                         if input_tokens > 0 or output_tokens > 0 or cache_read > 0:
+                            saw_usage = True
                             brief_task = branch_brief_tasks.get(branch, "unknown")
                             effective_task = resolve_task_label(
                                 phase=phase,
@@ -1404,10 +1423,17 @@ class MetricsCollector:
                             cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",task="{effective_task}"'
                             temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
-                if is_new_session and new_offset > 0:
+                # 分類確定または活動観測までセッション計上を保留する
+                ready_to_count = (
+                    (bool(cid) and cid in portal_cids)
+                    or saw_user_input
+                    or (phase in AUTOPILOT_PHASES)
+                    or saw_usage
+                )
+                if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                    session_counted = True
 
                 for um in sorted(temp_unpriced_models):
                     self._warn_unpriced_model(um)
@@ -1434,6 +1460,7 @@ class MetricsCollector:
                     "brief_task": brief_task,
                     "context": context,
                     "model": current_model,
+                    "session_counted": session_counted,
                 }
                 if cid and (repo != "unknown" or branch != "unknown" or ws_path):
                     self.state.setdefault("cid_to_meta", {})[cid] = {

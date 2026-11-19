@@ -3637,110 +3637,41 @@ class TestMetricsCollector(unittest.TestCase):
             2,
         )
 
-    def test_gate_incremental_dedup_partial_and_v4_state_compat(self):
-        # 1. 既存の v4 状態 (review / fix の累積値記録済み) を引き継いだまま、gate セッションを追加収集しても既存カウンタが消えないこと
-        # 2. Claude・Codex・Antigravity の gate セッションで段階的追記・不完全行・重複 ID スキップ・再実行を行っても一括収集と一致すること
+    def test_claude_and_agy_session_counted_deferred_until_prompt_classification(self):
+        # 先頭に session-owner 等のみが書き出された時点で portal=1 を誤計上せず、
+        # 後続の gate 指示文や cli 指示文の収集時に正しいフェーズで 1 セッション計上されること
         repo_rates_path = os.path.join(
             os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
         )
-        existing_review_key = 'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="既存タスク",type="input"'
-        existing_review_cost = 'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="既存タスク"'
-        initial_v4_state = {
-            "version": 4,
-            "claude_offsets": {},
-            "agy_offsets": {},
-            "codex_offsets": {},
-            "last_orca_stats_timestamp": 0,
-            "orca_sessions": {},
-            "portal_cids": {},
-            "cid_to_repo": {},
-            "cid_to_meta": {},
-            "autopilot_runs": {},
-            "counters": {
-                "tokens": {existing_review_key: 12_345},
-                "cost_usd": {existing_review_cost: 1.2345},
-                "sessions": {'agent="claude",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"': 3},
-                "duration": {},
-                "autopilot_runs": {},
-            },
-        }
-        with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(initial_v4_state, f)
-
-        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-gate-inc")
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-defer")
         os.makedirs(ws_dir, exist_ok=True)
         gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
 
-        # ファイルパス準備
-        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-gate-inc")
+        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-defer")
         os.makedirs(claude_dir, exist_ok=True)
-        claude_path = os.path.join(claude_dir, "gate-inc.jsonl")
+        claude_gate = os.path.join(claude_dir, "sess-gate.jsonl")
+        claude_cli = os.path.join(claude_dir, "sess-cli.jsonl")
 
-        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
-        os.makedirs(codex_dir, exist_ok=True)
-        codex_path = os.path.join(codex_dir, "rollout-gate-inc.jsonl")
-
-        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-gate-inc", ".system_generated", "logs")
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-defer", ".system_generated", "logs")
         os.makedirs(agy_dir, exist_ok=True)
-        agy_path = os.path.join(agy_dir, "transcript.jsonl")
+        agy_gate = os.path.join(agy_dir, "transcript.jsonl")
 
-        # 段階1: 初回プロンプト + 最初の応答 + 不完全行
-        with open(claude_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({"type": "queue-operation", "content": gate_prompt}) + "\n")
-            f.write(json.dumps({
-                "type": "assistant",
-                "entrypoint": "sdk-cli",
-                "cwd": ws_dir,
-                "gitBranch": "bot-wa-wa/gate-inc",
-                "message": {"id": "cl-inc-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 100}},
-            }) + "\n")
-            f.write('{"type": "assistant", "entrypoint": "sdk-cli", "message": {"id": "cl-inc-2"')
-
-        with open(codex_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "type": "session_meta",
-                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/gate-inc"}},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "event_msg",
-                "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "response_item",
-                "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_prompt}]},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "token_usage_record",
-                "payload": {"response_id": "cx-inc-1", "usage": {"input_tokens": 2000, "cached_input_tokens": 0, "output_tokens": 200}},
-            }) + "\n")
-            f.write('{"type": "token_usage_record", "payload": {"response_id": "cx-inc-2"')
-
-        with open(agy_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "step_index": 0,
-                "source": "USER_EXPLICIT",
-                "type": "USER_INPUT",
-                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
-            }) + "\n")
-            f.write(json.dumps({
-                "step_index": 1,
-                "source": "MODEL",
-                "type": "PLANNER_RESPONSE",
-                "input_tokens": 3000,
-                "output_tokens": 300,
-                "content": f"ワークスペース {ws_dir} で検証中。",
-            }) + "\n")
-            f.write('{"step_index": 2, "source": "MODEL", "type": "PLANNER_RESPONSE"')
+        # 段階1: Claude は session-owner + hook attachment のみ、Antigravity は GENERIC メタ行のみ
+        with open(claude_gate, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-gate"}) + "\n")
+            f.write(json.dumps({"parentUuid": None, "attachment": {"type": "hook_success"}}) + "\n")
+        with open(claude_cli, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-cli"}) + "\n")
+        with open(agy_gate, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"step_index": 0, "source": "SYSTEM", "type": "GENERIC", "content": "init"}) + "\n")
 
         orig_glob = collector_mod.glob.glob
 
         def mock_glob(p):
             if "claude" in p:
-                return [claude_path]
-            if "codex" in p:
-                return [codex_path]
+                return [claude_gate, claude_cli]
             if "antigravity" in p:
-                return [agy_path]
+                return [agy_gate]
             return []
 
         collector_mod.glob.glob = mock_glob
@@ -3748,11 +3679,361 @@ class TestMetricsCollector(unittest.TestCase):
             c1 = MetricsCollector(
                 state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
             )
-            c1.state["cid_to_meta"]["conv-agy-gate-inc"] = {
+            c1.state["cid_to_meta"]["conv-agy-defer"] = {
                 "repo": "nuage-cluster",
-                "branch": "bot-wa-wa/gate-inc",
+                "branch": "bot-wa-wa/defer-test",
                 "worktree": ws_dir,
             }
+            c1.collect_claude()
+            c1.collect_antigravity()
+            c1._save_state()
+
+            # 分類未確定時点では sessions も tokens も計上されないこと
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertEqual(c1.state["counters"]["tokens"], {})
+            self.assertEqual(c1.state["counters"]["cost_usd"], {})
+
+            # 段階2: gate 指示文 / cli 指示文 / 応答が追記される
+            with open(claude_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"type": "queue-operation", "operation": "enqueue", "content": gate_prompt}) + "\n")
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                    "message": {"role": "user", "content": gate_prompt},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                    "message": {"id": "msg-defer-gate", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 200}},
+                }) + "\n")
+
+            with open(claude_cli, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-portal",
+                    "message": {"role": "user", "content": "状態を確認して"},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-portal",
+                    "message": {"id": "msg-defer-cli", "model": "claude-opus-5-5", "usage": {"input_tokens": 300, "output_tokens": 50}},
+                }) + "\n")
+
+            with open(agy_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 0,
+                    "source": "USER_EXPLICIT",
+                    "type": "USER_INPUT",
+                    "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 4000,
+                    "output_tokens": 500,
+                    "content": "検証完了",
+                }) + "\n")
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.collect_claude()
+            c2.collect_antigravity()
+            c2._save_state()
+
+            expected_sessions = {
+                'agent="claude",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+                'agent="claude",branch="bot-wa-wa/defer-portal",phase="portal",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+
+            # 一括収集（最初から全行を読む場合）と辞書全体が一致すること
+            batch_state = os.path.join(self.test_dir, "batch-defer.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.state["cid_to_meta"]["conv-agy-defer"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/defer-test",
+                "worktree": ws_dir,
+            }
+            c_batch.collect_claude()
+            c_batch.collect_antigravity()
+
+            self.assertEqual(c2.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c2.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c2.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_gate_incremental_dedup_partial_and_v4_state_compat(self):
+        # 1. 非空オフセット・重複防止IDを持つ既存の v4 状態を引き継いだまま、gate セッションを追加収集しても既存ログが再計上されず既存カウンタも保持されること
+        # 2. Claude・Codex・Antigravity の gate セッションで初回指示前分割・段階的追記・不完全行・重複 ID スキップ・再実行を行っても一括収集と辞書全体で一致すること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-gate-inc")
+        os.makedirs(ws_dir, exist_ok=True)
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-gate-inc")
+        os.makedirs(claude_dir, exist_ok=True)
+        prev_claude_path = os.path.join(claude_dir, "prev-review.jsonl")
+        claude_path = os.path.join(claude_dir, "gate-inc.jsonl")
+
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        prev_codex_path = os.path.join(codex_dir, "rollout-prev-fix.jsonl")
+        codex_path = os.path.join(codex_dir, "rollout-gate-inc.jsonl")
+
+        prev_agy_dir = os.path.join(self.test_dir, "brain", "conv-prev-review", ".system_generated", "logs")
+        os.makedirs(prev_agy_dir, exist_ok=True)
+        prev_agy_path = os.path.join(prev_agy_dir, "transcript.jsonl")
+
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-gate-inc", ".system_generated", "logs")
+        os.makedirs(agy_dir, exist_ok=True)
+        agy_path = os.path.join(agy_dir, "transcript.jsonl")
+
+        # 既存収集済みログ (過去の review / fix セッション)
+        with open(prev_claude_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "queue-operation", "content": "あなたはコードレビュアーである。"}) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/prev",
+                "message": {"id": "cl-prev-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 12_345, "output_tokens": 500}},
+            }) + "\n")
+        with open(prev_codex_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/prev"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "直すべきものを直す。"}]},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {"response_id": "cx-prev-1", "usage": {"input_tokens": 8000, "cached_input_tokens": 0, "output_tokens": 400}},
+            }) + "\n")
+        with open(prev_agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 9000,
+                "output_tokens": 300,
+                "content": "確認済み",
+            }) + "\n")
+
+        # 既存 v4 状態ファイル (session_counted 未導入の旧 v4 オフセットも含む非空状態)
+        initial_tokens = {
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 12_345,
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 500,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 8000,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 400,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 9000,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 300,
+        }
+        initial_costs = {
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.222675,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.1,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.01575,
+        }
+        initial_sessions = {
+            'agent="claude",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"': 1,
+            'agent="codex",branch="bot-wa-wa/prev",phase="fix",repo="nuage-cluster"': 1,
+            'agent="agy",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"': 1,
+        }
+        initial_v4_state = {
+            "version": 4,
+            "claude_offsets": {
+                prev_claude_path: {
+                    "offset": os.path.getsize(prev_claude_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "review",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "entrypoint": "sdk-cli",
+                    "model": "claude-opus-5-5",
+                    "seen_message_ids": ["cl-prev-1"],
+                }
+            },
+            "agy_offsets": {
+                prev_agy_path: {
+                    "offset": os.path.getsize(prev_agy_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "review",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "model": "gemini-4-hydrogen-high",
+                }
+            },
+            "codex_offsets": {
+                prev_codex_path: {
+                    "offset": os.path.getsize(prev_codex_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "fix",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "source": "exec",
+                    "originator": "codex_exec",
+                    "model": "gpt-6-astra",
+                    "session_counted": True,
+                    "seen_response_ids": ["cx-prev-1"],
+                }
+            },
+            "last_orca_stats_timestamp": 0,
+            "orca_sessions": {},
+            "portal_cids": {},
+            "cid_to_repo": {},
+            "cid_to_meta": {
+                "conv-prev-review": {"repo": "nuage-cluster", "branch": "bot-wa-wa/prev", "worktree": ws_dir},
+                "conv-agy-gate-inc": {"repo": "nuage-cluster", "branch": "bot-wa-wa/gate-inc", "worktree": ws_dir},
+            },
+            "autopilot_runs": {},
+            "counters": {
+                "tokens": dict(initial_tokens),
+                "cost_usd": dict(initial_costs),
+                "sessions": dict(initial_sessions),
+                "duration": {},
+                "autopilot_runs": {},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(initial_v4_state, f)
+
+        # 段階0: Claude は session-owner のみ、Codex は session_meta のみ、Antigravity は GENERIC メタ行のみ
+        with open(claude_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "gate-inc-sess"}) + "\n")
+        with open(codex_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/gate-inc"}},
+            }) + "\n")
+        with open(agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"step_index": 0, "source": "SYSTEM", "type": "GENERIC", "content": "init"}) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        include_prev_in_glob = True
+
+        def mock_glob(p):
+            if "claude" in p:
+                return ([prev_claude_path] if include_prev_in_glob else []) + [claude_path]
+            if "codex" in p:
+                return ([prev_codex_path] if include_prev_in_glob else []) + [codex_path]
+            if "antigravity" in p:
+                return ([prev_agy_path] if include_prev_in_glob else []) + [agy_path]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            # 段階0 収集
+            c0 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c0.collect_claude()
+            c0.collect_codex()
+            c0.collect_antigravity()
+            c0._save_state()
+
+            # 段階0 ではエラーも起きず、既存値から一切増えないこと (portal 誤計上もなし)
+            self.assertFalse(c0.has_errors)
+            self.assertEqual(c0.state["counters"]["tokens"], initial_tokens)
+            self.assertEqual(c0.state["counters"]["sessions"], initial_sessions)
+
+            # 段階1: gate 指示文 + 初回応答 + 不完全行を各ファイルに書き込む
+            # また既存収集済みファイルへ重複 ID 行を追記して seen_* による重複防止も検証
+            with open(prev_claude_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/prev",
+                    "message": {"id": "cl-prev-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 99999, "output_tokens": 99999}},
+                }) + "\n")
+            with open(prev_codex_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": "cx-prev-1", "usage": {"input_tokens": 99999, "cached_input_tokens": 0, "output_tokens": 99999}},
+                }) + "\n")
+
+            with open(claude_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"type": "queue-operation", "content": gate_prompt}) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/gate-inc",
+                    "message": {"id": "cl-inc-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 100}},
+                }) + "\n")
+                f.write('{"type": "assistant", "entrypoint": "sdk-cli", "message": {"id": "cl-inc-2"')
+
+            with open(codex_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_prompt}]},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": "cx-inc-1", "usage": {"input_tokens": 2000, "cached_input_tokens": 0, "output_tokens": 200}},
+                }) + "\n")
+                f.write('{"type": "token_usage_record", "payload": {"response_id": "cx-inc-2"')
+
+            with open(agy_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 0,
+                    "source": "USER_EXPLICIT",
+                    "type": "USER_INPUT",
+                    "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 3000,
+                    "output_tokens": 300,
+                    "content": f"ワークスペース {ws_dir} で検証中。",
+                }) + "\n")
+                f.write('{"step_index": 2, "source": "MODEL", "type": "PLANNER_RESPONSE"')
+
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
             c1.collect_claude()
             c1.collect_codex()
             c1.collect_antigravity()
@@ -3795,16 +4076,56 @@ class TestMetricsCollector(unittest.TestCase):
             c3.collect_codex()
             c3.collect_antigravity()
 
-            # 既存 v4 カウンタが維持されていること
+            self.assertFalse(c1.has_errors)
+            self.assertFalse(c2.has_errors)
+            self.assertFalse(c3.has_errors)
             self.assertEqual(c3.state["version"], 4)
-            self.assertEqual(c3.state["counters"]["tokens"][existing_review_key], 12_345)
-            self.assertAlmostEqual(c3.state["counters"]["cost_usd"][existing_review_cost], 1.2345, places=8)
-            self.assertEqual(
-                c3.state["counters"]["sessions"]['agent="claude",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"'],
-                3,
-            )
 
-            # 一括収集（新規状態ファイル）と gate 分が完全に一致すること
+            # 既存 v4 カウンタを除いた gate 増分辞書を算出
+            delta_tokens = {}
+            for k, v in c3.state["counters"]["tokens"].items():
+                diff = v - initial_tokens.get(k, 0)
+                if diff != 0 or k not in initial_tokens:
+                    delta_tokens[k] = diff
+            delta_costs = {}
+            for k, v in c3.state["counters"]["cost_usd"].items():
+                diff = round(v - initial_costs.get(k, 0.0), 10)
+                if diff != 0.0 or k not in initial_costs:
+                    delta_costs[k] = diff
+            delta_sessions = {}
+            for k, v in c3.state["counters"]["sessions"].items():
+                diff = v - initial_sessions.get(k, 0)
+                if diff != 0 or k not in initial_sessions:
+                    delta_sessions[k] = diff
+
+            # 既存カウンタが 1 ビットも変化していないこと
+            for k, v in initial_tokens.items():
+                self.assertEqual(c3.state["counters"]["tokens"][k], v)
+            for k, v in initial_costs.items():
+                self.assertAlmostEqual(c3.state["counters"]["cost_usd"][k], v, places=8)
+            for k, v in initial_sessions.items():
+                self.assertEqual(c3.state["counters"]["sessions"][k], v)
+
+            # 各エージェントの期待トークン数・期待セッション数の明示検証
+            expected_gate_tokens = {
+                'agent="claude",branch="bot-wa-wa/gate-inc",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 1500,
+                'agent="claude",branch="bot-wa-wa/gate-inc",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 150,
+                'agent="codex",branch="bot-wa-wa/gate-inc",model="gpt-6-astra",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 2600,
+                'agent="codex",branch="bot-wa-wa/gate-inc",model="gpt-6-astra",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 260,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 3700,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 370,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="cache_read"': 0,
+            }
+            expected_gate_sessions = {
+                'agent="claude",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+                'agent="codex",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(delta_tokens, expected_gate_tokens)
+            self.assertEqual(delta_sessions, expected_gate_sessions)
+
+            # 一括収集（新規状態ファイル・新規 gate セッションのみ）と増分辞書全体が完全一致すること
+            include_prev_in_glob = False
             batch_state = os.path.join(self.test_dir, "batch-gate-state.json")
             c_batch = MetricsCollector(
                 state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
@@ -3818,12 +4139,11 @@ class TestMetricsCollector(unittest.TestCase):
             c_batch.collect_codex()
             c_batch.collect_antigravity()
 
-            for k, v in c_batch.state["counters"]["tokens"].items():
-                self.assertEqual(c3.state["counters"]["tokens"].get(k), v, f"token mismatch for {k}")
+            self.assertEqual(delta_tokens, c_batch.state["counters"]["tokens"])
+            self.assertEqual(delta_sessions, c_batch.state["counters"]["sessions"])
+            self.assertEqual(set(delta_costs.keys()), set(c_batch.state["counters"]["cost_usd"].keys()))
             for k, v in c_batch.state["counters"]["cost_usd"].items():
-                self.assertAlmostEqual(c3.state["counters"]["cost_usd"].get(k, -1.0), v, places=8)
-            for k, v in c_batch.state["counters"]["sessions"].items():
-                self.assertEqual(c3.state["counters"]["sessions"].get(k), v, f"session mismatch for {k}")
+                self.assertAlmostEqual(delta_costs[k], v, places=8)
         finally:
             collector_mod.glob.glob = orig_glob
 
