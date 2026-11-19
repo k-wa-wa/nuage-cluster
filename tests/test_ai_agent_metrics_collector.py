@@ -3843,6 +3843,140 @@ class TestMetricsCollector(unittest.TestCase):
         finally:
             collector_mod.glob.glob = orig_glob
 
+    def test_antigravity_deferred_session_without_usage_or_file_growth(self):
+        # 1. portal_cids 未登録の通常会話で USER_INPUT を先に収集し、次回使用量なし GENERIC 行から
+        #    repo/branch が判明した際、saw_user_input 復元により portal=1 が計上されること
+        # 2. gate 指示だけの先行収集で保留した後、ログ追記なし (file_size 不変) で会話メタデータや
+        #    portal_cids が後から取得可能になった場合に再評価され、一括収集と一致すること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-meta")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/agy-meta-branch\n")
+
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        # (A) 通常会話 (使用量なし GENERIC 行からワークスペース取得)
+        portal_dir = os.path.join(self.test_dir, "brain", "conv-agy-generic-ws", ".system_generated", "logs")
+        os.makedirs(portal_dir, exist_ok=True)
+        portal_path = os.path.join(portal_dir, "transcript.jsonl")
+        with open(portal_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>状況を教えて</USER_REQUEST>",
+            }) + "\n")
+
+        # (B) gate 指示のみ -> 後からファイル追記なしで cid_to_meta が利用可能になるケース
+        gate_nometa_dir = os.path.join(self.test_dir, "brain", "conv-agy-static-gate", ".system_generated", "logs")
+        os.makedirs(gate_nometa_dir, exist_ok=True)
+        gate_nometa_path = os.path.join(gate_nometa_dir, "transcript.jsonl")
+        with open(gate_nometa_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+            }) + "\n")
+
+        # (C) gate 文言入り -> 後からファイル追記なしで portal_cids + cid_to_meta に載るケース
+        late_portal_dir = os.path.join(self.test_dir, "brain", "conv-agy-late-portal", ".system_generated", "logs")
+        os.makedirs(late_portal_dir, exist_ok=True)
+        late_portal_path = os.path.join(late_portal_dir, "transcript.jsonl")
+        with open(late_portal_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [portal_path, gate_nometa_path, late_portal_path] if "antigravity" in p else []
+        try:
+            # 段階1: メタデータもワークスペースパスも無い状態で初回収集 -> すべて保留
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_antigravity()
+            c1._save_state()
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertTrue(c1.state["agy_offsets"][portal_path]["saw_user_input"])
+            self.assertFalse(c1.state["agy_offsets"][portal_path]["session_counted"])
+            self.assertFalse(c1.state["agy_offsets"][gate_nometa_path]["session_counted"])
+
+            # 段階2:
+            # - (A) には使用量なしの GENERIC 行のみ追記
+            # - (B), (C) はファイルサイズ不変のまま cid_to_meta / portal_cids のみ更新
+            with open(portal_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "SYSTEM",
+                    "type": "GENERIC",
+                    "content": f"ワークスペース {ws_dir} を開いた。",
+                }) + "\n")
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.state["cid_to_meta"]["conv-agy-static-gate"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-meta-branch",
+                "worktree": ws_dir,
+            }
+            c2.state["cid_to_meta"]["conv-agy-late-portal"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-late-portal",
+                "worktree": ws_dir,
+            }
+            c2.state["portal_cids"]["conv-agy-late-portal"] = True
+            c2.collect_antigravity()
+            c2._save_state()
+
+            expected_sessions = {
+                'agent="agy",branch="bot-wa-wa/agy-meta-branch",phase="portal",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/agy-meta-branch",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/agy-late-portal",phase="portal",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+            self.assertTrue(c2.state["agy_offsets"][portal_path]["session_counted"])
+            self.assertTrue(c2.state["agy_offsets"][gate_nometa_path]["session_counted"])
+            self.assertTrue(c2.state["agy_offsets"][late_portal_path]["session_counted"])
+
+            # 段階3: 追記なしで再実行しても二重計上されないこと
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_antigravity()
+            self.assertEqual(c3.state["counters"]["sessions"], expected_sessions)
+
+            # 一括収集（メタデータ確定済みの状態で最初から収集）と一致すること
+            batch_state = os.path.join(self.test_dir, "batch-agy-meta.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.state["cid_to_meta"]["conv-agy-static-gate"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-meta-branch",
+                "worktree": ws_dir,
+            }
+            c_batch.state["cid_to_meta"]["conv-agy-late-portal"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-late-portal",
+                "worktree": ws_dir,
+            }
+            c_batch.state["portal_cids"]["conv-agy-late-portal"] = True
+            c_batch.collect_antigravity()
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+
     def test_gate_incremental_dedup_partial_and_v4_state_compat(self):
         # 1. 非空オフセット・重複防止IDを持つ既存の v4 状態を引き継いだまま、gate セッションを追加収集しても既存ログが再計上されず既存カウンタも保持されること
         # 2. Claude・Codex・Antigravity の gate セッションで初回指示前分割・段階的追記・不完全行・重複 ID スキップ・再実行を行っても一括収集と辞書全体で一致すること

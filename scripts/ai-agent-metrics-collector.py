@@ -1261,22 +1261,22 @@ class MetricsCollector:
                     prev_offset = 0
                     prev_meta = {}
 
-                if file_size == prev_offset:
-                    continue
-
-                new_offset = prev_offset
                 session_counted = (
                     bool(prev_meta["session_counted"])
                     if "session_counted" in prev_meta
                     else (prev_offset > 0)
                 )
+                if file_size == 0 or (file_size == prev_offset and session_counted):
+                    continue
+
+                new_offset = prev_offset
                 saw_usage = False
 
                 m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
                 cid = m_cid.group(1) if m_cid else ""
                 cid_map = self.state.get("cid_to_meta") or self.state.get("cid_to_repo", {})
                 portal_cids = self.state.get("portal_cids", {})
-                saw_user_input = False
+                saw_user_input = bool(prev_meta.get("saw_user_input", False))
 
                 # メタデータの復元
                 repo = prev_meta.get("repo", "unknown")
@@ -1312,7 +1312,9 @@ class MetricsCollector:
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
                     context = "portal"
-                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "unknown")
+                phase = "portal" if (cid and cid in portal_cids) else (
+                    prev_meta.get("phase") or ("portal" if context == "portal" else "unknown")
+                )
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
@@ -1464,6 +1466,7 @@ class MetricsCollector:
                     "brief_task": brief_task,
                     "context": context,
                     "model": current_model,
+                    "saw_user_input": saw_user_input,
                     "session_counted": session_counted,
                 }
                 if cid and (repo != "unknown" or branch != "unknown" or ws_path):
