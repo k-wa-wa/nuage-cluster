@@ -503,6 +503,7 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
     repo = "unknown"
     branch = "unknown"
     ws_path = ""
+    had_cached_ws = False
 
     if cached_map and cid in cached_map:
         cached = cached_map[cid]
@@ -510,6 +511,7 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
             repo = cached.get("repo", "unknown") or "unknown"
             branch = cached.get("branch", "unknown") or "unknown"
             ws_path = cached.get("worktree", "") or ""
+            had_cached_ws = bool(ws_path)
         elif isinstance(cached, str):
             repo = cached or "unknown"
 
@@ -537,12 +539,15 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
                     if isinstance(uris, list) and uris:
                         uri = uris[0]
                         db_ws = uri[len("file://") :] if uri.startswith("file://") else uri
-                        if not ws_path and db_ws:
+                        db_repo = normalize_repo_name(uri)
+                        db_branch = get_git_branch_from_worktree(db_ws)
+                        resolved_branch_from_db = (branch == "unknown" and db_branch != "unknown")
+                        if (not ws_path or resolved_branch_from_db) and db_ws:
                             ws_path = db_ws
-                        if repo == "unknown":
-                            repo = normalize_repo_name(uri)
+                        if repo == "unknown" or (had_cached_ws and resolved_branch_from_db and ws_path == db_ws and db_repo != "unknown"):
+                            repo = db_repo
                         if branch == "unknown":
-                            branch = get_git_branch_from_worktree(db_ws)
+                            branch = db_branch
                         return repo, branch, ws_path
                 except json.JSONDecodeError:
                     pass
@@ -1306,11 +1311,12 @@ class MetricsCollector:
                 checked_ws_paths: dict[str, tuple[str, str]] = {}
                 if (repo == "unknown" or branch == "unknown" or not ws_path) and cid:
                     meta_repo, meta_branch, meta_ws = get_antigravity_conversation_meta(cid, cid_map)
-                    if repo == "unknown":
+                    resolved_branch_from_meta = (branch == "unknown" and meta_branch != "unknown")
+                    if repo == "unknown" or (ws_path and resolved_branch_from_meta and meta_repo != "unknown"):
                         repo = meta_repo
                     if branch == "unknown":
                         branch = meta_branch
-                    if not ws_path and meta_ws:
+                    if (not ws_path or resolved_branch_from_meta) and meta_ws:
                         ws_path = meta_ws
 
                 if ws_path:

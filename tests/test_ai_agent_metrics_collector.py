@@ -1322,12 +1322,18 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertEqual(repo_unknown, "unknown")
             self.assertEqual(branch_unknown, "unknown")
 
-            # 不完全なキャッシュ (branch="unknown", worktree="") でも DB から不足分を補完する
+            # 不完全なキャッシュ (branch="unknown", worktree="" やブランチ不明のパスA) でも DB からパス・ブランチを整合補完する
             partial_cache = {
                 "cid-test-1": {"repo": "nuage-cluster", "branch": "unknown", "worktree": ""},
             }
             repo_rec, branch_rec, ws_rec = collector_mod.get_antigravity_conversation_meta("cid-test-1", partial_cache)
             self.assertEqual((repo_rec, branch_rec, ws_rec), ("nuage-cluster", "my-feature-branch", wt_dir))
+
+            partial_path_cache = {
+                "cid-test-1": {"repo": "tmp", "branch": "unknown", "worktree": "/nonexistent/partial/ws"},
+            }
+            repo_rec2, branch_rec2, ws_rec2 = collector_mod.get_antigravity_conversation_meta("cid-test-1", partial_path_cache)
+            self.assertEqual((repo_rec2, branch_rec2, ws_rec2), ("nuage-cluster", "my-feature-branch", wt_dir))
 
             # 完全なキャッシュがある場合は DB で上書きしない
             complete_cache = {
@@ -4056,7 +4062,10 @@ class TestMetricsCollector(unittest.TestCase):
                 "step_index": 0,
                 "source": "USER_EXPLICIT",
                 "type": "USER_INPUT",
-                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+                "content": (
+                    f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>"
+                    "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>"
+                ),
             }) + "\n")
             f.write(json.dumps({
                 "step_index": 1,
@@ -4070,7 +4079,7 @@ class TestMetricsCollector(unittest.TestCase):
         collector_mod.glob.glob = lambda p: [agy_path] if "antigravity" in p else []
         os.path.expanduser = lambda p: db_path if "conversation_summaries.db" in p else orig_expanduser(p)
         try:
-            # 段階1: repo と ws_path だけ判明し、branch="unknown" のまま cid_to_meta に保存される
+            # 段階1: repo と ws_path (partial_dir) だけ判明し、branch="unknown" のまま cid_to_meta に保存される
             c1 = MetricsCollector(
                 state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
             )
@@ -4084,11 +4093,15 @@ class TestMetricsCollector(unittest.TestCase):
                 {"repo": "nuage-cluster", "branch": "unknown", "worktree": partial_dir},
             )
 
-            # 段階2: ログへの追記なし (file_size 不変) で、DB と実ワークスペースの git HEAD が揃う
+            # 段階2: ログへの追記なし (file_size 不変) で、DB と実ワークスペース (ws_dir) の git HEAD・brief.md が揃う
             git_dir = os.path.join(ws_dir, ".git")
+            auto_dir = os.path.join(ws_dir, ".autopilot")
             os.makedirs(git_dir, exist_ok=True)
+            os.makedirs(auto_dir, exist_ok=True)
             with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
                 f.write("ref: refs/heads/bot-wa-wa/db-recovered-gate\n")
+            with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+                f.write("# DB復旧ゲートタスク\n")
             with sqlite3.connect(db_path) as conn:
                 conn.execute(
                     "INSERT INTO conversation_summaries VALUES (?, ?)",
@@ -4107,6 +4120,34 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
             self.assertTrue(c2.state["agy_offsets"][agy_path]["session_counted"])
             self.assertEqual(c2.state["agy_offsets"][agy_path]["branch"], "bot-wa-wa/db-recovered-gate")
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["ws_path"], ws_dir)
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["task"], "DB復旧ゲートタスク")
+            self.assertEqual(
+                c2.state["cid_to_meta"]["conv-agy-db-recover"],
+                {"repo": "nuage-cluster", "branch": "bot-wa-wa/db-recovered-gate", "worktree": ws_dir},
+            )
+
+            # 段階3: その後トークン使用量が追記されても、ws_dir の brief.md 見出し (DB復旧ゲートタスク) で計上され一括収集と一致する
+            with open(agy_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 2,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 100_000,
+                    "output_tokens": 10_000,
+                    "content": "ゲート検証を完了した。",
+                }) + "\n")
+
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_antigravity()
+            c3._save_state()
+
+            expected_tok_base = 'agent="agy",branch="bot-wa-wa/db-recovered-gate",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="DB復旧ゲートタスク"'
+            self.assertEqual(c3.state["counters"]["tokens"][f'{expected_tok_base},type="input"'], 100_000)
+            self.assertEqual(c3.state["counters"]["tokens"][f'{expected_tok_base},type="output"'], 10_000)
+            self.assertGreater(c3.state["counters"]["cost_usd"][expected_tok_base], 0.0)
 
             # 一括収集（DB 確定済み状態での初回収集）と一致すること
             batch_state = os.path.join(self.test_dir, "batch-db-recover.json")
@@ -4114,9 +4155,9 @@ class TestMetricsCollector(unittest.TestCase):
                 state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
             )
             c_batch.collect_antigravity()
-            self.assertEqual(c2.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
-            self.assertEqual(c2.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
-            self.assertEqual(c2.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
         finally:
             collector_mod.glob.glob = orig_glob
             os.path.expanduser = orig_expanduser
