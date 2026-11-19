@@ -18,9 +18,9 @@ claude:
 # Gemini 4 Argon は利用枠が小さいため採用しない。
 # GPT-OSS 120B は使用しない。
 agy:
-  high: [gemini-3.8-flash-high]
-  standard: [gemini-3.8-flash-medium]
-  light: [gemini-3.8-flash-low]
+  high: [gemini-4-hydrogen-high]
+  standard: [gemini-4-hydrogen-medium]
+  light: [gemini-4-hydrogen-low]
 
 # Claude の各段階に役割を揃える（性能が同等であることは保証しない）。
 codex:
