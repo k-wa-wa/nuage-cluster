@@ -402,6 +402,9 @@ def extract_autopilot_impl_and_level(auto_dir: str, raw_status: str = "") -> tup
     return impl, level
 
 
+AUTOPILOT_PHASES = ("implement", "review", "fix", "summarize", "gate")
+
+
 @functools.lru_cache(maxsize=32)
 def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
     """run.log から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
@@ -409,7 +412,10 @@ def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
     try:
         with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
-                m = re.search(r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing)", line)
+                m = re.search(
+                    r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing|gating)",
+                    line,
+                )
                 if m:
                     step = m.group(1)
                     step_map = {
@@ -417,6 +423,7 @@ def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
                         "reviewing": "review",
                         "fixing": "fix",
                         "summarizing": "summarize",
+                        "gating": "gate",
                     }
                     steps.append(step_map.get(step, "unknown"))
     except Exception:
@@ -447,11 +454,11 @@ def get_phase_from_run_log(ws_path: str) -> str:
 
 
 def detect_phase(content: str) -> str:
-    """プロンプト内容から作業フェーズ (implement/review/fix/summarize) を判定"""
+    """プロンプト内容から作業フェーズ (implement/review/fix/summarize/gate) を判定"""
     if not content:
         content = ""
 
-    # プロンプト文字列の特徴から判定（fix を review より先に判定し、追加指示内の「レビューする」等による誤判定を防止）
+    # プロンプト文字列の特徴から判定（fix を最優先で判定し、失敗ログや追加指示による誤判定を防止）
     if (
         "直すべきものを直す" in content
         or "レビュー結果:" in content
@@ -459,6 +466,11 @@ def detect_phase(content: str) -> str:
         or "直すものが無ければ" in content
     ):
         return "fix"
+    if (
+        "あなたはリポジトリのゲート検証担当である" in content
+        or ("ゲートの手順書" in content and "実際に実行して確かめる" in content)
+    ):
+        return "gate"
     if (
         "あなたはコードレビュアーである" in content
         or "コードレビュアー" in content
@@ -994,7 +1006,7 @@ class MetricsCollector:
                 is_sdk = (prev_entrypoint == "sdk-cli")
                 context = "portal" if is_cli else prev_meta.get("context", "portal")
                 phase = "portal" if is_cli else (prev_meta.get("phase") or ("portal" if context == "portal" else "unknown"))
-                phase_locked = (phase in ("implement", "review", "fix", "summarize") and context == "autopilot") or is_cli
+                phase_locked = (phase in AUTOPILOT_PHASES and context == "autopilot") or is_cli
                 saved_model = prev_meta.get("model", "unknown")
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
@@ -1090,13 +1102,13 @@ class MetricsCollector:
 
                             if prompt_content:
                                 detected = detect_phase(prompt_content)
-                                if detected in ("implement", "review", "fix", "summarize"):
+                                if detected in AUTOPILOT_PHASES:
                                     context = "autopilot"
                                     phase = detected
                                     phase_locked = True
                                 elif is_sdk:
                                     fb_phase = get_phase_from_run_log(cwd or path)
-                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                    if fb_phase in AUTOPILOT_PHASES:
                                         phase = fb_phase
                                         context = "autopilot"
                                         phase_locked = True
@@ -1325,14 +1337,15 @@ class MetricsCollector:
                                 if (
                                     "あなたは自律実行の担当である" in content
                                     or "あなたはコードレビュアーである" in content
+                                    or "あなたはリポジトリのゲート検証担当である" in content
                                 ):
                                     context = "autopilot"
                                     detected = detect_phase(content)
-                                    if detected in ("implement", "review", "fix", "summarize"):
+                                    if detected in AUTOPILOT_PHASES:
                                         phase = detected
                                     else:
                                         fb = get_phase_from_run_log(ws_path)
-                                        phase = fb if fb in ("implement", "review", "fix", "summarize") else "unknown"
+                                        phase = fb if fb in AUTOPILOT_PHASES else "unknown"
 
                         # repo および branch 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
                         if repo == "unknown" or branch == "unknown":
@@ -1660,13 +1673,13 @@ class MetricsCollector:
                             if prompt_content:
                                 saw_activity = True
                                 detected = detect_phase(prompt_content)
-                                if detected in ("implement", "review", "fix", "summarize"):
+                                if detected in AUTOPILOT_PHASES:
                                     context = "autopilot"
                                     phase = detected
                                     detected_session_phases.append(detected)
                                 elif is_exec and phase == "unknown":
                                     fb_phase = get_phase_from_run_log(ws_path or path)
-                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                    if fb_phase in AUTOPILOT_PHASES:
                                         phase = fb_phase
                                         context = "autopilot"
 
@@ -1687,7 +1700,7 @@ class MetricsCollector:
 
                         if not is_portal and is_exec and phase == "unknown":
                             fb_phase = get_phase_from_run_log(ws_path or path)
-                            if fb_phase in ("implement", "review", "fix", "summarize"):
+                            if fb_phase in AUTOPILOT_PHASES:
                                 phase = fb_phase
                                 context = "autopilot"
 
