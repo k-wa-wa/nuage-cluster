@@ -402,23 +402,30 @@ def extract_autopilot_impl_and_level(auto_dir: str, raw_status: str = "") -> tup
     return impl, level
 
 
+AUTOPILOT_PHASES = ("implement", "review", "fix", "summarize", "gate")
+
+
 @functools.lru_cache(maxsize=32)
 def _read_run_log_steps(run_log_path: str, mtime: float) -> list[str]:
-    """run.log から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
+    """run.log の最新 start 行以降から記録されたフェーズ履歴を抽出（mtime でキャッシュ）"""
     steps = []
+    step_map = {
+        "implementing": "implement",
+        "reviewing": "review",
+        "fixing": "fix",
+        "summarizing": "summarize",
+        "gating": "gate",
+    }
     try:
         with open(run_log_path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                m = re.search(r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing)", line)
-                if m:
-                    step = m.group(1)
-                    step_map = {
-                        "implementing": "implement",
-                        "reviewing": "review",
-                        "fixing": "fix",
-                        "summarizing": "summarize",
-                    }
-                    steps.append(step_map.get(step, "unknown"))
+            latest_content = _extract_latest_run_log_content(f.read())
+        for line in latest_content.splitlines():
+            m = re.search(
+                r"^\[[^\]]*\]\s*==\s*(implementing|reviewing|fixing|summarizing|gating)",
+                line,
+            )
+            if m:
+                steps.append(step_map.get(m.group(1), "unknown"))
     except Exception:
         pass
     return steps
@@ -447,11 +454,11 @@ def get_phase_from_run_log(ws_path: str) -> str:
 
 
 def detect_phase(content: str) -> str:
-    """プロンプト内容から作業フェーズ (implement/review/fix/summarize) を判定"""
+    """プロンプト内容から作業フェーズ (implement/review/fix/summarize/gate) を判定"""
     if not content:
         content = ""
 
-    # プロンプト文字列の特徴から判定（fix を review より先に判定し、追加指示内の「レビューする」等による誤判定を防止）
+    # プロンプト文字列の特徴から判定（fix を最優先で判定し、失敗ログや追加指示による誤判定を防止）
     if (
         "直すべきものを直す" in content
         or "レビュー結果:" in content
@@ -459,6 +466,11 @@ def detect_phase(content: str) -> str:
         or "直すものが無ければ" in content
     ):
         return "fix"
+    if (
+        "あなたはリポジトリのゲート検証担当である" in content
+        or ("ゲートの手順書" in content and "実際に実行して確かめる" in content)
+    ):
+        return "gate"
     if (
         "あなたはコードレビュアーである" in content
         or "コードレビュアー" in content
@@ -487,20 +499,34 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
     """conversation_summaries.db およびキャッシュから (repo, branch, worktree) を取得"""
     if not cid:
         return "unknown", "unknown", ""
+
+    repo = "unknown"
+    branch = "unknown"
+    ws_path = ""
+    had_cached_ws = False
+
     if cached_map and cid in cached_map:
         cached = cached_map[cid]
         if isinstance(cached, dict):
-            return (
-                cached.get("repo", "unknown"),
-                cached.get("branch", "unknown"),
-                cached.get("worktree", ""),
-            )
+            repo = cached.get("repo", "unknown") or "unknown"
+            branch = cached.get("branch", "unknown") or "unknown"
+            ws_path = cached.get("worktree", "") or ""
+            had_cached_ws = bool(ws_path)
         elif isinstance(cached, str):
-            return cached, "unknown", ""
+            repo = cached or "unknown"
+
+        if ws_path:
+            if repo == "unknown":
+                repo = normalize_repo_name(ws_path)
+            if branch == "unknown":
+                branch = get_git_branch_from_worktree(ws_path)
+
+        if repo != "unknown" and branch != "unknown" and ws_path:
+            return repo, branch, ws_path
 
     db_path = os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db")
     if not os.path.exists(db_path):
-        return "unknown", "unknown", ""
+        return repo, branch, ws_path
     try:
         with sqlite3.connect(db_path) as conn:
             row = conn.execute(
@@ -512,15 +538,22 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
                     uris = json.loads(row[0])
                     if isinstance(uris, list) and uris:
                         uri = uris[0]
-                        ws_path = uri[len("file://") :] if uri.startswith("file://") else uri
-                        repo = normalize_repo_name(uri)
-                        branch = get_git_branch_from_worktree(ws_path)
+                        db_ws = uri[len("file://") :] if uri.startswith("file://") else uri
+                        db_repo = normalize_repo_name(uri)
+                        db_branch = get_git_branch_from_worktree(db_ws)
+                        resolved_branch_from_db = (branch == "unknown" and db_branch != "unknown")
+                        if (not ws_path or resolved_branch_from_db) and db_ws:
+                            ws_path = db_ws
+                        if repo == "unknown" or (had_cached_ws and resolved_branch_from_db and ws_path == db_ws and db_repo != "unknown"):
+                            repo = db_repo
+                        if branch == "unknown":
+                            branch = db_branch
                         return repo, branch, ws_path
                 except json.JSONDecodeError:
                     pass
     except Exception:
         pass
-    return "unknown", "unknown", ""
+    return repo, branch, ws_path
 
 
 def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) -> str:
@@ -969,7 +1002,12 @@ class MetricsCollector:
                     continue
 
                 new_offset = prev_offset
-                is_new_session = (prev_offset == 0)
+                session_counted = (
+                    bool(prev_meta["session_counted"])
+                    if "session_counted" in prev_meta
+                    else (prev_offset > 0)
+                )
+                saw_usage = False
 
                 # 前回のパース状態からメタデータを復元
                 repo = prev_meta.get("repo") or normalize_repo_name(path)
@@ -994,7 +1032,7 @@ class MetricsCollector:
                 is_sdk = (prev_entrypoint == "sdk-cli")
                 context = "portal" if is_cli else prev_meta.get("context", "portal")
                 phase = "portal" if is_cli else (prev_meta.get("phase") or ("portal" if context == "portal" else "unknown"))
-                phase_locked = (phase in ("implement", "review", "fix", "summarize") and context == "autopilot") or is_cli
+                phase_locked = (phase in AUTOPILOT_PHASES and context == "autopilot") or is_cli
                 saved_model = prev_meta.get("model", "unknown")
                 seen_ids = {mid: True for mid in prev_meta.get("seen_message_ids", [])}
 
@@ -1090,13 +1128,13 @@ class MetricsCollector:
 
                             if prompt_content:
                                 detected = detect_phase(prompt_content)
-                                if detected in ("implement", "review", "fix", "summarize"):
+                                if detected in AUTOPILOT_PHASES:
                                     context = "autopilot"
                                     phase = detected
                                     phase_locked = True
                                 elif is_sdk:
                                     fb_phase = get_phase_from_run_log(cwd or path)
-                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                    if fb_phase in AUTOPILOT_PHASES:
                                         phase = fb_phase
                                         context = "autopilot"
                                         phase_locked = True
@@ -1116,6 +1154,7 @@ class MetricsCollector:
                             if mid in seen_ids:
                                 continue
                             seen_ids[mid] = True
+                        saw_usage = True
 
                         model = (
                             msg.get("model")
@@ -1173,10 +1212,17 @@ class MetricsCollector:
                     brief_task=brief_task,
                 )
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
-                if is_new_session and new_offset > 0:
+                # 起動元・分類・ラベル情報、またはトークン観測までセッション計上を保留し、queue-operation 等のみの先行収集での誤計上を防ぐ
+                ready_to_count = saw_usage or (
+                    (is_cli or is_sdk)
+                    and (is_cli or phase in AUTOPILOT_PHASES)
+                    and branch != "unknown"
+                    and bool(ws_path)
+                )
+                if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="claude",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                    session_counted = True
 
                 for um in sorted(temp_unpriced_models):
                     self._warn_unpriced_model(um)
@@ -1200,6 +1246,7 @@ class MetricsCollector:
                     "context": effective_context,
                     "entrypoint": "cli" if is_cli else ("sdk-cli" if is_sdk else prev_entrypoint),
                     "model": saved_model,
+                    "session_counted": session_counted,
                     "seen_message_ids": recent_ids,
                 }
 
@@ -1235,16 +1282,22 @@ class MetricsCollector:
                     prev_offset = 0
                     prev_meta = {}
 
-                if file_size == prev_offset:
+                session_counted = (
+                    bool(prev_meta["session_counted"])
+                    if "session_counted" in prev_meta
+                    else (prev_offset > 0)
+                )
+                if file_size == 0 or (file_size == prev_offset and session_counted):
                     continue
 
                 new_offset = prev_offset
-                is_new_session = (prev_offset == 0)
+                saw_usage = False
 
                 m_cid = re.search(r"/brain/([^/]+)/\.system_generated", path)
                 cid = m_cid.group(1) if m_cid else ""
                 cid_map = self.state.get("cid_to_meta") or self.state.get("cid_to_repo", {})
                 portal_cids = self.state.get("portal_cids", {})
+                saw_user_input = bool(prev_meta.get("saw_user_input", False))
 
                 # メタデータの復元
                 repo = prev_meta.get("repo", "unknown")
@@ -1258,29 +1311,38 @@ class MetricsCollector:
                 checked_ws_paths: dict[str, tuple[str, str]] = {}
                 if (repo == "unknown" or branch == "unknown" or not ws_path) and cid:
                     meta_repo, meta_branch, meta_ws = get_antigravity_conversation_meta(cid, cid_map)
-                    if repo == "unknown":
+                    resolved_branch_from_meta = (branch == "unknown" and meta_branch != "unknown")
+                    if repo == "unknown" or (ws_path and resolved_branch_from_meta and meta_repo != "unknown"):
                         repo = meta_repo
                     if branch == "unknown":
                         branch = meta_branch
-                    if not ws_path and meta_ws:
+                    if (not ws_path or resolved_branch_from_meta) and meta_ws:
                         ws_path = meta_ws
 
-                # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
-                # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
-                # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
-                if ws_path and branch != "unknown":
+                if ws_path:
                     checked_ws_paths[ws_path] = (
                         get_git_branch_from_worktree(ws_path),
                         extract_task_from_brief(ws_path),
                     )
                     ws_branch, ws_task = checked_ws_paths[ws_path]
-                    if ws_branch == branch and ws_task != "unknown":
+                    if repo == "unknown":
+                        extracted_repo = normalize_repo_name(ws_path)
+                        if extracted_repo != "unknown":
+                            repo = extracted_repo
+                    if branch == "unknown" and ws_branch != "unknown":
+                        branch = ws_branch
+                    # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
+                    # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
+                    # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
+                    if branch != "unknown" and ws_branch == branch and ws_task != "unknown":
                         branch_brief_tasks[branch] = ws_task
 
                 context = prev_meta.get("context", "portal")
                 if cid and cid in portal_cids:
                     context = "portal"
-                phase = prev_meta.get("phase") or ("portal" if context == "portal" else "unknown")
+                phase = "portal" if (cid and cid in portal_cids) else (
+                    prev_meta.get("phase") or ("portal" if context == "portal" else "unknown")
+                )
                 current_model = prev_meta.get("model", "unknown")
 
                 temp_counters = {}
@@ -1314,6 +1376,9 @@ class MetricsCollector:
                         if m_model:
                             current_model = normalize_model_name(m_model.group(1))
 
+                        if record.get("type") == "USER_INPUT":
+                            saw_user_input = True
+
                         # context および phase 検出
                         # last-status.json の portal に載っている conversation は常に portal を維持
                         if cid and cid in portal_cids:
@@ -1325,14 +1390,15 @@ class MetricsCollector:
                                 if (
                                     "あなたは自律実行の担当である" in content
                                     or "あなたはコードレビュアーである" in content
+                                    or "あなたはリポジトリのゲート検証担当である" in content
                                 ):
                                     context = "autopilot"
                                     detected = detect_phase(content)
-                                    if detected in ("implement", "review", "fix", "summarize"):
+                                    if detected in AUTOPILOT_PHASES:
                                         phase = detected
                                     else:
                                         fb = get_phase_from_run_log(ws_path)
-                                        phase = fb if fb in ("implement", "review", "fix", "summarize") else "unknown"
+                                        phase = fb if fb in AUTOPILOT_PHASES else "unknown"
 
                         # repo および branch 検出: 未特定の場合のみ content 中のワークスペースパスから抽出
                         if repo == "unknown" or branch == "unknown":
@@ -1367,6 +1433,7 @@ class MetricsCollector:
                         cache_read = int(record.get("cache_read_tokens", 0) or 0)
 
                         if input_tokens > 0 or output_tokens > 0 or cache_read > 0:
+                            saw_usage = True
                             brief_task = branch_brief_tasks.get(branch, "unknown")
                             effective_task = resolve_task_label(
                                 phase=phase,
@@ -1391,10 +1458,16 @@ class MetricsCollector:
                             cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",task="{effective_task}"'
                             temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
-                # ファイル単位で正常に読み切れた場合のみ本番カウンタとオフセットに反映する
-                if is_new_session and new_offset > 0:
+                # 分類と主要ラベルの確定、または活動観測までセッション計上を保留する
+                ready_to_count = saw_usage or (
+                    ((bool(cid) and cid in portal_cids) or saw_user_input or (phase in AUTOPILOT_PHASES))
+                    and repo != "unknown"
+                    and branch != "unknown"
+                )
+                if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
+                    session_counted = True
 
                 for um in sorted(temp_unpriced_models):
                     self._warn_unpriced_model(um)
@@ -1421,6 +1494,8 @@ class MetricsCollector:
                     "brief_task": brief_task,
                     "context": context,
                     "model": current_model,
+                    "saw_user_input": saw_user_input,
+                    "session_counted": session_counted,
                 }
                 if cid and (repo != "unknown" or branch != "unknown" or ws_path):
                     self.state.setdefault("cid_to_meta", {})[cid] = {
@@ -1660,13 +1735,13 @@ class MetricsCollector:
                             if prompt_content:
                                 saw_activity = True
                                 detected = detect_phase(prompt_content)
-                                if detected in ("implement", "review", "fix", "summarize"):
+                                if detected in AUTOPILOT_PHASES:
                                     context = "autopilot"
                                     phase = detected
                                     detected_session_phases.append(detected)
                                 elif is_exec and phase == "unknown":
                                     fb_phase = get_phase_from_run_log(ws_path or path)
-                                    if fb_phase in ("implement", "review", "fix", "summarize"):
+                                    if fb_phase in AUTOPILOT_PHASES:
                                         phase = fb_phase
                                         context = "autopilot"
 
@@ -1687,7 +1762,7 @@ class MetricsCollector:
 
                         if not is_portal and is_exec and phase == "unknown":
                             fb_phase = get_phase_from_run_log(ws_path or path)
-                            if fb_phase in ("implement", "review", "fix", "summarize"):
+                            if fb_phase in AUTOPILOT_PHASES:
                                 phase = fb_phase
                                 context = "autopilot"
 
@@ -1831,10 +1906,13 @@ class MetricsCollector:
                             portal_cids[cid] = True
                             if repo != "unknown":
                                 cid_to_repo[cid] = repo
+                            existing_meta = cid_to_meta.get(cid, {})
+                            if not isinstance(existing_meta, dict):
+                                existing_meta = {}
                             cid_to_meta[cid] = {
-                                "repo": repo,
-                                "branch": branch,
-                                "worktree": wt_path,
+                                "repo": repo if repo != "unknown" else existing_meta.get("repo", "unknown"),
+                                "branch": branch if branch != "unknown" else existing_meta.get("branch", "unknown"),
+                                "worktree": wt_path or existing_meta.get("worktree", ""),
                             }
         except Exception as e:
             self.warn(f"last-status.json 読み取り警告: {e}")

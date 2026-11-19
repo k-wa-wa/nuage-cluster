@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -242,16 +243,47 @@ class TestNormalizationAndExtraction(unittest.TestCase):
 
     def test_run_log_steps_prefix_matching(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            log_path = os.path.join(tmp_dir, "run.log")
+            auto_dir = os.path.join(tmp_dir, ".autopilot")
+            os.makedirs(auto_dir, exist_ok=True)
+            log_path = os.path.join(auto_dir, "run.log")
+            # 1. start 行が無い run.log では従来どおり全体を対象とする
             with open(log_path, "w", encoding="utf-8") as f:
                 f.write(
                     "[10:00:00] == implementing (claude)\n"
                     "   - コメント内で `== summarizing` に言及した行\n"
                     "   - `== reviewing` というテキストを含む説明文\n"
+                    "   - 本文中の `== gating` への言及\n"
+                    "[10:03:00] == gating (round 1: claude)\n"
                     "[10:05:00] == fixing (round 1)\n"
+                    "[10:08:00] == gating (round 2: agy)\n"
                 )
+            _read_run_log_steps.cache_clear()
             steps = _read_run_log_steps(log_path, 1.0)
-            self.assertEqual(steps, ["implement", "fix"])
+            self.assertEqual(steps, ["implement", "gate", "fix", "gate"])
+            self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "gate")
+
+            # 2. 複数の start 行がある場合、最新の start 行より後のみを対象とする
+            #    前回実行が == gating で終了し、最新 start 行の後が == specifying / == spec reviewing のみなら [] / "unknown"
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "[10:00:00] start impl=agy level=high reviewers=claude base=aaaa1111 from=implement\n"
+                    "[10:01:00] == implementing (agy)\n"
+                    "[10:05:00] == gating (round 1: claude)\n"
+                    "[10:10:00] == needs-human: ゲート失敗\n"
+                    "[11:00:00] start impl=agy level=high reviewers=claude base=aaaa1111 from=spec\n"
+                    "[11:00:01] == specifying (agy)\n"
+                    "[11:05:00] == spec reviewing (round 1: claude)\n"
+                )
+            _read_run_log_steps.cache_clear()
+            self.assertEqual(_read_run_log_steps(log_path, 2.0), [])
+            self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "unknown")
+
+            # 3. 最新 start 行の後に == implementing や == gating が進めばそれを返す
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write("[11:10:00] == implementing (agy)\n[11:15:00] == gating (round 1: codex)\n")
+            _read_run_log_steps.cache_clear()
+            self.assertEqual(_read_run_log_steps(log_path, 3.0), ["implement", "gate"])
+            self.assertEqual(collector_mod.get_phase_from_run_log(tmp_dir), "gate")
 
     def test_detect_phase(self):
         self.assertEqual(
@@ -262,8 +294,30 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             detect_phase("あなたはコードレビュアーである。ファイルは一切変更しない。`git diff` をレビューする。"),
             "review",
         )
+        # autopilot-run の gate() 準拠プロンプトおよび手順書実行条件
+        self.assertEqual(
+            detect_phase(
+                "あなたはリポジトリのゲート検証担当である。ファイルは一切変更しない。\n"
+                "以下のゲートの手順書に従ってチェックを実際に実行して確かめる。"
+            ),
+            "gate",
+        )
+        self.assertEqual(
+            detect_phase("ゲートの手順書を読み、対象コマンドを実際に実行して確かめる。"),
+            "gate",
+        )
         self.assertEqual(
             detect_phase("次のファイルを読み、直すべきものを直す。\n- レビュー結果: .autopilot/review-1-agy.md"),
+            "fix",
+        )
+        # ゲート不合格結果を含む fix() プロンプトは gate ではなく fix が優先される
+        self.assertEqual(
+            detect_phase(
+                "あなたは自律実行の担当である。\n"
+                "次のファイルを読み、直すべきものを直す。\n"
+                "- ゲートの不合格結果: .autopilot/gate-1-claude.md\n"
+                "ゲートの手順書にあるコマンドを実際に実行して確かめる必要はない。"
+            ),
             "fix",
         )
         # 人間からの追加指示に「レビューする」が含まれていても fix が優先される
@@ -281,8 +335,21 @@ class TestNormalizationAndExtraction(unittest.TestCase):
             detect_phase("人間向けの要約を .autopilot/result.md に書く。PR #57 の本文も同じ内容で更新する。"),
             "summarize",
         )
-        # 単なる会話や「レビューする」動詞のみでは review と判定されない
+        # gate-src-*.md や「ゲート結果について」を含む summarize() プロンプトも gate に誤判定されない
+        self.assertEqual(
+            detect_phase(
+                "あなたは自律実行の担当である。\n"
+                ".autopilot/brief.md・decisions.md・gate-src-*.md・review-*.md を元に、"
+                "人間向けの要約を .autopilot/result.md に書く。ゲート結果について短くまとめる。"
+            ),
+            "summarize",
+        )
+        # 単なる会話や「レビューする」動詞・単語の「ゲート」「gate」のみでは判定されない
         self.assertEqual(detect_phase("このコードをレビューする計画を立てて"), "unknown")
+        self.assertEqual(detect_phase("ゲート結果を確認したい"), "unknown")
+        self.assertEqual(detect_phase("gate の仕組みを教えて"), "unknown")
+        self.assertEqual(detect_phase("ゲートの手順書だけ読む"), "unknown")
+        self.assertEqual(detect_phase("実際に実行して確かめるだけ"), "unknown")
         self.assertEqual(detect_phase("何気ない会話"), "unknown")
 
     def test_get_git_branch_from_worktree(self):
@@ -377,7 +444,7 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(sessions[session_key], 1)
 
     def test_claude_phases(self):
-        # review, fix, summarize 各フェーズで正しくラベルが付与されることのテスト
+        # review, fix, summarize, gate 各フェーズで正しくラベルが付与されることのテスト
         project_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-test")
         os.makedirs(project_dir, exist_ok=True)
 
@@ -387,6 +454,7 @@ class TestMetricsCollector(unittest.TestCase):
                 ("あなたはコードレビュアーである。レビューする。", "review"),
                 ("直すべきものを直す。レビュー結果: .autopilot/review-1-agy.md", "fix"),
                 ("人間向けの要約を .autopilot/result.md に書く。", "summarize"),
+                ("あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。", "gate"),
             ]):
                 jsonl_path = os.path.join(project_dir, f"session-phase-{idx}.jsonl")
                 with open(jsonl_path, "w", encoding="utf-8") as f:
@@ -1253,6 +1321,26 @@ class TestMetricsCollector(unittest.TestCase):
             repo_unknown, branch_unknown, _ = collector_mod.get_antigravity_conversation_meta("nonexistent")
             self.assertEqual(repo_unknown, "unknown")
             self.assertEqual(branch_unknown, "unknown")
+
+            # 不完全なキャッシュ (branch="unknown", worktree="" やブランチ不明のパスA) でも DB からパス・ブランチを整合補完する
+            partial_cache = {
+                "cid-test-1": {"repo": "nuage-cluster", "branch": "unknown", "worktree": ""},
+            }
+            repo_rec, branch_rec, ws_rec = collector_mod.get_antigravity_conversation_meta("cid-test-1", partial_cache)
+            self.assertEqual((repo_rec, branch_rec, ws_rec), ("nuage-cluster", "my-feature-branch", wt_dir))
+
+            partial_path_cache = {
+                "cid-test-1": {"repo": "tmp", "branch": "unknown", "worktree": "/nonexistent/partial/ws"},
+            }
+            repo_rec2, branch_rec2, ws_rec2 = collector_mod.get_antigravity_conversation_meta("cid-test-1", partial_path_cache)
+            self.assertEqual((repo_rec2, branch_rec2, ws_rec2), ("nuage-cluster", "my-feature-branch", wt_dir))
+
+            # 完全なキャッシュがある場合は DB で上書きしない
+            complete_cache = {
+                "cid-test-1": {"repo": "nuage-cluster", "branch": "pinned-branch", "worktree": "/pinned/ws"},
+            }
+            repo_pin, branch_pin, ws_pin = collector_mod.get_antigravity_conversation_meta("cid-test-1", complete_cache)
+            self.assertEqual((repo_pin, branch_pin, ws_pin), ("nuage-cluster", "pinned-branch", "/pinned/ws"))
         finally:
             os.path.expanduser = orig_expanduser
 
@@ -1986,6 +2074,7 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(normalize_autopilot_phase("reviewing (round 1: claude)"), "reviewing")
         self.assertEqual(normalize_autopilot_phase("reviewing (round 2: agy, copilot)"), "reviewing")
         self.assertEqual(normalize_autopilot_phase("fixing (round 2)"), "fixing")
+        self.assertEqual(normalize_autopilot_phase("gating (round 1: claude)"), "gating")
         self.assertEqual(normalize_autopilot_phase("summarizing"), "summarizing")
 
         # 完了系および空の status の判定と phase 正規化結果の検証
@@ -2007,6 +2096,7 @@ class TestMetricsCollector(unittest.TestCase):
             "waiting CI (round 1)",
             "reviewing (round 1: claude)",
             "fixing (round 2)",
+            "gating (round 1: claude)",
             "summarizing",
         ):
             self.assertFalse(is_terminal_autopilot_status(active), f"should be active: {active!r}")
@@ -3195,6 +3285,1254 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertEqual(c_batch.state["counters"]["sessions"], expected_sessions)
         finally:
             collector_mod.glob.glob = orig_glob
+
+    def test_gate_phase_parallel_and_delayed_collection_across_agents(self):
+        # Claude・Codex・Antigravity の並列 gate および run.log が後続フェーズへ進んだ後の遅延収集で、
+        # 各セッションが指示文優先で phase="gate"（セッション数も各 1 件ずつ）として計上されること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-gate-parallel")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(auto_dir, exist_ok=True)
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/gate-parallel\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# 並列ゲート計測テスト\n")
+        # 収集時点ではすでに run.log が後続の summarizing / fixing に進んでいる状態を模擬
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write(
+                "[10:00:00] start impl=agy level=high reviewers=claude\n"
+                "[10:05:00] == gating (round 1)\n"
+                "[10:10:00] == fixing (round 1)\n"
+                "[10:15:00] == summarizing\n"
+            )
+
+        gate_prompt = (
+            "あなたはリポジトリのゲート検証担当である。ファイルは一切変更しない。\n"
+            "ゲートの手順書に従ってコマンドを実際に実行して確かめる。"
+        )
+
+        # 1. Claude 並列 gate 2 セッション (queue-operation と user 文字列 + 後続 tool_result で上書きされない)
+        claude_dir = os.path.join(
+            self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-gate-parallel"
+        )
+        os.makedirs(claude_dir, exist_ok=True)
+        claude_gate_1 = os.path.join(claude_dir, "gate-1.jsonl")
+        with open(claude_gate_1, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "queue-operation", "content": gate_prompt}) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/gate-parallel",
+                "message": {
+                    "id": "msg-cl-gate-1",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 100_000, "output_tokens": 20_000},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": [{"type": "tool_result", "content": "あなたはコードレビュアーである。"}]},
+            }) + "\n")
+
+        claude_gate_2 = os.path.join(claude_dir, "gate-2.jsonl")
+        with open(claude_gate_2, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user",
+                "entrypoint": "sdk-cli",
+                "message": {"content": gate_prompt},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/gate-parallel",
+                "message": {
+                    "id": "msg-cl-gate-2",
+                    "model": "claude-opus-5-5",
+                    "usage": {"input_tokens": 50_000, "output_tokens": 10_000},
+                },
+            }) + "\n")
+
+        # 2. Codex 並列 gate 2 セッション (AGENTS.md ラッパー付き)
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        codex_gate_files = []
+        for idx in range(2):
+            p = os.path.join(codex_dir, f"rollout-gate-{idx}.jsonl")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "session_meta",
+                    "payload": {
+                        "cwd": ws_dir,
+                        "source": "exec",
+                        "originator": "codex_exec",
+                        "git": {"branch": "bot-wa-wa/gate-parallel"},
+                    },
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "# AGENTS.md instructions\nゲート結果について"}],
+                    },
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": gate_prompt}],
+                    },
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {
+                        "response_id": f"resp-cx-gate-{idx}",
+                        "usage": {"input_tokens": 100_000, "cached_input_tokens": 0, "output_tokens": 10_000},
+                    },
+                }) + "\n")
+            codex_gate_files.append(p)
+
+        # 3. Antigravity 並列 gate 2 セッション (step_index > 0 / GENERIC で別フェーズ文言が出ても phase="gate" を維持)
+        agy_gate_files = []
+        for idx in range(2):
+            b_dir = os.path.join(self.test_dir, "brain", f"conv-agy-gate-{idx}", ".system_generated", "logs")
+            os.makedirs(b_dir, exist_ok=True)
+            tp = os.path.join(b_dir, "transcript.jsonl")
+            with open(tp, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 0,
+                    "source": "USER_EXPLICIT",
+                    "type": "USER_INPUT",
+                    "content": (
+                        f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>"
+                        "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>"
+                    ),
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 200_000,
+                    "output_tokens": 40_000,
+                    "content": f"ワークスペース {ws_dir} でゲート検証を実行した。",
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 2,
+                    "source": "USER_EXPLICIT",
+                    "type": "GENERIC",
+                    "content": "あなたはコードレビュアーである。人間向けの要約を .autopilot/result.md に書く。",
+                }) + "\n")
+            agy_gate_files.append(tp)
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        for idx in range(2):
+            collector.state["cid_to_meta"][f"conv-agy-gate-{idx}"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/gate-parallel",
+                "worktree": ws_dir,
+            }
+
+        orig_glob = collector_mod.glob.glob
+
+        def mock_glob(p):
+            if "claude" in p:
+                return [claude_gate_1, claude_gate_2]
+            if "codex" in p:
+                return codex_gate_files
+            if "antigravity" in p:
+                return agy_gate_files
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            collector.collect_claude()
+            collector.collect_codex()
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+        sessions = collector.state["counters"]["sessions"]
+
+        # Claude: 2 セッション合算 (150k input * $15/1M + 30k output * $75/1M = $2.25 + $2.25 = $4.50)
+        cl_base = 'agent="claude",branch="bot-wa-wa/gate-parallel",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="並列ゲート計測テスト"'
+        self.assertEqual(tokens[f'{cl_base},type="input"'], 150_000)
+        self.assertEqual(tokens[f'{cl_base},type="output"'], 30_000)
+        self.assertAlmostEqual(costs[cl_base], 4.50, places=8)
+        self.assertEqual(
+            sessions['agent="claude",branch="bot-wa-wa/gate-parallel",phase="gate",repo="nuage-cluster"'],
+            2,
+        )
+
+        # Codex: 2 セッション合算 (200k input * $10/1M + 20k output * $50/1M = $2.00 + $1.00 = $3.00)
+        cx_base = 'agent="codex",branch="bot-wa-wa/gate-parallel",model="gpt-6-astra",phase="gate",repo="nuage-cluster",task="並列ゲート計測テスト"'
+        self.assertEqual(tokens[f'{cx_base},type="input"'], 200_000)
+        self.assertEqual(tokens[f'{cx_base},type="output"'], 20_000)
+        self.assertAlmostEqual(costs[cx_base], 3.00, places=8)
+        self.assertEqual(
+            sessions['agent="codex",branch="bot-wa-wa/gate-parallel",phase="gate",repo="nuage-cluster"'],
+            2,
+        )
+
+        # Antigravity: 2 セッション合算 (400k input * $1.50/1M + 80k output * $7.50/1M = $0.60 + $0.60 = $1.20)
+        agy_base = 'agent="agy",branch="bot-wa-wa/gate-parallel",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="並列ゲート計測テスト"'
+        self.assertEqual(tokens[f'{agy_base},type="input"'], 400_000)
+        self.assertEqual(tokens[f'{agy_base},type="output"'], 80_000)
+        self.assertAlmostEqual(costs[agy_base], 1.20, places=8)
+        self.assertEqual(
+            sessions['agent="agy",branch="bot-wa-wa/gate-parallel",phase="gate",repo="nuage-cluster"'],
+            2,
+        )
+
+        # Prometheus 出力と run.log の後続フェーズに引きずられていないことの確認
+        payload = collector.generate_prometheus_payload()
+        self.assertIn(f'nuage_ai_agent_tokens_total{{{cl_base},type="input"}} 150000', payload)
+        self.assertIn(f'nuage_ai_agent_cost_usd_total{{{cx_base}}} 3.0', payload)
+        self.assertIn('nuage_ai_agent_sessions_total{agent="agy",branch="bot-wa-wa/gate-parallel",phase="gate",repo="nuage-cluster"} 2', payload)
+        self.assertNotIn('phase="summarize"', payload)
+        self.assertNotIn('phase="fix"', payload)
+        self.assertNotIn('phase="review"', payload)
+
+    def test_gate_portal_isolation_and_run_log_fallback(self):
+        # 1. 各エージェントの portal セッションは gate 文言や == gating の run.log があっても phase="portal", task="portal" を維持
+        # 2. Codex exec セッションの == gating フォールバックは phase="gate" になる
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-gate-portal")
+        auto_dir = os.path.join(ws_dir, ".autopilot")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(auto_dir, exist_ok=True)
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/gate-portal\n")
+        with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+            f.write("# ポータル隔離テスト\n")
+        with open(os.path.join(auto_dir, "run.log"), "w", encoding="utf-8") as f:
+            f.write("[10:00:00] start impl=agy level=high\n[10:01:00] == gating (round 1: codex)\n")
+
+        gate_text = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        # Claude CLI (portal)
+        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-gate-portal")
+        os.makedirs(claude_dir, exist_ok=True)
+        claude_portal = os.path.join(claude_dir, "cli-portal.jsonl")
+        with open(claude_portal, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "attachment", "entrypoint": "cli"}) + "\n")
+            f.write(json.dumps({"type": "user", "entrypoint": "cli", "message": {"content": gate_text}}) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/gate-portal",
+                "message": {"id": "msg-p-cl", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 100}},
+            }) + "\n")
+
+        # Codex portal 各条件を単独で検証 (source="cli", source="vscode", originator="codex-tui", originator="orca_desktop")
+        # + Codex exec (プロンプト未特定 -> run.log == gating フォールバック)
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        codex_portal_cases = [
+            ("cli-only", {"source": "cli", "originator": "other"}),
+            ("vscode-only", {"source": "vscode", "originator": "other"}),
+            ("codex-tui-only", {"source": "other", "originator": "codex-tui"}),
+            ("orca-desktop-only", {"source": "other", "originator": "orca_desktop"}),
+        ]
+        codex_portals = []
+        for idx, (label, meta_fields) in enumerate(codex_portal_cases):
+            p = os.path.join(codex_dir, f"rollout-portal-{label}.jsonl")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "session_meta",
+                    "payload": {"cwd": ws_dir, "git": {"branch": "bot-wa-wa/gate-portal"}, **meta_fields},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-luna"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_text}]},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": f"resp-p-cx-{idx}", "usage": {"input_tokens": 500, "cached_input_tokens": 0, "output_tokens": 50}},
+                }) + "\n")
+            codex_portals.append(p)
+
+        codex_fb = os.path.join(codex_dir, "rollout-exec-fb.jsonl")
+        with open(codex_fb, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/gate-portal"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-luna"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {"response_id": "resp-fb-cx", "usage": {"input_tokens": 3000, "cached_input_tokens": 0, "output_tokens": 300}},
+            }) + "\n")
+
+        # Antigravity (A: portal_cids 登録済み, B: 未登録だが非定型 USER_INPUT + step_index > 0 で gate 文言)
+        agy_portal_a_dir = os.path.join(self.test_dir, "brain", "conv-portal-gate-a", ".system_generated", "logs")
+        os.makedirs(agy_portal_a_dir, exist_ok=True)
+        agy_portal_a = os.path.join(agy_portal_a_dir, "transcript.jsonl")
+        with open(agy_portal_a, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_text}</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 4000,
+                "output_tokens": 400,
+                "content": "確認した。",
+            }) + "\n")
+
+        agy_portal_b_dir = os.path.join(self.test_dir, "brain", "conv-portal-gate-b", ".system_generated", "logs")
+        os.makedirs(agy_portal_b_dir, exist_ok=True)
+        agy_portal_b = os.path.join(agy_portal_b_dir, "transcript.jsonl")
+        with open(agy_portal_b, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>この PR のゲート結果を教えて。brief の要点も確認したい。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": gate_text,
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 5000,
+                "output_tokens": 500,
+                "content": "承知した。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        collector.state["portal_cids"]["conv-portal-gate-a"] = True
+        for cid in ("conv-portal-gate-a", "conv-portal-gate-b"):
+            collector.state["cid_to_meta"][cid] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/gate-portal",
+                "worktree": ws_dir,
+            }
+
+        orig_glob = collector_mod.glob.glob
+
+        def mock_glob(p):
+            if "claude" in p:
+                return [claude_portal]
+            if "codex" in p:
+                return codex_portals + [codex_fb]
+            if "antigravity" in p:
+                return [agy_portal_a, agy_portal_b]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            collector.collect_claude()
+            collector.collect_codex()
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        tokens = collector.state["counters"]["tokens"]
+        self.assertEqual(
+            tokens['agent="claude",branch="bot-wa-wa/gate-portal",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",task="portal",type="input"'],
+            1000,
+        )
+        self.assertEqual(
+            tokens['agent="codex",branch="bot-wa-wa/gate-portal",model="gpt-6-luna",phase="portal",repo="nuage-cluster",task="portal",type="input"'],
+            2000,
+        )
+        self.assertEqual(
+            collector.state["counters"]["sessions"]['agent="codex",branch="bot-wa-wa/gate-portal",phase="portal",repo="nuage-cluster"'],
+            4,
+        )
+        self.assertEqual(
+            tokens['agent="codex",branch="bot-wa-wa/gate-portal",model="gpt-6-luna",phase="gate",repo="nuage-cluster",task="ポータル隔離テスト",type="input"'],
+            3000,
+        )
+        self.assertEqual(
+            tokens['agent="agy",branch="bot-wa-wa/gate-portal",model="unknown",phase="portal",repo="nuage-cluster",task="portal",type="input"'],
+            9000,
+        )
+        self.assertEqual(
+            collector.state["counters"]["sessions"]['agent="agy",branch="bot-wa-wa/gate-portal",phase="portal",repo="nuage-cluster"'],
+            2,
+        )
+
+    def test_claude_and_agy_session_counted_deferred_until_prompt_classification(self):
+        # 先頭に session-owner や queue-operation (gate 指示文) のみが書き出された時点で
+        # portal=1 や branch="unknown", phase="gate" を誤計上せず、
+        # 起動元・ラベル情報の取得後に正しいフェーズ・ブランチで 1 セッション計上されること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-defer")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/defer-no-meta\n")
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-defer")
+        os.makedirs(claude_dir, exist_ok=True)
+        claude_gate = os.path.join(claude_dir, "sess-gate.jsonl")
+        claude_cli_with_q = os.path.join(claude_dir, "sess-cli-q.jsonl")
+        claude_cli = os.path.join(claude_dir, "sess-cli.jsonl")
+
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-defer", ".system_generated", "logs")
+        os.makedirs(agy_dir, exist_ok=True)
+        agy_gate = os.path.join(agy_dir, "transcript.jsonl")
+
+        agy_no_meta_dir = os.path.join(self.test_dir, "brain", "conv-agy-no-meta", ".system_generated", "logs")
+        os.makedirs(agy_no_meta_dir, exist_ok=True)
+        agy_no_meta = os.path.join(agy_no_meta_dir, "transcript.jsonl")
+
+        # 段階1: メタ行のみ（および cid_to_meta なしの Antigravity USER_INPUT のみ）
+        with open(claude_gate, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-gate"}) + "\n")
+            f.write(json.dumps({"parentUuid": None, "attachment": {"type": "hook_success"}}) + "\n")
+        with open(claude_cli_with_q, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-cli-q"}) + "\n")
+            f.write(json.dumps({"type": "queue-operation", "operation": "enqueue", "content": gate_prompt}) + "\n")
+        with open(claude_cli, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-cli"}) + "\n")
+        with open(agy_gate, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"step_index": 0, "source": "SYSTEM", "type": "GENERIC", "content": "init"}) + "\n")
+        with open(agy_no_meta, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+
+        def mock_glob(p):
+            if "claude" in p:
+                return [claude_gate, claude_cli_with_q, claude_cli]
+            if "antigravity" in p:
+                return [agy_gate, agy_no_meta]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.state["cid_to_meta"]["conv-agy-defer"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/defer-test",
+                "worktree": ws_dir,
+            }
+            c1.collect_claude()
+            c1.collect_antigravity()
+            c1._save_state()
+
+            # 段階1 では起動元・ラベル未確定のため何も計上されないこと
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertEqual(c1.state["counters"]["tokens"], {})
+            self.assertEqual(c1.state["counters"]["cost_usd"], {})
+
+            # 段階2: claude_gate に queue-operation (gate 指示文) だけを追記して収集
+            with open(claude_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"type": "queue-operation", "operation": "enqueue", "content": gate_prompt}) + "\n")
+
+            c2_q = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2_q.collect_claude()
+            c2_q.collect_antigravity()
+            c2_q._save_state()
+
+            # queue-operation 直後でも起動元とブランチが未取得のため保留されること
+            self.assertEqual(c2_q.state["counters"]["sessions"], {})
+            self.assertEqual(c2_q.state["counters"]["tokens"], {})
+
+            # 段階3: 起動元 (sdk-cli / cli)・ブランチ・応答が追記される
+            with open(claude_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "attachment",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                    "message": {"role": "user", "content": gate_prompt},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                    "message": {"id": "msg-defer-gate", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 200}},
+                }) + "\n")
+
+            with open(claude_cli_with_q, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-cli-q",
+                    "message": {"role": "user", "content": gate_prompt},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-cli-q",
+                    "message": {"id": "msg-defer-cli-q", "model": "claude-opus-5-5", "usage": {"input_tokens": 200, "output_tokens": 40}},
+                }) + "\n")
+
+            with open(claude_cli, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-portal",
+                    "message": {"role": "user", "content": "状態を確認して"},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-portal",
+                    "message": {"id": "msg-defer-cli", "model": "claude-opus-5-5", "usage": {"input_tokens": 300, "output_tokens": 50}},
+                }) + "\n")
+
+            with open(agy_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 0,
+                    "source": "USER_EXPLICIT",
+                    "type": "USER_INPUT",
+                    "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 4000,
+                    "output_tokens": 500,
+                    "content": "検証完了",
+                }) + "\n")
+
+            with open(agy_no_meta, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2500,
+                    "output_tokens": 250,
+                    "content": f"ワークスペース {ws_dir} で検証完了",
+                }) + "\n")
+
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_claude()
+            c3.collect_antigravity()
+            c3._save_state()
+
+            expected_sessions = {
+                'agent="claude",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+                'agent="claude",branch="bot-wa-wa/defer-cli-q",phase="portal",repo="nuage-cluster"': 1,
+                'agent="claude",branch="bot-wa-wa/defer-portal",phase="portal",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/defer-no-meta",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c3.state["counters"]["sessions"], expected_sessions)
+
+            # 一括収集（最初から全行を読む場合）と辞書全体が一致すること
+            batch_state = os.path.join(self.test_dir, "batch-defer.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.state["cid_to_meta"]["conv-agy-defer"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/defer-test",
+                "worktree": ws_dir,
+            }
+            c_batch.collect_claude()
+            c_batch.collect_antigravity()
+
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_antigravity_deferred_session_without_usage_or_file_growth(self):
+        # 1. portal_cids 未登録の通常会話で USER_INPUT を先に収集し、次回使用量なし GENERIC 行から
+        #    repo/branch が判明した際、saw_user_input 復元により portal=1 が計上されること
+        # 2. gate 指示だけの先行収集で保留した後、ログ追記なし (file_size 不変) で会話メタデータや
+        #    portal_cids が後から取得可能になった場合に再評価され、一括収集と一致すること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-meta")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/agy-meta-branch\n")
+
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        # (A) 通常会話 (使用量なし GENERIC 行からワークスペース取得)
+        portal_dir = os.path.join(self.test_dir, "brain", "conv-agy-generic-ws", ".system_generated", "logs")
+        os.makedirs(portal_dir, exist_ok=True)
+        portal_path = os.path.join(portal_dir, "transcript.jsonl")
+        with open(portal_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>状況を教えて</USER_REQUEST>",
+            }) + "\n")
+
+        # (B) gate 指示のみ -> 後からファイル追記なしで cid_to_meta が利用可能になるケース
+        gate_nometa_dir = os.path.join(self.test_dir, "brain", "conv-agy-static-gate", ".system_generated", "logs")
+        os.makedirs(gate_nometa_dir, exist_ok=True)
+        gate_nometa_path = os.path.join(gate_nometa_dir, "transcript.jsonl")
+        with open(gate_nometa_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+            }) + "\n")
+
+        # (C) gate 文言入り -> 後からファイル追記なしで portal_cids + cid_to_meta に載るケース
+        late_portal_dir = os.path.join(self.test_dir, "brain", "conv-agy-late-portal", ".system_generated", "logs")
+        os.makedirs(late_portal_dir, exist_ok=True)
+        late_portal_path = os.path.join(late_portal_dir, "transcript.jsonl")
+        with open(late_portal_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [portal_path, gate_nometa_path, late_portal_path] if "antigravity" in p else []
+        try:
+            # 段階1: メタデータもワークスペースパスも無い状態で初回収集 -> すべて保留
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_antigravity()
+            c1._save_state()
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertTrue(c1.state["agy_offsets"][portal_path]["saw_user_input"])
+            self.assertFalse(c1.state["agy_offsets"][portal_path]["session_counted"])
+            self.assertFalse(c1.state["agy_offsets"][gate_nometa_path]["session_counted"])
+
+            # 段階2:
+            # - (A) には使用量なしの GENERIC 行のみ追記
+            # - (B), (C) はファイルサイズ不変のまま cid_to_meta / portal_cids のみ更新
+            with open(portal_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "SYSTEM",
+                    "type": "GENERIC",
+                    "content": f"ワークスペース {ws_dir} を開いた。",
+                }) + "\n")
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.state["cid_to_meta"]["conv-agy-static-gate"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-meta-branch",
+                "worktree": ws_dir,
+            }
+            c2.state["cid_to_meta"]["conv-agy-late-portal"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-late-portal",
+                "worktree": ws_dir,
+            }
+            c2.state["portal_cids"]["conv-agy-late-portal"] = True
+            c2.collect_antigravity()
+            c2._save_state()
+
+            expected_sessions = {
+                'agent="agy",branch="bot-wa-wa/agy-meta-branch",phase="portal",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/agy-meta-branch",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/agy-late-portal",phase="portal",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+            self.assertTrue(c2.state["agy_offsets"][portal_path]["session_counted"])
+            self.assertTrue(c2.state["agy_offsets"][gate_nometa_path]["session_counted"])
+            self.assertTrue(c2.state["agy_offsets"][late_portal_path]["session_counted"])
+
+            # 段階3: 追記なしで再実行しても二重計上されないこと
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_antigravity()
+            self.assertEqual(c3.state["counters"]["sessions"], expected_sessions)
+
+            # 一括収集（メタデータ確定済みの状態で最初から収集）と一致すること
+            batch_state = os.path.join(self.test_dir, "batch-agy-meta.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.state["cid_to_meta"]["conv-agy-static-gate"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-meta-branch",
+                "worktree": ws_dir,
+            }
+            c_batch.state["cid_to_meta"]["conv-agy-late-portal"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/agy-late-portal",
+                "worktree": ws_dir,
+            }
+            c_batch.state["portal_cids"]["conv-agy-late-portal"] = True
+            c_batch.collect_antigravity()
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+    def test_antigravity_recovers_from_incomplete_cache_via_db_without_file_growth(self):
+        # 初回収集で repo・worktree のみ判明し branch="unknown" の不完全キャッシュが cid_to_meta に保存された場合でも、
+        # 後から conversation_summaries.db とワークスペースのブランチ情報が揃えば無追記再評価で回復し、
+        # 一括収集と一致して phase="gate" の 1 セッションが計上されること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-db-recover")
+        partial_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-partial-nogit")
+        os.makedirs(ws_dir, exist_ok=True)
+        os.makedirs(partial_dir, exist_ok=True)
+
+        db_path = os.path.join(self.test_dir, "conversation_summaries.db")
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, workspace_uris TEXT)")
+
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-db-recover", ".system_generated", "logs")
+        os.makedirs(agy_dir, exist_ok=True)
+        agy_path = os.path.join(agy_dir, "transcript.jsonl")
+        with open(agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": (
+                    f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>"
+                    "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "SYSTEM",
+                "type": "GENERIC",
+                "content": f"作業ディレクトリ {partial_dir} を確認中。",
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        orig_expanduser = os.path.expanduser
+        collector_mod.glob.glob = lambda p: [agy_path] if "antigravity" in p else []
+        os.path.expanduser = lambda p: db_path if "conversation_summaries.db" in p else orig_expanduser(p)
+        try:
+            # 段階1: repo と ws_path (partial_dir) だけ判明し、branch="unknown" のまま cid_to_meta に保存される
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_antigravity()
+            c1._save_state()
+
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertFalse(c1.state["agy_offsets"][agy_path]["session_counted"])
+            self.assertEqual(
+                c1.state["cid_to_meta"]["conv-agy-db-recover"],
+                {"repo": "nuage-cluster", "branch": "unknown", "worktree": partial_dir},
+            )
+
+            # 段階2: ログへの追記なし (file_size 不変) で、DB と実ワークスペース (ws_dir) の git HEAD・brief.md が揃う
+            git_dir = os.path.join(ws_dir, ".git")
+            auto_dir = os.path.join(ws_dir, ".autopilot")
+            os.makedirs(git_dir, exist_ok=True)
+            os.makedirs(auto_dir, exist_ok=True)
+            with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+                f.write("ref: refs/heads/bot-wa-wa/db-recovered-gate\n")
+            with open(os.path.join(auto_dir, "brief.md"), "w", encoding="utf-8") as f:
+                f.write("# DB復旧ゲートタスク\n")
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "INSERT INTO conversation_summaries VALUES (?, ?)",
+                    ("conv-agy-db-recover", f'["file://{ws_dir}"]'),
+                )
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.collect_antigravity()
+            c2._save_state()
+
+            expected_sessions = {
+                'agent="agy",branch="bot-wa-wa/db-recovered-gate",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+            self.assertTrue(c2.state["agy_offsets"][agy_path]["session_counted"])
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["branch"], "bot-wa-wa/db-recovered-gate")
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["ws_path"], ws_dir)
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["task"], "DB復旧ゲートタスク")
+            self.assertEqual(
+                c2.state["cid_to_meta"]["conv-agy-db-recover"],
+                {"repo": "nuage-cluster", "branch": "bot-wa-wa/db-recovered-gate", "worktree": ws_dir},
+            )
+
+            # 段階3: その後トークン使用量が追記されても、ws_dir の brief.md 見出し (DB復旧ゲートタスク) で計上され一括収集と一致する
+            with open(agy_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 2,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 100_000,
+                    "output_tokens": 10_000,
+                    "content": "ゲート検証を完了した。",
+                }) + "\n")
+
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_antigravity()
+            c3._save_state()
+
+            expected_tok_base = 'agent="agy",branch="bot-wa-wa/db-recovered-gate",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="DB復旧ゲートタスク"'
+            self.assertEqual(c3.state["counters"]["tokens"][f'{expected_tok_base},type="input"'], 100_000)
+            self.assertEqual(c3.state["counters"]["tokens"][f'{expected_tok_base},type="output"'], 10_000)
+            self.assertGreater(c3.state["counters"]["cost_usd"][expected_tok_base], 0.0)
+
+            # 一括収集（DB 確定済み状態での初回収集）と一致すること
+            batch_state = os.path.join(self.test_dir, "batch-db-recover.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.collect_antigravity()
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.expanduser = orig_expanduser
+
+    def test_gate_incremental_dedup_partial_and_v4_state_compat(self):
+        # 1. 非空オフセット・重複防止IDを持つ既存の v4 状態を引き継いだまま、gate セッションを追加収集しても既存ログが再計上されず既存カウンタも保持されること
+        # 2. Claude・Codex・Antigravity の gate セッションで初回指示前分割・段階的追記・不完全行・重複 ID スキップ・再実行を行っても一括収集と辞書全体で一致すること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-gate-inc")
+        os.makedirs(ws_dir, exist_ok=True)
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+
+        claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-gate-inc")
+        os.makedirs(claude_dir, exist_ok=True)
+        prev_claude_path = os.path.join(claude_dir, "prev-review.jsonl")
+        claude_path = os.path.join(claude_dir, "gate-inc.jsonl")
+
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
+        os.makedirs(codex_dir, exist_ok=True)
+        prev_codex_path = os.path.join(codex_dir, "rollout-prev-fix.jsonl")
+        codex_path = os.path.join(codex_dir, "rollout-gate-inc.jsonl")
+
+        prev_agy_dir = os.path.join(self.test_dir, "brain", "conv-prev-review", ".system_generated", "logs")
+        os.makedirs(prev_agy_dir, exist_ok=True)
+        prev_agy_path = os.path.join(prev_agy_dir, "transcript.jsonl")
+
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-gate-inc", ".system_generated", "logs")
+        os.makedirs(agy_dir, exist_ok=True)
+        agy_path = os.path.join(agy_dir, "transcript.jsonl")
+
+        # 既存収集済みログ (過去の review / fix セッション)
+        with open(prev_claude_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "queue-operation", "content": "あなたはコードレビュアーである。"}) + "\n")
+            f.write(json.dumps({
+                "type": "assistant",
+                "entrypoint": "sdk-cli",
+                "cwd": ws_dir,
+                "gitBranch": "bot-wa-wa/prev",
+                "message": {"id": "cl-prev-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 12_345, "output_tokens": 500}},
+            }) + "\n")
+        with open(prev_codex_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/prev"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "直すべきものを直す。"}]},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {"response_id": "cx-prev-1", "usage": {"input_tokens": 8000, "cached_input_tokens": 0, "output_tokens": 400}},
+            }) + "\n")
+        with open(prev_agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 9000,
+                "output_tokens": 300,
+                "content": "確認済み",
+            }) + "\n")
+
+        # 既存 v4 状態ファイル (session_counted 未導入の旧 v4 オフセットも含む非空状態)
+        initial_tokens = {
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 12_345,
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 500,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 8000,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 400,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="input"': 9000,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev",type="output"': 300,
+        }
+        initial_costs = {
+            'agent="claude",branch="bot-wa-wa/prev",model="claude-opus-5-5",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.222675,
+            'agent="codex",branch="bot-wa-wa/prev",model="gpt-6-astra",phase="fix",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.1,
+            'agent="agy",branch="bot-wa-wa/prev",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/prev"': 0.01575,
+        }
+        initial_sessions = {
+            'agent="claude",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"': 1,
+            'agent="codex",branch="bot-wa-wa/prev",phase="fix",repo="nuage-cluster"': 1,
+            'agent="agy",branch="bot-wa-wa/prev",phase="review",repo="nuage-cluster"': 1,
+        }
+        initial_v4_state = {
+            "version": 4,
+            "claude_offsets": {
+                prev_claude_path: {
+                    "offset": os.path.getsize(prev_claude_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "review",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "entrypoint": "sdk-cli",
+                    "model": "claude-opus-5-5",
+                    "seen_message_ids": ["cl-prev-1"],
+                }
+            },
+            "agy_offsets": {
+                prev_agy_path: {
+                    "offset": os.path.getsize(prev_agy_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "review",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "model": "gemini-4-hydrogen-high",
+                }
+            },
+            "codex_offsets": {
+                prev_codex_path: {
+                    "offset": os.path.getsize(prev_codex_path),
+                    "repo": "nuage-cluster",
+                    "branch": "bot-wa-wa/prev",
+                    "ws_path": ws_dir,
+                    "phase": "fix",
+                    "task": "bot-wa-wa/prev",
+                    "brief_task": "unknown",
+                    "context": "autopilot",
+                    "source": "exec",
+                    "originator": "codex_exec",
+                    "model": "gpt-6-astra",
+                    "session_counted": True,
+                    "seen_response_ids": ["cx-prev-1"],
+                }
+            },
+            "last_orca_stats_timestamp": 0,
+            "orca_sessions": {},
+            "portal_cids": {},
+            "cid_to_repo": {},
+            "cid_to_meta": {
+                "conv-prev-review": {"repo": "nuage-cluster", "branch": "bot-wa-wa/prev", "worktree": ws_dir},
+                "conv-agy-gate-inc": {"repo": "nuage-cluster", "branch": "bot-wa-wa/gate-inc", "worktree": ws_dir},
+            },
+            "autopilot_runs": {},
+            "counters": {
+                "tokens": dict(initial_tokens),
+                "cost_usd": dict(initial_costs),
+                "sessions": dict(initial_sessions),
+                "duration": {},
+                "autopilot_runs": {},
+            },
+        }
+        with open(self.state_file, "w", encoding="utf-8") as f:
+            json.dump(initial_v4_state, f)
+
+        # 段階0: Claude は session-owner のみ、Codex は session_meta のみ、Antigravity は GENERIC メタ行のみ
+        with open(claude_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "gate-inc-sess"}) + "\n")
+        with open(codex_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {"cwd": ws_dir, "source": "exec", "originator": "codex_exec", "git": {"branch": "bot-wa-wa/gate-inc"}},
+            }) + "\n")
+        with open(agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"step_index": 0, "source": "SYSTEM", "type": "GENERIC", "content": "init"}) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        include_prev_in_glob = True
+
+        def mock_glob(p):
+            if "claude" in p:
+                return ([prev_claude_path] if include_prev_in_glob else []) + [claude_path]
+            if "codex" in p:
+                return ([prev_codex_path] if include_prev_in_glob else []) + [codex_path]
+            if "antigravity" in p:
+                return ([prev_agy_path] if include_prev_in_glob else []) + [agy_path]
+            return []
+
+        collector_mod.glob.glob = mock_glob
+        try:
+            # 段階0 収集
+            c0 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c0.collect_claude()
+            c0.collect_codex()
+            c0.collect_antigravity()
+            c0._save_state()
+
+            # 段階0 ではエラーも起きず、既存値から一切増えないこと (portal 誤計上もなし)
+            self.assertFalse(c0.has_errors)
+            self.assertEqual(c0.state["counters"]["tokens"], initial_tokens)
+            self.assertEqual(c0.state["counters"]["sessions"], initial_sessions)
+
+            # 段階1: gate 指示文 + 初回応答 + 不完全行を各ファイルに書き込む
+            # また既存収集済みファイルへ重複 ID 行を追記して seen_* による重複防止も検証
+            with open(prev_claude_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/prev",
+                    "message": {"id": "cl-prev-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 99999, "output_tokens": 99999}},
+                }) + "\n")
+            with open(prev_codex_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": "cx-prev-1", "usage": {"input_tokens": 99999, "cached_input_tokens": 0, "output_tokens": 99999}},
+                }) + "\n")
+
+            with open(claude_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"type": "queue-operation", "content": gate_prompt}) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/gate-inc",
+                    "message": {"id": "cl-inc-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 100}},
+                }) + "\n")
+                f.write('{"type": "assistant", "entrypoint": "sdk-cli", "message": {"id": "cl-inc-2"')
+
+            with open(codex_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-astra"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_prompt}]},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": "cx-inc-1", "usage": {"input_tokens": 2000, "cached_input_tokens": 0, "output_tokens": 200}},
+                }) + "\n")
+                f.write('{"type": "token_usage_record", "payload": {"response_id": "cx-inc-2"')
+
+            with open(agy_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 0,
+                    "source": "USER_EXPLICIT",
+                    "type": "USER_INPUT",
+                    "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+                }) + "\n")
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 3000,
+                    "output_tokens": 300,
+                    "content": f"ワークスペース {ws_dir} で検証中。",
+                }) + "\n")
+                f.write('{"step_index": 2, "source": "MODEL", "type": "PLANNER_RESPONSE"')
+
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_claude()
+            c1.collect_codex()
+            c1.collect_antigravity()
+            c1._save_state()
+
+            # 段階2: 不完全行を補完 + 重複 ID の再送を追記
+            with open(claude_path, "a", encoding="utf-8") as f:
+                f.write(', "model": "claude-opus-5-5", "usage": {"input_tokens": 500, "output_tokens": 50}}}\n')
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/gate-inc",
+                    "message": {"id": "cl-inc-1", "model": "claude-opus-5-5", "usage": {"input_tokens": 9999, "output_tokens": 9999}},
+                }) + "\n")
+
+            with open(codex_path, "a", encoding="utf-8") as f:
+                f.write(', "usage": {"input_tokens": 600, "cached_input_tokens": 0, "output_tokens": 60}}}\n')
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": "cx-inc-1", "usage": {"input_tokens": 9999, "cached_input_tokens": 0, "output_tokens": 9999}},
+                }) + "\n")
+
+            with open(agy_path, "a", encoding="utf-8") as f:
+                f.write(', "input_tokens": 700, "output_tokens": 70, "content": "検証完了"}\n')
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.collect_claude()
+            c2.collect_codex()
+            c2.collect_antigravity()
+            c2._save_state()
+
+            # 段階3: 変更なしで再実行しても何も増えないこと
+            c3 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c3.collect_claude()
+            c3.collect_codex()
+            c3.collect_antigravity()
+
+            self.assertFalse(c1.has_errors)
+            self.assertFalse(c2.has_errors)
+            self.assertFalse(c3.has_errors)
+            self.assertEqual(c3.state["version"], 4)
+
+            # 既存 v4 カウンタを除いた gate 増分辞書を算出
+            delta_tokens = {}
+            for k, v in c3.state["counters"]["tokens"].items():
+                diff = v - initial_tokens.get(k, 0)
+                if diff != 0 or k not in initial_tokens:
+                    delta_tokens[k] = diff
+            delta_costs = {}
+            for k, v in c3.state["counters"]["cost_usd"].items():
+                diff = round(v - initial_costs.get(k, 0.0), 10)
+                if diff != 0.0 or k not in initial_costs:
+                    delta_costs[k] = diff
+            delta_sessions = {}
+            for k, v in c3.state["counters"]["sessions"].items():
+                diff = v - initial_sessions.get(k, 0)
+                if diff != 0 or k not in initial_sessions:
+                    delta_sessions[k] = diff
+
+            # 既存カウンタが 1 ビットも変化していないこと
+            for k, v in initial_tokens.items():
+                self.assertEqual(c3.state["counters"]["tokens"][k], v)
+            for k, v in initial_costs.items():
+                self.assertAlmostEqual(c3.state["counters"]["cost_usd"][k], v, places=8)
+            for k, v in initial_sessions.items():
+                self.assertEqual(c3.state["counters"]["sessions"][k], v)
+
+            # 各エージェントの期待トークン数・期待セッション数の明示検証
+            expected_gate_tokens = {
+                'agent="claude",branch="bot-wa-wa/gate-inc",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 1500,
+                'agent="claude",branch="bot-wa-wa/gate-inc",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 150,
+                'agent="codex",branch="bot-wa-wa/gate-inc",model="gpt-6-astra",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 2600,
+                'agent="codex",branch="bot-wa-wa/gate-inc",model="gpt-6-astra",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 260,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="input"': 3700,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="output"': 370,
+                'agent="agy",branch="bot-wa-wa/gate-inc",model="gemini-4-hydrogen-high",phase="gate",repo="nuage-cluster",task="bot-wa-wa/gate-inc",type="cache_read"': 0,
+            }
+            expected_gate_sessions = {
+                'agent="claude",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+                'agent="codex",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/gate-inc",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(delta_tokens, expected_gate_tokens)
+            self.assertEqual(delta_sessions, expected_gate_sessions)
+
+            # 一括収集（新規状態ファイル・新規 gate セッションのみ）と増分辞書全体が完全一致すること
+            include_prev_in_glob = False
+            batch_state = os.path.join(self.test_dir, "batch-gate-state.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.state["cid_to_meta"]["conv-agy-gate-inc"] = {
+                "repo": "nuage-cluster",
+                "branch": "bot-wa-wa/gate-inc",
+                "worktree": ws_dir,
+            }
+            c_batch.collect_claude()
+            c_batch.collect_codex()
+            c_batch.collect_antigravity()
+
+            self.assertEqual(delta_tokens, c_batch.state["counters"]["tokens"])
+            self.assertEqual(delta_sessions, c_batch.state["counters"]["sessions"])
+            self.assertEqual(set(delta_costs.keys()), set(c_batch.state["counters"]["cost_usd"].keys()))
+            for k, v in c_batch.state["counters"]["cost_usd"].items():
+                self.assertAlmostEqual(delta_costs[k], v, places=8)
+        finally:
+            collector_mod.glob.glob = orig_glob
+
 
 
 
