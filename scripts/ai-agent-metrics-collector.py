@@ -1191,8 +1191,13 @@ class MetricsCollector:
                     brief_task=brief_task,
                 )
 
-                # 分類確定またはトークン観測までセッション計上を保留し、先頭メタ行のみの先行収集での誤計上を防ぐ
-                ready_to_count = is_cli or (phase in AUTOPILOT_PHASES) or saw_usage
+                # 起動元・分類・ラベル情報、またはトークン観測までセッション計上を保留し、queue-operation 等のみの先行収集での誤計上を防ぐ
+                ready_to_count = saw_usage or (
+                    (is_cli or is_sdk)
+                    and (is_cli or phase in AUTOPILOT_PHASES)
+                    and branch != "unknown"
+                    and bool(ws_path)
+                )
                 if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="claude",branch="{branch}",phase="{effective_phase}",repo="{repo}"'
                     temp_sessions[s_key] = temp_sessions.get(s_key, 0) + 1
@@ -1423,12 +1428,11 @@ class MetricsCollector:
                             cost_key = f'agent="agy",branch="{branch}",model="{current_model}",phase="{phase}",repo="{repo}",task="{effective_task}"'
                             temp_costs[cost_key] = round(temp_costs.get(cost_key, 0.0) + cost_inc, 10)
 
-                # 分類確定または活動観測までセッション計上を保留する
-                ready_to_count = (
-                    (bool(cid) and cid in portal_cids)
-                    or saw_user_input
-                    or (phase in AUTOPILOT_PHASES)
-                    or saw_usage
+                # 分類と主要ラベルの確定、または活動観測までセッション計上を保留する
+                ready_to_count = saw_usage or (
+                    ((bool(cid) and cid in portal_cids) or saw_user_input or (phase in AUTOPILOT_PHASES))
+                    and repo != "unknown"
+                    and branch != "unknown"
                 )
                 if not session_counted and ready_to_count and new_offset > 0:
                     s_key = f'agent="agy",branch="{branch}",phase="{phase}",repo="{repo}"'

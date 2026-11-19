@@ -3638,40 +3638,59 @@ class TestMetricsCollector(unittest.TestCase):
         )
 
     def test_claude_and_agy_session_counted_deferred_until_prompt_classification(self):
-        # 先頭に session-owner 等のみが書き出された時点で portal=1 を誤計上せず、
-        # 後続の gate 指示文や cli 指示文の収集時に正しいフェーズで 1 セッション計上されること
+        # 先頭に session-owner や queue-operation (gate 指示文) のみが書き出された時点で
+        # portal=1 や branch="unknown", phase="gate" を誤計上せず、
+        # 起動元・ラベル情報の取得後に正しいフェーズ・ブランチで 1 セッション計上されること
         repo_rates_path = os.path.join(
             os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
         )
         ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-defer")
-        os.makedirs(ws_dir, exist_ok=True)
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/defer-no-meta\n")
         gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
 
         claude_dir = os.path.join(self.test_dir, "projects", "-home-nixos-orca-workspaces-nuage-cluster-ws-defer")
         os.makedirs(claude_dir, exist_ok=True)
         claude_gate = os.path.join(claude_dir, "sess-gate.jsonl")
+        claude_cli_with_q = os.path.join(claude_dir, "sess-cli-q.jsonl")
         claude_cli = os.path.join(claude_dir, "sess-cli.jsonl")
 
         agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-defer", ".system_generated", "logs")
         os.makedirs(agy_dir, exist_ok=True)
         agy_gate = os.path.join(agy_dir, "transcript.jsonl")
 
-        # 段階1: Claude は session-owner + hook attachment のみ、Antigravity は GENERIC メタ行のみ
+        agy_no_meta_dir = os.path.join(self.test_dir, "brain", "conv-agy-no-meta", ".system_generated", "logs")
+        os.makedirs(agy_no_meta_dir, exist_ok=True)
+        agy_no_meta = os.path.join(agy_no_meta_dir, "transcript.jsonl")
+
+        # 段階1: メタ行のみ（および cid_to_meta なしの Antigravity USER_INPUT のみ）
         with open(claude_gate, "w", encoding="utf-8") as f:
             f.write(json.dumps({"type": "session-owner", "sessionId": "s-gate"}) + "\n")
             f.write(json.dumps({"parentUuid": None, "attachment": {"type": "hook_success"}}) + "\n")
+        with open(claude_cli_with_q, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "session-owner", "sessionId": "s-cli-q"}) + "\n")
+            f.write(json.dumps({"type": "queue-operation", "operation": "enqueue", "content": gate_prompt}) + "\n")
         with open(claude_cli, "w", encoding="utf-8") as f:
             f.write(json.dumps({"type": "session-owner", "sessionId": "s-cli"}) + "\n")
         with open(agy_gate, "w", encoding="utf-8") as f:
             f.write(json.dumps({"step_index": 0, "source": "SYSTEM", "type": "GENERIC", "content": "init"}) + "\n")
+        with open(agy_no_meta, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST><USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
 
         orig_glob = collector_mod.glob.glob
 
         def mock_glob(p):
             if "claude" in p:
-                return [claude_gate, claude_cli]
+                return [claude_gate, claude_cli_with_q, claude_cli]
             if "antigravity" in p:
-                return [agy_gate]
+                return [agy_gate, agy_no_meta]
             return []
 
         collector_mod.glob.glob = mock_glob
@@ -3688,14 +3707,34 @@ class TestMetricsCollector(unittest.TestCase):
             c1.collect_antigravity()
             c1._save_state()
 
-            # 分類未確定時点では sessions も tokens も計上されないこと
+            # 段階1 では起動元・ラベル未確定のため何も計上されないこと
             self.assertEqual(c1.state["counters"]["sessions"], {})
             self.assertEqual(c1.state["counters"]["tokens"], {})
             self.assertEqual(c1.state["counters"]["cost_usd"], {})
 
-            # 段階2: gate 指示文 / cli 指示文 / 応答が追記される
+            # 段階2: claude_gate に queue-operation (gate 指示文) だけを追記して収集
             with open(claude_gate, "a", encoding="utf-8") as f:
                 f.write(json.dumps({"type": "queue-operation", "operation": "enqueue", "content": gate_prompt}) + "\n")
+
+            c2_q = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2_q.collect_claude()
+            c2_q.collect_antigravity()
+            c2_q._save_state()
+
+            # queue-operation 直後でも起動元とブランチが未取得のため保留されること
+            self.assertEqual(c2_q.state["counters"]["sessions"], {})
+            self.assertEqual(c2_q.state["counters"]["tokens"], {})
+
+            # 段階3: 起動元 (sdk-cli / cli)・ブランチ・応答が追記される
+            with open(claude_gate, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "attachment",
+                    "entrypoint": "sdk-cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-test",
+                }) + "\n")
                 f.write(json.dumps({
                     "type": "user",
                     "entrypoint": "sdk-cli",
@@ -3709,6 +3748,22 @@ class TestMetricsCollector(unittest.TestCase):
                     "cwd": ws_dir,
                     "gitBranch": "bot-wa-wa/defer-test",
                     "message": {"id": "msg-defer-gate", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 200}},
+                }) + "\n")
+
+            with open(claude_cli_with_q, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "user",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-cli-q",
+                    "message": {"role": "user", "content": gate_prompt},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "assistant",
+                    "entrypoint": "cli",
+                    "cwd": ws_dir,
+                    "gitBranch": "bot-wa-wa/defer-cli-q",
+                    "message": {"id": "msg-defer-cli-q", "model": "claude-opus-5-5", "usage": {"input_tokens": 200, "output_tokens": 40}},
                 }) + "\n")
 
             with open(claude_cli, "a", encoding="utf-8") as f:
@@ -3743,19 +3798,31 @@ class TestMetricsCollector(unittest.TestCase):
                     "content": "検証完了",
                 }) + "\n")
 
-            c2 = MetricsCollector(
+            with open(agy_no_meta, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "step_index": 1,
+                    "source": "MODEL",
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2500,
+                    "output_tokens": 250,
+                    "content": f"ワークスペース {ws_dir} で検証完了",
+                }) + "\n")
+
+            c3 = MetricsCollector(
                 state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
             )
-            c2.collect_claude()
-            c2.collect_antigravity()
-            c2._save_state()
+            c3.collect_claude()
+            c3.collect_antigravity()
+            c3._save_state()
 
             expected_sessions = {
                 'agent="claude",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+                'agent="claude",branch="bot-wa-wa/defer-cli-q",phase="portal",repo="nuage-cluster"': 1,
                 'agent="claude",branch="bot-wa-wa/defer-portal",phase="portal",repo="nuage-cluster"': 1,
                 'agent="agy",branch="bot-wa-wa/defer-test",phase="gate",repo="nuage-cluster"': 1,
+                'agent="agy",branch="bot-wa-wa/defer-no-meta",phase="gate",repo="nuage-cluster"': 1,
             }
-            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+            self.assertEqual(c3.state["counters"]["sessions"], expected_sessions)
 
             # 一括収集（最初から全行を読む場合）と辞書全体が一致すること
             batch_state = os.path.join(self.test_dir, "batch-defer.json")
@@ -3770,9 +3837,9 @@ class TestMetricsCollector(unittest.TestCase):
             c_batch.collect_claude()
             c_batch.collect_antigravity()
 
-            self.assertEqual(c2.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
-            self.assertEqual(c2.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
-            self.assertEqual(c2.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+            self.assertEqual(c3.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c3.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
         finally:
             collector_mod.glob.glob = orig_glob
 
