@@ -499,20 +499,32 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
     """conversation_summaries.db およびキャッシュから (repo, branch, worktree) を取得"""
     if not cid:
         return "unknown", "unknown", ""
+
+    repo = "unknown"
+    branch = "unknown"
+    ws_path = ""
+
     if cached_map and cid in cached_map:
         cached = cached_map[cid]
         if isinstance(cached, dict):
-            return (
-                cached.get("repo", "unknown"),
-                cached.get("branch", "unknown"),
-                cached.get("worktree", ""),
-            )
+            repo = cached.get("repo", "unknown") or "unknown"
+            branch = cached.get("branch", "unknown") or "unknown"
+            ws_path = cached.get("worktree", "") or ""
         elif isinstance(cached, str):
-            return cached, "unknown", ""
+            repo = cached or "unknown"
+
+        if ws_path:
+            if repo == "unknown":
+                repo = normalize_repo_name(ws_path)
+            if branch == "unknown":
+                branch = get_git_branch_from_worktree(ws_path)
+
+        if repo != "unknown" and branch != "unknown" and ws_path:
+            return repo, branch, ws_path
 
     db_path = os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db")
     if not os.path.exists(db_path):
-        return "unknown", "unknown", ""
+        return repo, branch, ws_path
     try:
         with sqlite3.connect(db_path) as conn:
             row = conn.execute(
@@ -524,15 +536,19 @@ def get_antigravity_conversation_meta(cid: str, cached_map: dict | None = None) 
                     uris = json.loads(row[0])
                     if isinstance(uris, list) and uris:
                         uri = uris[0]
-                        ws_path = uri[len("file://") :] if uri.startswith("file://") else uri
-                        repo = normalize_repo_name(uri)
-                        branch = get_git_branch_from_worktree(ws_path)
+                        db_ws = uri[len("file://") :] if uri.startswith("file://") else uri
+                        if not ws_path and db_ws:
+                            ws_path = db_ws
+                        if repo == "unknown":
+                            repo = normalize_repo_name(uri)
+                        if branch == "unknown":
+                            branch = get_git_branch_from_worktree(db_ws)
                         return repo, branch, ws_path
                 except json.JSONDecodeError:
                     pass
     except Exception:
         pass
-    return "unknown", "unknown", ""
+    return repo, branch, ws_path
 
 
 def get_antigravity_conversation_repo(cid: str, cached_map: dict | None = None) -> str:
@@ -1297,16 +1313,22 @@ class MetricsCollector:
                     if not ws_path and meta_ws:
                         ws_path = meta_ws
 
-                # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
-                # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
-                # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
-                if ws_path and branch != "unknown":
+                if ws_path:
                     checked_ws_paths[ws_path] = (
                         get_git_branch_from_worktree(ws_path),
                         extract_task_from_brief(ws_path),
                     )
                     ws_branch, ws_task = checked_ws_paths[ws_path]
-                    if ws_branch == branch and ws_task != "unknown":
+                    if repo == "unknown":
+                        extracted_repo = normalize_repo_name(ws_path)
+                        if extracted_repo != "unknown":
+                            repo = extracted_repo
+                    if branch == "unknown" and ws_branch != "unknown":
+                        branch = ws_branch
+                    # Note: cid_to_meta や prev_meta に当時の branch が残っておらず conversation_summaries.db や
+                    # 本文中のパスから新規に取得した場合、branch 自体がワークスペースの現在の HEAD になるため
+                    # ws_branch == branch は常に真となる（branch ラベル自体の限界と同じであり task もそれと揃う）。
+                    if branch != "unknown" and ws_branch == branch and ws_task != "unknown":
                         branch_brief_tasks[branch] = ws_task
 
                 context = prev_meta.get("context", "portal")
@@ -1878,10 +1900,13 @@ class MetricsCollector:
                             portal_cids[cid] = True
                             if repo != "unknown":
                                 cid_to_repo[cid] = repo
+                            existing_meta = cid_to_meta.get(cid, {})
+                            if not isinstance(existing_meta, dict):
+                                existing_meta = {}
                             cid_to_meta[cid] = {
-                                "repo": repo,
-                                "branch": branch,
-                                "worktree": wt_path,
+                                "repo": repo if repo != "unknown" else existing_meta.get("repo", "unknown"),
+                                "branch": branch if branch != "unknown" else existing_meta.get("branch", "unknown"),
+                                "worktree": wt_path or existing_meta.get("worktree", ""),
                             }
         except Exception as e:
             self.warn(f"last-status.json 読み取り警告: {e}")

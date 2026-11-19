@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -1320,6 +1321,20 @@ class TestMetricsCollector(unittest.TestCase):
             repo_unknown, branch_unknown, _ = collector_mod.get_antigravity_conversation_meta("nonexistent")
             self.assertEqual(repo_unknown, "unknown")
             self.assertEqual(branch_unknown, "unknown")
+
+            # 不完全なキャッシュ (branch="unknown", worktree="") でも DB から不足分を補完する
+            partial_cache = {
+                "cid-test-1": {"repo": "nuage-cluster", "branch": "unknown", "worktree": ""},
+            }
+            repo_rec, branch_rec, ws_rec = collector_mod.get_antigravity_conversation_meta("cid-test-1", partial_cache)
+            self.assertEqual((repo_rec, branch_rec, ws_rec), ("nuage-cluster", "my-feature-branch", wt_dir))
+
+            # 完全なキャッシュがある場合は DB で上書きしない
+            complete_cache = {
+                "cid-test-1": {"repo": "nuage-cluster", "branch": "pinned-branch", "worktree": "/pinned/ws"},
+            }
+            repo_pin, branch_pin, ws_pin = collector_mod.get_antigravity_conversation_meta("cid-test-1", complete_cache)
+            self.assertEqual((repo_pin, branch_pin, ws_pin), ("nuage-cluster", "pinned-branch", "/pinned/ws"))
         finally:
             os.path.expanduser = orig_expanduser
 
@@ -3525,27 +3540,37 @@ class TestMetricsCollector(unittest.TestCase):
                 "message": {"id": "msg-p-cl", "model": "claude-opus-5-5", "usage": {"input_tokens": 1000, "output_tokens": 100}},
             }) + "\n")
 
-        # Codex TUI (portal) + Codex exec (プロンプト未特定 -> run.log == gating フォールバック)
+        # Codex portal 各条件を単独で検証 (source="cli", source="vscode", originator="codex-tui", originator="orca_desktop")
+        # + Codex exec (プロンプト未特定 -> run.log == gating フォールバック)
         codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "19")
         os.makedirs(codex_dir, exist_ok=True)
-        codex_portal = os.path.join(codex_dir, "rollout-portal-gate.jsonl")
-        with open(codex_portal, "w", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "type": "session_meta",
-                "payload": {"cwd": ws_dir, "source": "cli", "originator": "codex-tui", "git": {"branch": "bot-wa-wa/gate-portal"}},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "event_msg",
-                "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-luna"}},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "response_item",
-                "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_text}]},
-            }) + "\n")
-            f.write(json.dumps({
-                "type": "token_usage_record",
-                "payload": {"response_id": "resp-p-cx", "usage": {"input_tokens": 2000, "cached_input_tokens": 0, "output_tokens": 200}},
-            }) + "\n")
+        codex_portal_cases = [
+            ("cli-only", {"source": "cli", "originator": "other"}),
+            ("vscode-only", {"source": "vscode", "originator": "other"}),
+            ("codex-tui-only", {"source": "other", "originator": "codex-tui"}),
+            ("orca-desktop-only", {"source": "other", "originator": "orca_desktop"}),
+        ]
+        codex_portals = []
+        for idx, (label, meta_fields) in enumerate(codex_portal_cases):
+            p = os.path.join(codex_dir, f"rollout-portal-{label}.jsonl")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "session_meta",
+                    "payload": {"cwd": ws_dir, "git": {"branch": "bot-wa-wa/gate-portal"}, **meta_fields},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "event_msg",
+                    "payload": {"type": "thread_settings_applied", "thread_settings": {"model": "gpt-6-luna"}},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "response_item",
+                    "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": gate_text}]},
+                }) + "\n")
+                f.write(json.dumps({
+                    "type": "token_usage_record",
+                    "payload": {"response_id": f"resp-p-cx-{idx}", "usage": {"input_tokens": 500, "cached_input_tokens": 0, "output_tokens": 50}},
+                }) + "\n")
+            codex_portals.append(p)
 
         codex_fb = os.path.join(codex_dir, "rollout-exec-fb.jsonl")
         with open(codex_fb, "w", encoding="utf-8") as f:
@@ -3627,7 +3652,7 @@ class TestMetricsCollector(unittest.TestCase):
             if "claude" in p:
                 return [claude_portal]
             if "codex" in p:
-                return [codex_portal, codex_fb]
+                return codex_portals + [codex_fb]
             if "antigravity" in p:
                 return [agy_portal_a, agy_portal_b]
             return []
@@ -3648,6 +3673,10 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(
             tokens['agent="codex",branch="bot-wa-wa/gate-portal",model="gpt-6-luna",phase="portal",repo="nuage-cluster",task="portal",type="input"'],
             2000,
+        )
+        self.assertEqual(
+            collector.state["counters"]["sessions"]['agent="codex",branch="bot-wa-wa/gate-portal",phase="portal",repo="nuage-cluster"'],
+            4,
         )
         self.assertEqual(
             tokens['agent="codex",branch="bot-wa-wa/gate-portal",model="gpt-6-luna",phase="gate",repo="nuage-cluster",task="ポータル隔離テスト",type="input"'],
@@ -4001,6 +4030,96 @@ class TestMetricsCollector(unittest.TestCase):
             self.assertEqual(c3.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
         finally:
             collector_mod.glob.glob = orig_glob
+
+    def test_antigravity_recovers_from_incomplete_cache_via_db_without_file_growth(self):
+        # 初回収集で repo・worktree のみ判明し branch="unknown" の不完全キャッシュが cid_to_meta に保存された場合でも、
+        # 後から conversation_summaries.db とワークスペースのブランチ情報が揃えば無追記再評価で回復し、
+        # 一括収集と一致して phase="gate" の 1 セッションが計上されること
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-db-recover")
+        partial_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-partial-nogit")
+        os.makedirs(ws_dir, exist_ok=True)
+        os.makedirs(partial_dir, exist_ok=True)
+
+        db_path = os.path.join(self.test_dir, "conversation_summaries.db")
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, workspace_uris TEXT)")
+
+        gate_prompt = "あなたはリポジトリのゲート検証担当である。ゲートの手順書に従って実際に実行して確かめる。"
+        agy_dir = os.path.join(self.test_dir, "brain", "conv-agy-db-recover", ".system_generated", "logs")
+        os.makedirs(agy_dir, exist_ok=True)
+        agy_path = os.path.join(agy_dir, "transcript.jsonl")
+        with open(agy_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": f"<USER_REQUEST>{gate_prompt}</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "SYSTEM",
+                "type": "GENERIC",
+                "content": f"作業ディレクトリ {partial_dir} を確認中。",
+            }) + "\n")
+
+        orig_glob = collector_mod.glob.glob
+        orig_expanduser = os.path.expanduser
+        collector_mod.glob.glob = lambda p: [agy_path] if "antigravity" in p else []
+        os.path.expanduser = lambda p: db_path if "conversation_summaries.db" in p else orig_expanduser(p)
+        try:
+            # 段階1: repo と ws_path だけ判明し、branch="unknown" のまま cid_to_meta に保存される
+            c1 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c1.collect_antigravity()
+            c1._save_state()
+
+            self.assertEqual(c1.state["counters"]["sessions"], {})
+            self.assertFalse(c1.state["agy_offsets"][agy_path]["session_counted"])
+            self.assertEqual(
+                c1.state["cid_to_meta"]["conv-agy-db-recover"],
+                {"repo": "nuage-cluster", "branch": "unknown", "worktree": partial_dir},
+            )
+
+            # 段階2: ログへの追記なし (file_size 不変) で、DB と実ワークスペースの git HEAD が揃う
+            git_dir = os.path.join(ws_dir, ".git")
+            os.makedirs(git_dir, exist_ok=True)
+            with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+                f.write("ref: refs/heads/bot-wa-wa/db-recovered-gate\n")
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "INSERT INTO conversation_summaries VALUES (?, ?)",
+                    ("conv-agy-db-recover", f'["file://{ws_dir}"]'),
+                )
+
+            c2 = MetricsCollector(
+                state_file=self.state_file, vm_url="http://localhost:8427", dry_run=False, rates_file=repo_rates_path
+            )
+            c2.collect_antigravity()
+            c2._save_state()
+
+            expected_sessions = {
+                'agent="agy",branch="bot-wa-wa/db-recovered-gate",phase="gate",repo="nuage-cluster"': 1,
+            }
+            self.assertEqual(c2.state["counters"]["sessions"], expected_sessions)
+            self.assertTrue(c2.state["agy_offsets"][agy_path]["session_counted"])
+            self.assertEqual(c2.state["agy_offsets"][agy_path]["branch"], "bot-wa-wa/db-recovered-gate")
+
+            # 一括収集（DB 確定済み状態での初回収集）と一致すること
+            batch_state = os.path.join(self.test_dir, "batch-db-recover.json")
+            c_batch = MetricsCollector(
+                state_file=batch_state, vm_url="http://localhost:8427", dry_run=True, rates_file=repo_rates_path
+            )
+            c_batch.collect_antigravity()
+            self.assertEqual(c2.state["counters"]["sessions"], c_batch.state["counters"]["sessions"])
+            self.assertEqual(c2.state["counters"]["tokens"], c_batch.state["counters"]["tokens"])
+            self.assertEqual(c2.state["counters"]["cost_usd"], c_batch.state["counters"]["cost_usd"])
+        finally:
+            collector_mod.glob.glob = orig_glob
+            os.path.expanduser = orig_expanduser
 
     def test_gate_incremental_dedup_partial_and_v4_state_compat(self):
         # 1. 非空オフセット・重複防止IDを持つ既存の v4 状態を引き継いだまま、gate セッションを追加収集しても既存ログが再計上されず既存カウンタも保持されること
