@@ -1626,30 +1626,80 @@ class TestMetricsCollector(unittest.TestCase):
         rates = load_rates(repo_rates_path)
 
         self.assertIn("claude-opus-5-5", rates)
-        self.assertEqual(rates["claude-opus-5-5"]["input"], 15.0)
-        self.assertEqual(rates["claude-opus-5-5"]["output"], 75.0)
-        self.assertEqual(rates["claude-opus-5-5"]["cache_read"], 1.5)
-        self.assertEqual(rates["claude-opus-5-5"]["cache_creation"], 18.75)
+        self.assertEqual(rates["claude-opus-5-5"]["input"], 4.00)
+        self.assertEqual(rates["claude-opus-5-5"]["output"], 20.00)
+        self.assertEqual(rates["claude-opus-5-5"]["cache_read"], 0.20)
+        self.assertEqual(rates["claude-opus-5-5"]["cache_creation"], 5.00)
+
+        self.assertIn("claude-sonnet-5-5", rates)
+        self.assertEqual(rates["claude-sonnet-5-5"]["input"], 2.00)
+        self.assertEqual(rates["claude-sonnet-5-5"]["output"], 10.00)
+        self.assertEqual(rates["claude-sonnet-5-5"]["cache_read"], 0.10)
+        self.assertEqual(rates["claude-sonnet-5-5"]["cache_creation"], 2.50)
+
+        self.assertIn("claude-haiku-5-5", rates)
+        self.assertEqual(rates["claude-haiku-5-5"]["input"], 0.10)
+        self.assertEqual(rates["claude-haiku-5-5"]["output"], 0.50)
+        self.assertEqual(rates["claude-haiku-5-5"]["cache_read"], 0.01)
+        self.assertEqual(rates["claude-haiku-5-5"]["cache_creation"], 0.125)
 
         self.assertIn("gemini-3.8-flash", rates)
-        self.assertEqual(rates["gemini-3.8-flash"]["input"], 0.10)
-        self.assertEqual(rates["gemini-3.8-flash"]["output"], 0.40)
-        self.assertEqual(rates["gemini-3.8-flash"]["cache_read"], 0.025)
+        self.assertEqual(rates["gemini-3.8-flash"]["input"], 0.75)
+        self.assertEqual(rates["gemini-3.8-flash"]["output"], 3.75)
+        self.assertEqual(rates["gemini-3.8-flash"]["cache_read"], 0.075)
 
         self.assertIn("gemini-4-argon", rates)
+        self.assertEqual(rates["gemini-4-argon"]["input"], 2.00)
+        self.assertEqual(rates["gemini-4-argon"]["output"], 10.00)
+        self.assertEqual(rates["gemini-4-argon"]["cache_read"], 0.10)
+
         self.assertIn("gemini-4-hydrogen", rates)
         self.assertEqual(rates["gemini-4-hydrogen"]["input"], 1.50)
         self.assertEqual(rates["gemini-4-hydrogen"]["output"], 7.50)
         self.assertEqual(rates["gemini-4-hydrogen"]["cache_read"], 0.075)
+
+        self.assertIn("gemini-4-neon", rates)
+        self.assertEqual(rates["gemini-4-neon"]["input"], 3.00)
+        self.assertEqual(rates["gemini-4-neon"]["output"], 15.00)
+        self.assertEqual(rates["gemini-4-neon"]["cache_read"], 0.15)
+
+        self.assertIn("orchestrator-neon", rates)
+        self.assertEqual(rates["orchestrator-neon"]["input"], 3.00)
+        self.assertEqual(rates["orchestrator-neon"]["output"], 15.00)
+        self.assertEqual(rates["orchestrator-neon"]["cache_read"], 0.15)
+
+        self.assertIn("gemini-pro-orchestrator-neon", rates)
+        self.assertEqual(rates["gemini-pro-orchestrator-neon"]["input"], 3.00)
+        self.assertEqual(rates["gemini-pro-orchestrator-neon"]["output"], 15.00)
+        self.assertEqual(rates["gemini-pro-orchestrator-neon"]["cache_read"], 0.15)
+
+        self.assertIn("orchestrator-argon", rates)
+        self.assertEqual(rates["orchestrator-argon"]["input"], 2.00)
+        self.assertEqual(rates["orchestrator-argon"]["output"], 10.00)
+        self.assertEqual(rates["orchestrator-argon"]["cache_read"], 0.10)
+
+        self.assertIn("gemini-pro-orchestrator-g1-pro", rates)
+        self.assertEqual(rates["gemini-pro-orchestrator-g1-pro"]["input"], 2.00)
+        self.assertEqual(rates["gemini-pro-orchestrator-g1-pro"]["output"], 10.00)
+        self.assertEqual(rates["gemini-pro-orchestrator-g1-pro"]["cache_read"], 0.10)
+
         self.assertIn("gpt-oss-120b", rates)
         self.assertIn("gpt-6-astra", rates)
         self.assertEqual(rates["gpt-6-astra"]["input"], 10.00)
         self.assertEqual(rates["gpt-6-astra"]["output"], 50.00)
         self.assertEqual(rates["gpt-6-astra"]["cache_read"], 1.00)
+        self.assertIn("gpt-6.2-astra", rates)
+        self.assertEqual(rates["gpt-6.2-astra"]["input"], 8.00)
+        self.assertEqual(rates["gpt-6.2-astra"]["output"], 40.00)
+        self.assertEqual(rates["gpt-6.2-astra"]["cache_read"], 0.40)
         self.assertIn("gpt-6.1-sol", rates)
         self.assertEqual(rates["gpt-6.1-sol"]["input"], 2.00)
         self.assertEqual(rates["gpt-6.1-sol"]["output"], 10.00)
         self.assertEqual(rates["gpt-6.1-sol"]["cache_read"], 0.10)
+        self.assertIn("gpt-6.2-sol", rates)
+        self.assertEqual(rates["gpt-6.2-sol"]["input"], 2.00)
+        self.assertEqual(rates["gpt-6.2-sol"]["output"], 10.00)
+        self.assertEqual(rates["gpt-6.2-sol"]["cache_read"], 0.10)
         self.assertIn("gpt-6-luna", rates)
         self.assertEqual(rates["gpt-6-luna"]["input"], 0.10)
         self.assertEqual(rates["gpt-6-luna"]["output"], 0.50)
@@ -1658,8 +1708,6 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(rates["gpt-6.1-terra"]["input"], 1.00)
         self.assertEqual(rates["gpt-6.1-terra"]["output"], 5.00)
         self.assertEqual(rates["gpt-6.1-terra"]["cache_read"], 0.05)
-        self.assertIn("claude-sonnet-5-5", rates)
-        self.assertIn("claude-haiku-5-5", rates)
 
         # 不正な YAML のエラーハンドリング確認
         with self.assertRaises(ValueError):
@@ -1702,6 +1750,12 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(match_model_rate_key("gemini-4-hydrogen-medium", rates), "gemini-4-hydrogen")
         self.assertEqual(match_model_rate_key("gemini-4-hydrogen-low", rates), "gemini-4-hydrogen")
         self.assertEqual(match_model_rate_key("Gemini 4 Hydrogen (High)", rates), "gemini-4-hydrogen")
+        self.assertEqual(match_model_rate_key("gemini-4-neon-high", rates), "gemini-4-neon")
+        self.assertEqual(match_model_rate_key("Gemini 4 Neon (High)", rates), "gemini-4-neon")
+        self.assertEqual(match_model_rate_key("Orchestrator (Neon)", rates), "orchestrator-neon")
+        self.assertEqual(match_model_rate_key("gemini-pro-orchestrator-neon", rates), "gemini-pro-orchestrator-neon")
+        self.assertEqual(match_model_rate_key("Orchestrator (Argon)", rates), "orchestrator-argon")
+        self.assertEqual(match_model_rate_key("gemini-pro-orchestrator-g1-pro", rates), "gemini-pro-orchestrator-g1-pro")
         self.assertEqual(match_model_rate_key("claude-opus-5-5", rates), "claude-opus-5-5")
         self.assertEqual(match_model_rate_key("claude-opus-5-5@high", rates), "claude-opus-5-5")
         self.assertEqual(match_model_rate_key("claude-opus-5-5-low", rates), "claude-opus-5-5")
@@ -1711,8 +1765,14 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertEqual(match_model_rate_key("gpt-oss-120b-medium", rates), "gpt-oss-120b")
         self.assertEqual(match_model_rate_key("gpt-6-astra", rates), "gpt-6-astra")
         self.assertEqual(match_model_rate_key("gpt-6-astra@high", rates), "gpt-6-astra")
+        self.assertEqual(match_model_rate_key("gpt-6.2-astra", rates), "gpt-6.2-astra")
+        self.assertEqual(match_model_rate_key("gpt-6.2-astra@high", rates), "gpt-6.2-astra")
+        self.assertEqual(match_model_rate_key("gpt-6-2-astra", rates), "gpt-6.2-astra")
         self.assertEqual(match_model_rate_key("gpt-6.1-sol", rates), "gpt-6.1-sol")
         self.assertEqual(match_model_rate_key("gpt-6-1-sol", rates), "gpt-6.1-sol")
+        self.assertEqual(match_model_rate_key("gpt-6.2-sol", rates), "gpt-6.2-sol")
+        self.assertEqual(match_model_rate_key("gpt-6.2-sol@medium", rates), "gpt-6.2-sol")
+        self.assertEqual(match_model_rate_key("gpt-6-2-sol", rates), "gpt-6.2-sol")
         self.assertEqual(match_model_rate_key("gpt-6-luna", rates), "gpt-6-luna")
         self.assertEqual(match_model_rate_key("gpt-6.1-terra", rates), "gpt-6.1-terra")
         self.assertEqual(match_model_rate_key("gpt-6-1-terra", rates), "gpt-6.1-terra")
@@ -1730,8 +1790,8 @@ class TestMetricsCollector(unittest.TestCase):
         os.makedirs(project_dir, exist_ok=True)
         jsonl_path = os.path.join(project_dir, "session-cost.jsonl")
 
-        # claude-opus-5-5: input=$15/1M, output=$75/1M, cache_read=$1.50/1M, cache_creation=$18.75/1M
-        # 100,000 input ($1.50) + 20,000 output ($1.50) + 200,000 cache_read ($0.30) + 40,000 cache_creation ($0.75) = $4.05
+        # claude-opus-5-5: input=$4/1M, output=$20/1M, cache_read=$0.20/1M, cache_creation=$5.00/1M
+        # 100,000 input ($0.40) + 20,000 output ($0.40) + 200,000 cache_read ($0.04) + 40,000 cache_creation ($0.20) = $1.04
         with open(jsonl_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({
                 "type": "queue-operation",
@@ -1757,8 +1817,8 @@ class TestMetricsCollector(unittest.TestCase):
                 },
             }) + "\n")
 
-        # Antigravity: gemini-3-8-flash-high -> gemini-3.8-flash (input=$0.10/1M, output=$0.40/1M, cache_read=$0.025/1M)
-        # 500,000 input ($0.05) + 100,000 output ($0.04) + 400,000 cache_read ($0.01) = $0.10
+        # Antigravity: gemini-3-8-flash-high -> gemini-3.8-flash (input=$0.75/1M, output=$3.75/1M, cache_read=$0.075/1M)
+        # 500,000 input ($0.375) + 100,000 output ($0.375) + 400,000 cache_read ($0.03) = $0.78
         brain_dir = os.path.join(self.test_dir, "brain", "conv-cost", ".system_generated", "logs")
         os.makedirs(brain_dir, exist_ok=True)
         transcript_path = os.path.join(brain_dir, "transcript.jsonl")
@@ -1779,10 +1839,14 @@ class TestMetricsCollector(unittest.TestCase):
                 "content": "レビュー完了",
             }) + "\n")
 
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
         collector = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=True,
+            rates_file=repo_rates_path,
         )
         collector.state["cid_to_meta"]["conv-cost"] = {
             "repo": "nuage-cluster",
@@ -1809,14 +1873,14 @@ class TestMetricsCollector(unittest.TestCase):
         claude_cost_key = 'agent="claude",branch="bot-wa-wa/cost-branch",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="bot-wa-wa/cost-branch"'
         agy_cost_key = 'agent="agy",branch="bot-wa-wa/cost-branch",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/cost-branch"'
 
-        self.assertAlmostEqual(costs[claude_cost_key], 4.05, places=8)
-        self.assertAlmostEqual(costs[agy_cost_key], 0.1, places=8)
+        self.assertAlmostEqual(costs[claude_cost_key], 1.04, places=8)
+        self.assertAlmostEqual(costs[agy_cost_key], 0.78, places=8)
 
         payload = collector.generate_prometheus_payload()
         self.assertIn("# HELP nuage_ai_agent_cost_usd_total Total cost in USD used by AI agents", payload)
         self.assertIn("# TYPE nuage_ai_agent_cost_usd_total counter", payload)
-        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_cost_key}}} 4.05", payload)
-        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_cost_key}}} 0.1", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_cost_key}}} 1.04", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_cost_key}}} 0.78", payload)
 
     def test_unknown_model_cost_zero_and_warns(self):
         # 単価未定義のモデルはコスト 0 とし、警告ログが出力され、トークン数は引き続き計上されること
@@ -2479,10 +2543,14 @@ class TestMetricsCollector(unittest.TestCase):
                 "content": f"ワークスペース {ws_with_brief} の変更をレビューした。",
             }) + "\n")
 
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
         collector = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=False,
+            rates_file=repo_rates_path,
         )
 
         orig_glob = collector_mod.glob.glob
@@ -2508,13 +2576,13 @@ class TestMetricsCollector(unittest.TestCase):
         # (A) brief.md あり (Claude implement)
         claude_impl_cost_key = f'agent="claude",branch="bot-wa-wa/task-label",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="{escaped_task}"'
         self.assertIn(claude_impl_cost_key, costs)
-        self.assertAlmostEqual(costs[claude_impl_cost_key], 3.0, places=8)
+        self.assertAlmostEqual(costs[claude_impl_cost_key], 0.8, places=8)
         self.assertEqual(tokens[f'{claude_impl_cost_key},type="input"'], 100_000)
 
         # (B) phase == "portal" (Claude portal)
         claude_portal_cost_key = 'agent="claude",branch="bot-wa-wa/task-label",model="claude-opus-5-5",phase="portal",repo="nuage-cluster",task="portal"'
         self.assertIn(claude_portal_cost_key, costs)
-        self.assertAlmostEqual(costs[claude_portal_cost_key], 1.5, places=8)
+        self.assertAlmostEqual(costs[claude_portal_cost_key], 0.4, places=8)
         self.assertEqual(tokens[f'{claude_portal_cost_key},type="input"'], 50_000)
 
         # (C) brief.md なし -> branch フォールバック
@@ -2525,15 +2593,15 @@ class TestMetricsCollector(unittest.TestCase):
         # (D) brief.md あり (Antigravity review)
         agy_rev_cost_key = f'agent="agy",branch="bot-wa-wa/task-label",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="{escaped_task}"'
         self.assertIn(agy_rev_cost_key, costs)
-        self.assertAlmostEqual(costs[agy_rev_cost_key], 0.04, places=8)
+        self.assertAlmostEqual(costs[agy_rev_cost_key], 0.3375, places=8)
         self.assertEqual(tokens[f'{agy_rev_cost_key},type="input"'], 200_000)
 
         # Prometheus ペイロード形式にエスケープされた task="..." が出力されること
         payload = collector.generate_prometheus_payload()
         self.assertIn(f'nuage_ai_agent_tokens_total{{{claude_impl_cost_key},type="input"}} 100000', payload)
-        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_impl_cost_key}}} 3.0", payload)
-        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_portal_cost_key}}} 1.5", payload)
-        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_rev_cost_key}}} 0.04", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_impl_cost_key}}} 0.8", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{claude_portal_cost_key}}} 0.4", payload)
+        self.assertIn(f"nuage_ai_agent_cost_usd_total{{{agy_rev_cost_key}}} 0.3375", payload)
 
         # ワークスペース削除後の差分収集でも、保存済み brief_task により同じ task ラベルが維持されること
         shutil.rmtree(ws_with_brief)
@@ -2554,6 +2622,7 @@ class TestMetricsCollector(unittest.TestCase):
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=True,
+            rates_file=repo_rates_path,
         )
         collector_mod.glob.glob = mock_glob
         try:
@@ -2567,7 +2636,7 @@ class TestMetricsCollector(unittest.TestCase):
         )
         self.assertAlmostEqual(
             collector2.state["counters"]["cost_usd"][claude_impl_cost_key],
-            4.5,
+            1.2,
             places=8,
         )
 
@@ -2611,11 +2680,15 @@ class TestMetricsCollector(unittest.TestCase):
                 },
             }) + "\n")
 
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
         orig_glob = collector_mod.glob.glob
         collector1 = MetricsCollector(
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=False,
+            rates_file=repo_rates_path,
         )
         collector_mod.glob.glob = lambda p: [old_saved_jsonl] if "claude" in p else []
         try:
@@ -2626,7 +2699,7 @@ class TestMetricsCollector(unittest.TestCase):
 
         old_saved_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="旧タスク: メインフレーム勘定系の基盤構築"'
         self.assertIn(old_saved_cost_key, collector1.state["counters"]["cost_usd"])
-        self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][old_saved_cost_key], 3.0, places=8)
+        self.assertAlmostEqual(collector1.state["counters"]["cost_usd"][old_saved_cost_key], 0.8, places=8)
 
         # ワークスペースが新しいブランチ (bot-wa-wa/feature-ai-agent-task-metadata) に使い回され、brief.md が書き換わる
         with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
@@ -2711,6 +2784,7 @@ class TestMetricsCollector(unittest.TestCase):
             state_file=self.state_file,
             vm_url="http://localhost:8427",
             dry_run=True,
+            rates_file=repo_rates_path,
         )
         collector2.state["cid_to_meta"]["conv-old-agy"] = {
             "repo": "nuage-cluster",
@@ -2735,14 +2809,14 @@ class TestMetricsCollector(unittest.TestCase):
         costs2 = collector2.state["counters"]["cost_usd"]
         tokens2 = collector2.state["counters"]["tokens"]
 
-        # 1. old_saved_jsonl の追記分は「旧タスク」のまま加算されること ($3.0 + $1.5 = $4.5)
-        self.assertAlmostEqual(costs2[old_saved_cost_key], 4.5, places=8)
+        # 1. old_saved_jsonl の追記分は「旧タスク」のまま加算されること ($0.8 + $0.4 = $1.2)
+        self.assertAlmostEqual(costs2[old_saved_cost_key], 1.2, places=8)
         self.assertEqual(tokens2[f'{old_saved_cost_key},type="input"'], 150_000)
 
         # 2. old_rescan_jsonl は現在の brief とブランチが不一致のため branch ("feature/ai-agent-ledger") にフォールバックされること
         old_rescan_cost_key = 'agent="claude",branch="feature/ai-agent-ledger",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="feature/ai-agent-ledger"'
         self.assertIn(old_rescan_cost_key, costs2)
-        self.assertAlmostEqual(costs2[old_rescan_cost_key], 6.0, places=8)
+        self.assertAlmostEqual(costs2[old_rescan_cost_key], 1.6, places=8)
         self.assertEqual(tokens2[f'{old_rescan_cost_key},type="input"'], 200_000)
 
         # 誤って旧ブランチの記録に「新タスク」が付与されていないこと
@@ -2752,12 +2826,12 @@ class TestMetricsCollector(unittest.TestCase):
         # 3. current_jsonl はブランチが一致するため「新タスク」が付与されること
         current_cost_key = 'agent="claude",branch="bot-wa-wa/feature-ai-agent-task-metadata",model="claude-opus-5-5",phase="implement",repo="nuage-cluster",task="新タスク: 日本語タスク名 (task) ラベル連携"'
         self.assertIn(current_cost_key, costs2)
-        self.assertAlmostEqual(costs2[current_cost_key], 3.0, places=8)
+        self.assertAlmostEqual(costs2[current_cost_key], 0.8, places=8)
 
         # 4. Antigravity の不一致ブランチも branch にフォールバックされ「新タスク」が付与されないこと
         old_agy_cost_key = 'agent="agy",branch="feature/ai-agent-ledger",model="gemini-3-8-flash-high",phase="review",repo="nuage-cluster",task="feature/ai-agent-ledger"'
         self.assertIn(old_agy_cost_key, costs2)
-        self.assertAlmostEqual(costs2[old_agy_cost_key], 0.02, places=8)
+        self.assertAlmostEqual(costs2[old_agy_cost_key], 0.16875, places=8)
 
     def test_codex_collection_cost_dedup_and_phases(self):
         repo_rates_path = os.path.join(
@@ -3472,11 +3546,11 @@ class TestMetricsCollector(unittest.TestCase):
         costs = collector.state["counters"]["cost_usd"]
         sessions = collector.state["counters"]["sessions"]
 
-        # Claude: 2 セッション合算 (150k input * $15/1M + 30k output * $75/1M = $2.25 + $2.25 = $4.50)
+        # Claude: 2 セッション合算 (150k input * $4/1M + 30k output * $20/1M = $0.60 + $0.60 = $1.20)
         cl_base = 'agent="claude",branch="bot-wa-wa/gate-parallel",model="claude-opus-5-5",phase="gate",repo="nuage-cluster",task="並列ゲート計測テスト"'
         self.assertEqual(tokens[f'{cl_base},type="input"'], 150_000)
         self.assertEqual(tokens[f'{cl_base},type="output"'], 30_000)
-        self.assertAlmostEqual(costs[cl_base], 4.50, places=8)
+        self.assertAlmostEqual(costs[cl_base], 1.20, places=8)
         self.assertEqual(
             sessions['agent="claude",branch="bot-wa-wa/gate-parallel",phase="gate",repo="nuage-cluster"'],
             2,
@@ -4532,6 +4606,363 @@ class TestMetricsCollector(unittest.TestCase):
                 self.assertAlmostEqual(delta_costs[k], v, places=8)
         finally:
             collector_mod.glob.glob = orig_glob
+
+    def test_new_codex_models_collection_and_costs(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-new-codex")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/new-codex\n")
+
+        codex_dir = os.path.join(self.test_dir, "codex", "sessions", "2026", "11", "20")
+        os.makedirs(codex_dir, exist_ok=True)
+        jsonl_path = os.path.join(codex_dir, "rollout-new-codex.jsonl")
+
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "cwd": ws_dir,
+                    "source": "exec",
+                    "originator": "codex_exec",
+                    "git": {"branch": "bot-wa-wa/new-codex"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6.2-astra"},
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "あなたは自律実行の担当である。.autopilot/brief.md の仕様を実装し、テストがあれば実行して通す。"}],
+                },
+            }) + "\n")
+            # gpt-6.2-astra: non-cached input=100k ($0.80) + output=25k ($1.00) + cache_read=200k ($0.08) = $1.88
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-62-astra-1",
+                    "usage": {
+                        "input_tokens": 300_000,
+                        "cached_input_tokens": 200_000,
+                        "output_tokens": 25_000,
+                    },
+                },
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-6.2-sol"},
+                },
+            }) + "\n")
+            # gpt-6.2-sol: non-cached input=100k ($0.20) + output=20k ($0.20) + cache_read=100k ($0.01) = $0.41
+            f.write(json.dumps({
+                "type": "token_usage_record",
+                "payload": {
+                    "response_id": "resp-62-sol-1",
+                    "usage": {
+                        "input_tokens": 200_000,
+                        "cached_input_tokens": 100_000,
+                        "output_tokens": 20_000,
+                    },
+                },
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [jsonl_path] if "codex" in p else []
+        try:
+            with mock.patch.object(collector, "warn", wraps=collector.warn) as mock_warn:
+                collector.collect_codex()
+                mock_warn.assert_not_called()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertFalse(collector.has_errors)
+        costs = collector.state["counters"]["cost_usd"]
+        astra_key = 'agent="codex",branch="bot-wa-wa/new-codex",model="gpt-6-2-astra",phase="implement",repo="nuage-cluster",task="bot-wa-wa/new-codex"'
+        sol_key = 'agent="codex",branch="bot-wa-wa/new-codex",model="gpt-6-2-sol",phase="implement",repo="nuage-cluster",task="bot-wa-wa/new-codex"'
+        self.assertAlmostEqual(costs[astra_key], 1.88, places=8)
+        self.assertAlmostEqual(costs[sol_key], 0.41, places=8)
+
+    def test_antigravity_model_selection_and_record_model_fallback(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-models")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/agy-models\n")
+
+        # 1. Model Selection (Orchestrator (Neon) -> Orchestrator (Argon)) が record["model"] より優先され途中変更にも追従する
+        b1_dir = os.path.join(self.test_dir, "brain", "conv-sel-prio", ".system_generated", "logs")
+        os.makedirs(b1_dir, exist_ok=True)
+        t1_path = os.path.join(b1_dir, "transcript.jsonl")
+        with open(t1_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": (
+                    "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST>"
+                    "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Orchestrator (Neon).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-pro-orchestrator-neon",
+                "input_tokens": 100_000,
+                "output_tokens": 20_000,
+                "cache_read_tokens": 100_000,
+                "content": f"ワークスペース {ws_dir} を確認。",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from Orchestrator (Neon) to Orchestrator (Argon).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 3,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-pro-orchestrator-g1-pro",
+                "input_tokens": 100_000,
+                "output_tokens": 10_000,
+                "cache_read_tokens": 100_000,
+                "content": "追加確認。",
+            }) + "\n")
+
+        # 2. Model Selection が無い場合、PLANNER_RESPONSE の record["model"] (gemini-4-neon-high) で補完され、以降の行や差分追記でも維持・Model Selection 変更で上書きされる
+        b2_dir = os.path.join(self.test_dir, "brain", "conv-rec-fb", ".system_generated", "logs")
+        os.makedirs(b2_dir, exist_ok=True)
+        t2_path = os.path.join(b2_dir, "transcript.jsonl")
+        with open(t2_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたは自律実行の担当である。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-4-neon-high",
+                "input_tokens": 150_000,
+                "output_tokens": 5_000,
+                "cache_read_tokens": 50_000,
+                "content": f"ワークスペース {ws_dir} で実装。",
+            }) + "\n")
+            # model フィールドが無い後続応答でも直前に補完されたモデルを引き継ぐ
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 50_000,
+                "output_tokens": 5_000,
+                "cache_read_tokens": 50_000,
+                "content": "継続応答。",
+            }) + "\n")
+
+        # 3. Model Selection なしでスラッグ名 (gemini-pro-orchestrator-neon / gemini-pro-orchestrator-g1-pro) を抽出するケース
+        b3_dir = os.path.join(self.test_dir, "brain", "conv-slug-neon", ".system_generated", "logs")
+        os.makedirs(b3_dir, exist_ok=True)
+        t3_path = os.path.join(b3_dir, "transcript.jsonl")
+        with open(t3_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-pro-orchestrator-neon",
+                "input_tokens": 100_000,
+                "output_tokens": 20_000,
+                "cache_read_tokens": 100_000,
+                "content": f"ワークスペース {ws_dir} をレビュー。",
+            }) + "\n")
+
+        b4_dir = os.path.join(self.test_dir, "brain", "conv-slug-argon", ".system_generated", "logs")
+        os.makedirs(b4_dir, exist_ok=True)
+        t4_path = os.path.join(b4_dir, "transcript.jsonl")
+        with open(t4_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>あなたはコードレビュアーである。</USER_REQUEST>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-pro-orchestrator-g1-pro",
+                "input_tokens": 100_000,
+                "output_tokens": 10_000,
+                "cache_read_tokens": 100_000,
+                "content": f"ワークスペース {ws_dir} をレビュー。",
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=False,
+            rates_file=repo_rates_path,
+        )
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [t1_path, t2_path, t3_path, t4_path] if "antigravity" in p else []
+        try:
+            with mock.patch.object(collector, "warn", wraps=collector.warn) as mock_warn:
+                collector.collect_antigravity()
+                collector._save_state()
+                mock_warn.assert_not_called()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertFalse(collector.has_errors)
+        costs = collector.state["counters"]["cost_usd"]
+        tokens = collector.state["counters"]["tokens"]
+
+        k_orch_neon = 'agent="agy",branch="bot-wa-wa/agy-models",model="orchestrator-neon",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+        k_orch_argon = 'agent="agy",branch="bot-wa-wa/agy-models",model="orchestrator-argon",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+        k_neon_high = 'agent="agy",branch="bot-wa-wa/agy-models",model="gemini-4-neon-high",phase="implement",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+        k_slug_neon = 'agent="agy",branch="bot-wa-wa/agy-models",model="gemini-pro-orchestrator-neon",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+        k_slug_argon = 'agent="agy",branch="bot-wa-wa/agy-models",model="gemini-pro-orchestrator-g1-pro",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+
+        self.assertAlmostEqual(costs[k_orch_neon], 0.615, places=8)
+        self.assertAlmostEqual(costs[k_orch_argon], 0.31, places=8)
+        self.assertEqual(tokens[f'{k_neon_high},type="input"'], 200_000)
+        self.assertAlmostEqual(costs[k_neon_high], 0.765, places=8)
+        self.assertAlmostEqual(costs[k_slug_neon], 0.615, places=8)
+        self.assertAlmostEqual(costs[k_slug_argon], 0.31, places=8)
+
+        # 差分追記: t2 に Model Selection 変更を追加したら切り替わること
+        with open(t2_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "step_index": 3,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from Gemini 4 Neon (High) to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>",
+            }) + "\n")
+            f.write(json.dumps({
+                "step_index": 4,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 100_000,
+                "output_tokens": 20_000,
+                "cache_read_tokens": 0,
+                "content": "切り替え後応答。",
+            }) + "\n")
+
+        collector2 = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        collector_mod.glob.glob = lambda p: [t2_path] if "antigravity" in p else []
+        try:
+            collector2.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        k_hydrogen = 'agent="agy",branch="bot-wa-wa/agy-models",model="gemini-4-hydrogen-high",phase="implement",repo="nuage-cluster",task="bot-wa-wa/agy-models"'
+        self.assertAlmostEqual(collector2.state["counters"]["cost_usd"][k_hydrogen], 0.30, places=8)
+        self.assertAlmostEqual(collector2.state["counters"]["cost_usd"][k_neon_high], 0.765, places=8)
+
+    def test_antigravity_ignores_model_selection_outside_user_settings_change(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-false-sel")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/agy-false-sel\n")
+
+        b_dir = os.path.join(self.test_dir, "brain", "conv-false-sel", ".system_generated", "logs")
+        os.makedirs(b_dir, exist_ok=True)
+        t_path = os.path.join(b_dir, "transcript.jsonl")
+        with open(t_path, "w", encoding="utf-8") as f:
+            # 1. USER_INPUT の <USER_REQUEST> 本文中の引用は無視され、<USER_SETTINGS_CHANGE> の Gemini 4 Hydrogen (High) のみが採用される
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": (
+                    "<USER_REQUEST>あなたはコードレビュアーである。"
+                    "テスト中の文字列 `The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).` を確認する。</USER_REQUEST>"
+                    "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            # 2. GENERIC/MODEL (grep やファイル読込出力) に <USER_SETTINGS_CHANGE> を含む文字列があっても誤検出しない
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "GENERIC",
+                "content": (
+                    "grep 結果: <USER_SETTINGS_CHANGE>The user changed setting `Model Selection` "
+                    "from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            # 3. PLANNER_RESPONSE の content 内に同文字列があっても誤検出しない
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-4-hydrogen-high",
+                "input_tokens": 200_000,
+                "output_tokens": 40_000,
+                "content": (
+                    f"ワークスペース {ws_dir} で `The user changed setting `Model Selection` "
+                    "from None to Gemini 3.8 Flash (High).` を確認した。"
+                ),
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [t_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertFalse(collector.has_errors)
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+        k_hydrogen = 'agent="agy",branch="bot-wa-wa/agy-false-sel",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-false-sel"'
+        self.assertEqual(tokens[f'{k_hydrogen},type="input"'], 200_000)
+        self.assertAlmostEqual(costs[k_hydrogen], 0.60, places=8)
+        for k in tokens:
+            self.assertNotIn("gemini-3-8-flash", k)
 
 
 

@@ -1,38 +1,84 @@
 # 100万トークンあたりの USD 単価
+#
+# 各プロバイダの公式価格ページ（変更時はここを参照して更新する）:
+# - Anthropic Claude: https://platform.claude.com/docs/en/about-claude/pricing
+# - Google Gemini: https://ai.google.dev/gemini-api/docs/pricing
+# - OpenAI (Codex): https://developers.openai.com/api/docs/pricing / https://openai.com/api/pricing/
+
+# --- Anthropic Claude ---
+# 出典: https://platform.claude.com/docs/en/about-claude/pricing
 claude-opus-5-5:
-  input: 15.00
-  output: 75.00
-  cache_read: 1.50
-  cache_creation: 18.75
+  input: 4.00
+  output: 20.00
+  cache_read: 0.20
+  cache_creation: 5.00  # 5m キャッシュ作成単価
 
 claude-sonnet-5-5:
-  input: 3.00
-  output: 15.00
-  cache_read: 0.30
-  cache_creation: 3.75
+  input: 2.00
+  output: 10.00
+  cache_read: 0.10
+  cache_creation: 2.50  # 5m キャッシュ作成単価
 
 claude-haiku-5-5:
-  input: 0.80
-  output: 4.00
-  cache_read: 0.08
-  cache_creation: 1.00
-
-gemini-3.8-flash:
   input: 0.10
-  output: 0.40
-  cache_read: 0.025
+  output: 0.50
+  cache_read: 0.01
+  cache_creation: 0.125  # <=100K トークン時の 5m キャッシュ作成単価（>100K は別単価）
+
+# --- Google Gemini / Antigravity (agy) ---
+# 出典: https://ai.google.dev/gemini-api/docs/pricing
+gemini-3.8-flash:
+  # 2026-12-31 までの導入価格（2027-01-01〜標準価格: input 1.50 / output 7.50 / cache_read 0.15）
+  input: 0.75
+  output: 3.75
+  cache_read: 0.075
 
 gemini-4-argon:
+  # 2026-11-30 までの導入価格（2026-12-01〜標準価格: input 4.00 / output 20.00 / cache_read 0.20）
   input: 2.00
-  output: 8.00
-  cache_read: 0.50
+  output: 10.00
+  cache_read: 0.10
 
 gemini-4-hydrogen:
   input: 1.50
   output: 7.50
   cache_read: 0.075
 
+gemini-4-neon:
+  input: 3.00
+  output: 15.00
+  cache_read: 0.15
+
+orchestrator-neon:
+  # agy の Model Selection 表記 "Orchestrator (Neon)" の正規化名
+  input: 3.00
+  output: 15.00
+  cache_read: 0.15
+
+gemini-pro-orchestrator-neon:
+  # agy models のスラッグ名
+  input: 3.00
+  output: 15.00
+  cache_read: 0.15
+
+orchestrator-argon:
+  # agy の Model Selection 表記 "Orchestrator (Argon)" の正規化名
+  # 2026-11-30 までの導入価格（2026-12-01〜標準価格: input 4.00 / output 20.00 / cache_read 0.20）
+  input: 2.00
+  output: 10.00
+  cache_read: 0.10
+
+gemini-pro-orchestrator-g1-pro:
+  # agy models のスラッグ名
+  # 2026-11-30 までの導入価格（2026-12-01〜標準価格: input 4.00 / output 20.00 / cache_read 0.20）
+  input: 2.00
+  output: 10.00
+  cache_read: 0.10
+
+# --- OpenAI (Codex) / その他 ---
+# 出典: https://developers.openai.com/api/docs/pricing / https://openai.com/api/pricing/
 gpt-oss-120b:
+  # OpenAI 公式 API には無いオープンウェイトモデルのため、参照例（例: Groq https://groq.com/pricing 等）の単価を維持する
   input: 0.15
   output: 0.60
   cache_read: 0.03
@@ -42,7 +88,17 @@ gpt-6-astra:
   output: 50.00
   cache_read: 1.00
 
+gpt-6.2-astra:
+  input: 8.00
+  output: 40.00
+  cache_read: 0.40
+
 gpt-6.1-sol:
+  input: 2.00
+  output: 10.00
+  cache_read: 0.10
+
+gpt-6.2-sol:
   input: 2.00
   output: 10.00
   cache_read: 0.10
