@@ -1371,10 +1371,16 @@ class MetricsCollector:
 
                         content = str(record.get("content", ""))
 
-                        # モデル名の更新検出
+                        # モデル名の更新検出（Model Selection 表記を優先し、未設定時のみ record["model"] で補完する）
                         m_model = re.search(r"The user changed setting `Model Selection` from .*? to ([^\n<]+?)\.(?:\s|<|$)", content)
                         if m_model:
                             current_model = normalize_model_name(m_model.group(1))
+                        elif current_model == "unknown":
+                            raw_rec_model = record.get("model")
+                            if isinstance(raw_rec_model, str) and raw_rec_model.strip():
+                                rec_model = normalize_model_name(raw_rec_model)
+                                if rec_model != "unknown":
+                                    current_model = rec_model
 
                         if record.get("type") == "USER_INPUT":
                             saw_user_input = True

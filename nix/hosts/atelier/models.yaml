@@ -24,6 +24,6 @@ agy:
 
 # Claude の各段階に役割を揃える（性能が同等であることは保証しない）。
 codex:
-  high: [gpt-6-astra@high]
-  standard: [gpt-6.1-sol@medium]
+  high: [gpt-6.2-astra@high]
+  standard: [gpt-6.2-sol@medium]
   light: [gpt-6-luna@low]
