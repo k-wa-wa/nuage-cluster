@@ -4893,6 +4893,77 @@ class TestMetricsCollector(unittest.TestCase):
         self.assertAlmostEqual(collector2.state["counters"]["cost_usd"][k_hydrogen], 0.30, places=8)
         self.assertAlmostEqual(collector2.state["counters"]["cost_usd"][k_neon_high], 0.765, places=8)
 
+    def test_antigravity_ignores_model_selection_outside_user_settings_change(self):
+        repo_rates_path = os.path.join(
+            os.path.dirname(__file__), "..", "nix", "hosts", "atelier", "rates.yaml"
+        )
+        ws_dir = os.path.join(self.test_dir, "workspaces", "nuage-cluster", "ws-agy-false-sel")
+        git_dir = os.path.join(ws_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        with open(os.path.join(git_dir, "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/bot-wa-wa/agy-false-sel\n")
+
+        b_dir = os.path.join(self.test_dir, "brain", "conv-false-sel", ".system_generated", "logs")
+        os.makedirs(b_dir, exist_ok=True)
+        t_path = os.path.join(b_dir, "transcript.jsonl")
+        with open(t_path, "w", encoding="utf-8") as f:
+            # 1. USER_INPUT の <USER_REQUEST> 本文中の引用は無視され、<USER_SETTINGS_CHANGE> の Gemini 4 Hydrogen (High) のみが採用される
+            f.write(json.dumps({
+                "step_index": 0,
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": (
+                    "<USER_REQUEST>あなたはコードレビュアーである。"
+                    "テスト中の文字列 `The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High).` を確認する。</USER_REQUEST>"
+                    "<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 4 Hydrogen (High).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            # 2. GENERIC/MODEL (grep やファイル読込出力) に <USER_SETTINGS_CHANGE> を含む文字列があっても誤検出しない
+            f.write(json.dumps({
+                "step_index": 1,
+                "source": "MODEL",
+                "type": "GENERIC",
+                "content": (
+                    "grep 結果: <USER_SETTINGS_CHANGE>The user changed setting `Model Selection` "
+                    "from None to Gemini 3.8 Flash (High).</USER_SETTINGS_CHANGE>"
+                ),
+            }) + "\n")
+            # 3. PLANNER_RESPONSE の content 内に同文字列があっても誤検出しない
+            f.write(json.dumps({
+                "step_index": 2,
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "model": "gemini-4-hydrogen-high",
+                "input_tokens": 200_000,
+                "output_tokens": 40_000,
+                "content": (
+                    f"ワークスペース {ws_dir} で `The user changed setting `Model Selection` "
+                    "from None to Gemini 3.8 Flash (High).` を確認した。"
+                ),
+            }) + "\n")
+
+        collector = MetricsCollector(
+            state_file=self.state_file,
+            vm_url="http://localhost:8427",
+            dry_run=True,
+            rates_file=repo_rates_path,
+        )
+        orig_glob = collector_mod.glob.glob
+        collector_mod.glob.glob = lambda p: [t_path] if "antigravity" in p else []
+        try:
+            collector.collect_antigravity()
+        finally:
+            collector_mod.glob.glob = orig_glob
+
+        self.assertFalse(collector.has_errors)
+        tokens = collector.state["counters"]["tokens"]
+        costs = collector.state["counters"]["cost_usd"]
+        k_hydrogen = 'agent="agy",branch="bot-wa-wa/agy-false-sel",model="gemini-4-hydrogen-high",phase="review",repo="nuage-cluster",task="bot-wa-wa/agy-false-sel"'
+        self.assertEqual(tokens[f'{k_hydrogen},type="input"'], 200_000)
+        self.assertAlmostEqual(costs[k_hydrogen], 0.60, places=8)
+        for k in tokens:
+            self.assertNotIn("gemini-3-8-flash", k)
+
 
 
 
