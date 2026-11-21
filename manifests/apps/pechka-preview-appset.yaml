@@ -58,6 +58,14 @@ spec:
             - 'ghcr.io/k-wa-wa/pechka/etl-generate-thumbnail:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/pechka/etl-subtitle:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/pechka/etl-refresh-latest-playlist:pr-{{number}}'
+            # aivisspeech・tech-feed。
+            # 従来はmasterへのpushでしかビルド・pushされずpreviewでは:latestを掴んでいた
+            # (PRでの変更をpreviewで検証できない)ため、pechkaリポジトリの
+            # .github/workflows/aivisspeech.ymlとtech-feed.ymlをpull_requestでも
+            # pr-<N>タグでpushするよう変更した上で追加した。
+            - 'ghcr.io/k-wa-wa/pechka/aivisspeech-engine:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/tech-feed-collect:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/pechka/tech-feed-produce:pr-{{number}}'
           patches:
             - target:
                 kind: Namespace
