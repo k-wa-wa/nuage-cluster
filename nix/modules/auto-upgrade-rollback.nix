@@ -23,7 +23,8 @@ let
   preCheckScript = pkgs.writeShellScript "nixos-upgrade-pre-check" ''
     set -u
     mkdir -p /run/nixos-upgrade
-    ${pkgs.coreutils}/bin/readlink -f /nix/var/nix/profiles/system > /run/nixos-upgrade/pre-upgrade-profile 2>/dev/null || true
+    rm -f /run/nixos-upgrade/pre-upgrade-profile
+    ${pkgs.coreutils}/bin/readlink -e /nix/var/nix/profiles/system > /run/nixos-upgrade/pre-upgrade-profile
   '';
 
   # 自動ヘルスチェック＆ロールバックスクリプト
@@ -83,14 +84,16 @@ let
 
         # 2. 更新前後のプロファイルおよび世代確認
         pre_profile=$(cat /run/nixos-upgrade/pre-upgrade-profile 2>/dev/null || true)
-        current_profile=$(readlink -f /nix/var/nix/profiles/system || true)
+        current_profile=$(readlink -e /nix/var/nix/profiles/system || true)
         current_link=$(readlink /nix/var/nix/profiles/system || true)
         current_gen=$(echo "$current_link" | sed -n 's/.*system-\([0-9]*\)-link/\1/p')
 
         # 新世代に切り替わったかどうか (プロファイルが変化したか)
-        generation_changed=false
+        generation_changed=unknown
         if [ -n "$pre_profile" ] && [ -n "$current_profile" ] && [ "$pre_profile" != "$current_profile" ]; then
           generation_changed=true
+        elif [ -n "$pre_profile" ] && [ -n "$current_profile" ]; then
+          generation_changed=false
         fi
 
         can_rollback=false
@@ -126,6 +129,11 @@ let
 
         # 3. ExecStart 本体の成否チェック
         if [ "''${SERVICE_RESULT:-}" != "success" ]; then
+          if [ "$generation_changed" = "unknown" ]; then
+            log_error "nixos-upgrade failed and the previous profile is unknown; cannot determine whether rollback is safe."
+            write_metrics 0 0
+            exit 1
+          fi
           # フェッチ失敗、ビルドエラー、Flake 評価エラー等で新世代が適用されていない場合、
           # 現行の健全な世代のまま稼働しているため、ロールバックは実行しない。
           if [ "$generation_changed" != "true" ]; then
@@ -150,9 +158,13 @@ let
         deadline=$(( $(date +%s) + ${toString cfg.timeoutSec} ))
         healthy=false
 
-        while [ $(date +%s) -le $deadline ]; do
+        while true; do
           system_state=$(${systemctl} is-system-running 2>/dev/null || true)
-          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 || true)
+          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null) || failed_units=unknown
+          # 起動時はこのサービス自身の start job が終了するまで systemd は starting のままになる。
+          # 他の job が残っている場合は起動完了を待ち、失敗や通信エラーも成功と扱わない。
+          pending_jobs=$(${systemctl} list-jobs --no-legend --plain 2>/dev/null) || pending_jobs=unknown
+          only_upgrade_job=$(printf '%s\n' "$pending_jobs" | awk 'NF { if ($2 == "nixos-upgrade.service" && $3 == "start") own++; else other++ } END { if (own == 1 && other == 0) print "true"; else print "false" }')
 
           units_ok=true
           for u in "''${required_units[@]}"; do
@@ -162,8 +174,12 @@ let
             fi
           done
 
-          if [ "$system_state" = "running" ] && [ -z "$failed_units" ] && [ "$units_ok" = "true" ]; then
+          if [ "$pending_jobs" != "unknown" ] && [ -z "$failed_units" ] && [ "$units_ok" = "true" ] && { [ "$system_state" = "running" ] || { [ "$system_state" = "starting" ] && [ "$only_upgrade_job" = "true" ]; }; }; then
             healthy=true
+            break
+          fi
+
+          if [ $(date +%s) -ge $deadline ]; then
             break
           fi
 
@@ -176,11 +192,21 @@ let
           exit 0
         else
           system_state=$(${systemctl} is-system-running 2>/dev/null || true)
-          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 | tr '\n' ' ' || true)
+          pending_jobs=$(${systemctl} list-jobs --no-legend --plain 2>/dev/null) || pending_jobs=unknown
+          failed_units=$(${systemctl} list-units --failed --no-legend --plain 2>/dev/null) || failed_units=unknown
 
           failure_detail="system_state=$system_state"
-          if [ -n "$failed_units" ]; then
-            failure_detail="$failure_detail, failed_units=[$failed_units]"
+          if [ "$pending_jobs" = "unknown" ]; then
+            failure_detail="$failure_detail, pending_jobs=[failed to retrieve]"
+          elif [ -n "$pending_jobs" ]; then
+            jobs_summary=$(printf '%s\n' "$pending_jobs" | awk '{printf "%s(%s) ", $2, $3}' | sed 's/ $//')
+            failure_detail="$failure_detail, pending_jobs=[$jobs_summary]"
+          fi
+          if [ "$failed_units" = "unknown" ]; then
+            failure_detail="$failure_detail, failed_units=[failed to retrieve]"
+          elif [ -n "$failed_units" ]; then
+            units_summary=$(printf '%s\n' "$failed_units" | awk '{printf "%s ", $1}' | sed 's/ $//')
+            failure_detail="$failure_detail, failed_units=[$units_summary]"
           fi
           if [ "$units_ok" != "true" ]; then
             failure_detail="$failure_detail, required units not active"
@@ -188,7 +214,12 @@ let
 
           # 新世代に切り替わっていない場合 (自ホストの更新差分がない日次自動更新等)、
           # 今回のアップグレードが原因で壊れたわけではないため、過去世代への誤ロールバックを防ぐ。
-          if [ "$generation_changed" != "true" ]; then
+          if [ "$generation_changed" = "unknown" ]; then
+            log_error "Healthcheck failed within ${toString cfg.timeoutSec}s ($failure_detail), and the previous profile is unknown; cannot determine whether rollback is safe."
+            write_metrics 0 0
+            exit 1
+          fi
+          if [ "$generation_changed" = "false" ]; then
             log_error "Healthcheck failed within ${toString cfg.timeoutSec}s ($failure_detail), but no new generation was applied (current profile unchanged: $current_profile)."
             log_error "Skipping rollback to avoid rolling back intact past generations."
             write_metrics 0 0
