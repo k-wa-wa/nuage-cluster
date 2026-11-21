@@ -24,12 +24,15 @@ let
       jq
     ];
     text = ''
+      tmp_dir=$(mktemp -d)
+      trap 'rm -rf "$tmp_dir"' EXIT
+
       # 1. 同時稼働中のワークツリー数チェック
-      ps_json=$(orca worktree ps --json)
-      working_count=$(printf '%s' "$ps_json" | jq -r '
+      orca worktree ps --json >"$tmp_dir/ps.json"
+      working_count=$(jq -r '
         if .ok != true then error("orca worktree ps failed") end
         | [.result.worktrees[]? | select(.status == "working")] | length
-      ')
+      ' "$tmp_dir/ps.json")
       if [ "$working_count" -ge 1 ]; then
         echo "skip: 稼働中のワークツリーが ''${working_count} 件ある" >&2
         exit 1
@@ -44,8 +47,9 @@ let
       SESSION_MAX_USED_PERCENT=50
       WEEKLY_MAX_USED_PERCENT=70
 
-      account_json=$(orca account list --json)
-      if ! printf '%s' "$account_json" | jq -e \
+      orca account list --json >"$tmp_dir/account.json"
+      rc=0
+      jq -e \
         --argjson session_max "$SESSION_MAX_USED_PERCENT" \
         --argjson weekly_max "$WEEKLY_MAX_USED_PERCENT" '
         def provider_has_headroom($p):
@@ -59,47 +63,64 @@ let
         (.ok == true)
         and provider_has_headroom(.result.rateLimits.antigravity)
         and provider_has_headroom(.result.rateLimits.claude)
-      ' >/dev/null; then
+      ' "$tmp_dir/account.json" >/dev/null || rc=$?
+      if [ "$rc" -eq 1 ]; then
         echo "skip: セッション枠の余裕が不足している (antigravity / claude)" >&2
+        exit 1
+      elif [ "$rc" -ne 0 ]; then
+        echo "error: セッション枠の判定中に jq が失敗した (rc=$rc)" >&2
         exit 1
       fi
 
       # 3. 候補 Issue の存在チェック
-      worktrees_json=$(orca worktree list --json)
-      if ! printf '%s' "$worktrees_json" | jq -e '.ok == true' >/dev/null; then
-        echo "skip: orca worktree list --json の取得に失敗した" >&2
+      orca worktree list --json >"$tmp_dir/worktrees.json"
+      if ! jq -e '.ok == true' "$tmp_dir/worktrees.json" >/dev/null; then
+        echo "error: orca worktree list --json の取得に失敗した" >&2
         exit 1
       fi
+
+      # 引数長上限 (128KiB) を避けるため、先に worktree ごとの紐づき Issue だけを小さな配列へ抽出する。
+      jq -c '[
+        .result.worktrees[]?
+        | {
+            projectId,
+            path,
+            issues: [
+              (
+                .linkedIssue
+                | if type == "number" then .
+                  elif type == "string" then (tonumber? // empty)
+                  elif type == "object" then (.number // empty)
+                  else empty
+                  end
+              ),
+              (.linkedItems[]? | select(.type == "issue") | .number // empty)
+            ]
+          }
+        | select((.issues | length) > 0)
+      ]' "$tmp_dir/worktrees.json" >"$tmp_dir/linked-issues.json"
 
       repos=(
         ${lib.concatMapStringsSep "\n        " (r: ''"${r}"'') targetRepos}
       )
 
+      gh_ok_count=0
       for repo in "''${repos[@]}"; do
-        if ! issues_json=$(gh issue list -R "$repo" --state open --limit 30 --json number,author,labels); then
+        if ! gh issue list -R "$repo" --state open --limit 30 --json number,author,labels >"$tmp_dir/issues.json"; then
           echo "warn: gh issue list failed for $repo" >&2
           continue
         fi
-        if printf '%s' "$issues_json" | jq -e --arg repo "$repo" --argjson wt "$worktrees_json" '
-          ($wt.result.worktrees // []) as $worktrees
-          | ($repo | split("/")[1]) as $repo_name
+        gh_ok_count=$((gh_ok_count + 1))
+        rc=0
+        jq -e --arg repo "$repo" --slurpfile linked "$tmp_dir/linked-issues.json" '
+          ($repo | split("/")[1]) as $repo_name
           | [
-              $worktrees[]
+              $linked[0][]
               | select(
                   (.projectId == ("github:" + $repo))
                   or ((.projectId == null) and ((.path // "") | split("/") | index($repo_name) != null))
                 )
-              | (
-                  (
-                    .linkedIssue
-                    | if type == "number" then .
-                      elif type == "string" then (tonumber? // empty)
-                      elif type == "object" then (.number // empty)
-                      else empty
-                      end
-                  ),
-                  (.linkedItems[]? | select(.type == "issue") | .number // empty)
-                )
+              | .issues[]
             ] as $linked_issues
           | any(
               .[];
@@ -111,10 +132,19 @@ let
               )
               and (.number as $n | any($linked_issues[]; . == $n) | not)
             )
-        ' >/dev/null; then
+        ' "$tmp_dir/issues.json" >/dev/null || rc=$?
+        if [ "$rc" -eq 0 ]; then
           exit 0
+        elif [ "$rc" -ne 1 ]; then
+          echo "error: 候補 Issue の判定中に jq が失敗した (repo=$repo, rc=$rc)" >&2
+          exit 1
         fi
       done
+
+      if [ "$gh_ok_count" -eq 0 ]; then
+        echo "error: すべての対象リポジトリで gh issue list に失敗した" >&2
+        exit 1
+      fi
 
       echo "skip: 着手可能な候補 Issue が無い" >&2
       exit 1
