@@ -7,6 +7,7 @@
 
 let
   targetRepos = [
+    "k-wa-wa/nuage-workspace"
     "k-wa-wa/nuage-cluster"
     "k-wa-wa/nuage-autopilot5"
     "k-wa-wa/nuage-monitoring-stack"

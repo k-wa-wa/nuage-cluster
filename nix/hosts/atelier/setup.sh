@@ -25,6 +25,7 @@ REPOS=(
   cicerone3270
   nuage-autopilot5
   nix-config
+  atelier-memory
 )
 
 if [ "$(id -u)" -eq 0 ]; then
@@ -110,22 +111,6 @@ done
 if ! orca-ide status --json 2>/dev/null | jq -e '.result.runtime.state == "ready"' >/dev/null; then
   echo "Orca が 60 秒たっても起動しない。journalctl --user -u orca-serve を確かめること" >&2
   exit 1
-fi
-
-echo "== 記憶リポジトリ"
-# 作成と権限付与は terraform で行うため、ここでは他リポジトリと同様に取得・更新のみ行う。
-MEMORY_REPO="k-wa-wa/atelier-memory"
-MEMORY_DIR="$(ghq root)/github.com/${MEMORY_REPO}"
-if [ -d "$MEMORY_DIR/.git" ]; then
-  if git -C "$MEMORY_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
-    git -C "$MEMORY_DIR" pull --ff-only
-    echo "atelier-memory $(git -C "$MEMORY_DIR" log -1 --format='%h %s')"
-  else
-    echo "atelier-memory は空のリポジトリである: $MEMORY_DIR"
-  fi
-else
-  ghq get -u "$MEMORY_REPO"
-  echo "atelier-memory を取得した: $MEMORY_DIR"
 fi
 
 echo "== リポジトリ"
