@@ -25,6 +25,7 @@ REPOS=(
   cicerone3270
   nuage-autopilot5
   nix-config
+  atelier-memory
 )
 
 if [ "$(id -u)" -eq 0 ]; then

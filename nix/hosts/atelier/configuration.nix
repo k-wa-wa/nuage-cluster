@@ -19,6 +19,7 @@
     ./devtools.nix
     ./home.nix
     ./orca.nix
+    ./tasks.nix
   ];
 
   networking = {
