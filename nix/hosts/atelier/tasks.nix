@@ -106,7 +106,7 @@ let
 
       gh_ok_count=0
       for repo in "''${repos[@]}"; do
-        if ! gh issue list -R "$repo" --state open --limit 30 --json number,author,labels >"$tmp_dir/issues.json"; then
+        if ! gh issue list -R "$repo" --state open --limit 30 --json number,author >"$tmp_dir/issues.json"; then
           echo "warn: gh issue list failed for $repo" >&2
           continue
         fi
@@ -125,11 +125,6 @@ let
           | any(
               .[];
               (.author.login == "k-wa-wa")
-              and (
-                [.labels[]?.name]
-                | any(. == "manual" or . == "blocked" or . == "wontfix" or . == "autopilot-skip")
-                | not
-              )
               and (.number as $n | any($linked_issues[]; . == $n) | not)
             )
         ' "$tmp_dir/issues.json" >/dev/null || rc=$?
@@ -165,7 +160,7 @@ in
       level = "standard";
       trigger = {
         type = "cron";
-        schedule = "*:0/30";
+        schedule = "05:00";
       };
       precheck = {
         command = "${checkIssueHunterSlot}/bin/check-issue-hunter-slot";

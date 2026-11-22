@@ -113,22 +113,10 @@ if ! orca-ide status --json 2>/dev/null | jq -e '.result.runtime.state == "ready
 fi
 
 echo "== 記憶リポジトリ"
-# 記憶専用 Private リポは Orca 開発リポ一覧 (REPOS) とは性質が異なるため、ghq 配下への取得・更新のみ行う。
-# 開発リポのいずれかが未整備で後段の REPOS 検査で exit 1 になっても取得・更新されるよう、REPOS ループより先に実行する。
+# 作成と権限付与は terraform で行うため、ここでは他リポジトリと同様に取得・更新のみ行う。
 MEMORY_REPO="k-wa-wa/atelier-memory"
 MEMORY_DIR="$(ghq root)/github.com/${MEMORY_REPO}"
-if ! repo_check_err=$(gh repo view "$MEMORY_REPO" --json name 2>&1 >/dev/null); then
-  case "$repo_check_err" in
-    *"Could not resolve to a Repository"* | *"Not Found"*)
-      echo "Private リポ ${MEMORY_REPO} を作成してから再実行すること" >&2
-      echo "既にリポを作成済みの場合は、bot-wa-wa を write 権限の collaborator に追加してから再実行すること" >&2
-      ;;
-    *)
-      echo "${MEMORY_REPO} の確認に失敗した: ${repo_check_err}" >&2
-      exit 1
-      ;;
-  esac
-elif [ -d "$MEMORY_DIR/.git" ]; then
+if [ -d "$MEMORY_DIR/.git" ]; then
   if git -C "$MEMORY_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
     git -C "$MEMORY_DIR" pull --ff-only
     echo "atelier-memory $(git -C "$MEMORY_DIR" log -1 --format='%h %s')"
