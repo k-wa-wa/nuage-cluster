@@ -125,7 +125,7 @@ let
             ] as $linked_issues
           | any(
               .[];
-              (.author.login == "k-wa-wa")
+              (.author.login == "k-wa-wa" or .author.login == "bot-wa-wa")
               and (.number as $n | any($linked_issues[]; . == $n) | not)
             )
         ' "$tmp_dir/issues.json" >/dev/null || rc=$?
