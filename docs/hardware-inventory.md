@@ -15,7 +15,7 @@
 | Proxmox ノード | nuc-1 (Intel NUC 11) | 各アプリ基盤 (nuc-2 は 2026-09 に故障で退役) |
 | Proxmox ノード | dm-1 (HP Desktop Mini, Core i5-8500T / 32GB) | 各アプリ基盤 (nuc-2 後継機、導入中・移植待ち) |
 | Proxmox ノード | server-1 (自作 AM4, Ryzen 9 5900XT / 64GB) | 各アプリ基盤 |
-| Proxmox ノード | server-2 (自作 AM4, Ryzen 5 5500 / 64GB / RX 7600 系 × 2) | 各アプリ基盤、GPU サーバー |
+| Proxmox ノード | server-2 (自作 AM4, Ryzen 5 5500 / 64GB / RX 7600 XT × 2) | 各アプリ基盤、GPU サーバー |
 | ストレージ | TrueNAS | バックアップ、PBS |
 | ラック | StarTech 4POSTRACK25U (25U 4 ポスト オープンフレーム) | 全機器の収容 |
 
@@ -78,7 +78,7 @@
 | メモリ | 64GB = Crucial Pro DDR4 32GB (CP32G4DFRA32A) × 2, 3200MT/s。4 スロット中 2 スロット使用、最大 128GB |
 | ストレージ (起動) | Patriot P220 128GB SATA SSD (LVM `pve`) |
 | ストレージ (データ) | Crucial T500 1TB NVMe (CT1000T500SSD8) → LVM-thin `local-thinpool` |
-| GPU | **Sapphire Radeon RX 7600 系 (Navi 33) × 2 枚** (同じサブシステム ID `1da2:e485`) |
+| GPU | **Sapphire Radeon RX 7600 XT 16GB (Navi 33 / `gfx1102`) × 2 枚** (同じ機種、サブシステム ID `1da2:e485`)。`0000:05:00` は直挿しで PCIe 3.0 x8 (実測 6.7GB/s)、`0000:06:00` はチップセット経由 (実測 3.2GB/s)。lm-server には `0000:06:00` を渡している (`terraform/vpc/zone-private-k8s/lm-server.tf`) |
 | NIC: オンボード | `enp13s0` = Killer E3000 2.5GbE (Realtek) → **vmbr0** (192.168.5.26) |
 | NIC: 4 ポート 2.5GbE カード | Realtek RTL8125 × 4。`enp9s0` → **vmbr10 (SDN Fabric)** / `enp10s0` → **vmbr11 (インターネット出口)** / `enp11s0`, `enp12s0` は未接続 |
 | 電源・ケース | SilverStone 4U ラックマウント SST-RM41-506 |

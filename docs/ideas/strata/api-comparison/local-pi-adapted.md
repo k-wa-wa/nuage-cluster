@@ -14,7 +14,7 @@ server-2 に挿さっている 2 枚の GPU を使って、lm-server を速く�
 
 | 項目 | 内容 |
 | :-- | :-- |
-| GPU | RX 7600 XT (16GB) × 2 枚。2 枚とも同じ機種である (`docs/hardware-inventory.md` には「RX 7600 系」としか書かれていない) |
+| GPU | RX 7600 XT (16GB) × 2 枚。2 枚とも同じ機種である (`docs/hardware-inventory.md`) |
 | スロット | `0000:05:00` が直挿しで PCIe 3.0 x8 (実測 6.7GB/s)、`0000:06:00` がチップセット経由で 3.2GB/s |
 | lm-server が使う GPU | `0000:06:00` の 1 枚だけ (`terraform/vpc/zone-private-k8s/lm-server.tf`)。`0000:05:00` はどの VM にも渡していない |
 | lm-server に回せる RAM | server-2 の 64GB のうち、ほかの VM と LXC が terraform の定義で約 34GB を使うため、約 26GB まで |
