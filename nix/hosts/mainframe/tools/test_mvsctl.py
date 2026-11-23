@@ -415,7 +415,8 @@ class TestWaitForJob(unittest.TestCase):
 
             with (
                 mock.patch.object(mvsctl, "PRINTER", printer),
-                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0]),
+                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0, 100.0]),
+                mock.patch("mvsctl.time.sleep"),
             ):
                 out = mvsctl.wait_for_job("MYJOB", len(before), timeout=10)
 
@@ -440,7 +441,8 @@ class TestWaitForJob(unittest.TestCase):
 
             with (
                 mock.patch.object(mvsctl, "PRINTER", printer),
-                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0]),
+                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0, 100.0]),
+                mock.patch("mvsctl.time.sleep"),
             ):
                 out = mvsctl.wait_for_job("MYJOB", 0, timeout=10)
 
@@ -467,7 +469,8 @@ class TestWaitForJob(unittest.TestCase):
 
             with (
                 mock.patch.object(mvsctl, "PRINTER", printer),
-                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0]),
+                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0, 100.0]),
+                mock.patch("mvsctl.time.sleep"),
             ):
                 out = mvsctl.wait_for_job("MYJOB", 0, timeout=10)
 
@@ -485,7 +488,8 @@ class TestWaitForJob(unittest.TestCase):
 
             with (
                 mock.patch.object(mvsctl, "PRINTER", printer),
-                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0]),
+                mock.patch("mvsctl.time.monotonic", side_effect=[0.0, 1.0, 100.0]),
+                mock.patch("mvsctl.time.sleep"),
             ):
                 out = mvsctl.wait_for_job("MYJOB", offset=len(content) + 1000, timeout=10)
 
