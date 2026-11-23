@@ -139,3 +139,4 @@ strata-pack \
 ### 6.4 関連ドキュメント
 - ハードウェアプロファイルや詳細なレイテンシ内訳、ボトルネック逆算モデルについては同ディレクトリの [evaluation.md](./evaluation.md) を参照すること。
 - 圧縮していない Flash-Next と Qwen3.8-27B を API で比べた結果は [api-comparison/README.md](./api-comparison/README.md) にある。
+- GPU 2 枚での再訪 (Strata 0.2.20・Project Maya・ほかの候補モデル) と、Qwen3.8-27B-pi-adapted を lm-server で比べた結果は [api-comparison/local-pi-adapted.md](./api-comparison/local-pi-adapted.md) にある。
