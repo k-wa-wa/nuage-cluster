@@ -128,6 +128,8 @@ Strata で 90〜130 tok/s が出たとする動画 ([セミガジェ「【革命
 | `scripts/agent.py` | ツール付きエージェントのループ |
 | `scripts/run_all.py` | 課題を並列に走らせ、`results-<日時>.jsonl` に書き出す |
 | `scripts/orc.py` | OpenRouter の呼び出し |
+| `local-pi-adapted.md` | 同じ課題を lm-server で走らせ、Qwen3.8-27B-pi-adapted と比べた記録 (2026-11-23)。GPU 2 枚での候補モデルの調査も含む |
+| `results-local.jsonl`・`calls-local.jsonl`・`scripts/run_local.py` | `local-pi-adapted.md` の生の結果とスクリプト |
 
 ## 9. 再実行の手順
 
