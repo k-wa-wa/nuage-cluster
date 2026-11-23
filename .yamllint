@@ -1,0 +1,16 @@
+extends: default
+
+ignore: |
+  **/charts/
+
+rules:
+  line-length: disable
+  document-start: disable
+  empty-lines: disable
+  trailing-spaces: disable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever

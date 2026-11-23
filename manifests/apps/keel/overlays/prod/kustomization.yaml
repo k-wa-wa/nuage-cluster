@@ -5,3 +5,16 @@ namespace: keel
 
 resources:
 - ../../base
+
+patches:
+  # 旧世代 Helm チャート（helm.sh/chart ラベル無し）かつ単一ポーリングコントローラ前提のため、prod HA ポリシーを除外する
+  - target:
+      kind: Deployment
+      name: keel
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keel
+        annotations:
+          nuage.io/ignore-ha: "true"

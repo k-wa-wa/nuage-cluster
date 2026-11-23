@@ -6,7 +6,7 @@ metadata:
   labels:
     app: searxng
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: searxng
@@ -15,10 +15,20 @@ spec:
       labels:
         app: searxng
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: searxng
+          matchLabelKeys:
+            - pod-template-hash
+          nodeTaintsPolicy: Honor
       containers:
         - name: searxng
           image: searxng/searxng:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
