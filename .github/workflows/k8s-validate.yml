@@ -1,0 +1,44 @@
+name: K8s Manifest Validate
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "manifests/**"
+      - ".yamllint"
+      - ".github/workflows/k8s-validate.yml"
+  pull_request:
+    paths:
+      - "manifests/**"
+      - ".yamllint"
+      - ".github/workflows/k8s-validate.yml"
+
+jobs:
+  validate-prod:
+    name: Validate Prod Apps
+    uses: k-wa-wa/nuage-workspace/.github/workflows/k8s-validate.yml@master
+    with:
+      targets: "manifests/apps/*/overlays/prod"
+      prod: true
+      yamllint-path: "manifests"
+      enable-helm: true
+      fail-on-policy: true
+
+  validate-apps-manifests:
+    name: Validate Apps Root Manifests
+    uses: k-wa-wa/nuage-workspace/.github/workflows/k8s-validate.yml@master
+    with:
+      targets: "manifests/apps/*.yaml"
+      enable-helm: true
+      fail-on-policy: true
+
+  validate-bootstrap:
+    name: Validate Bootstrap
+    uses: k-wa-wa/nuage-workspace/.github/workflows/k8s-validate.yml@master
+    with:
+      targets: "manifests/bootstrap/kustomization.yaml"
+      enable-helm: true
+      fail-on-policy: false

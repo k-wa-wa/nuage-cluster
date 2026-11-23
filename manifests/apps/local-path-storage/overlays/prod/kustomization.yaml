@@ -5,3 +5,17 @@ namespace: local-path-storage
 
 resources:
   - ../../base
+
+patches:
+  # 単一プロビジョナ構成の上流マニフェスト直読みであるため、HA・リソース指定ポリシーを除外する
+  - target:
+      kind: Deployment
+      name: local-path-provisioner
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: local-path-provisioner
+        annotations:
+          nuage.io/ignore-ha: "true"
+          nuage.io/ignore-resources: "true"

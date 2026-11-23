@@ -7,3 +7,42 @@ resources:
 - ../../base
 - clusterIssuer.yaml
 - cert.yaml
+
+patches:
+  # 上流リリースマニフェスト直読みであるため、HA・Probe・リソース指定ポリシーを除外する
+  - target:
+      kind: Deployment
+      name: cert-manager
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: cert-manager
+        annotations:
+          nuage.io/ignore-ha: "true"
+          nuage.io/ignore-probes: "true"
+          nuage.io/ignore-resources: "true"
+  - target:
+      kind: Deployment
+      name: cert-manager-cainjector
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: cert-manager-cainjector
+        annotations:
+          nuage.io/ignore-ha: "true"
+          nuage.io/ignore-probes: "true"
+          nuage.io/ignore-resources: "true"
+  - target:
+      kind: Deployment
+      name: cert-manager-webhook
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: cert-manager-webhook
+        annotations:
+          nuage.io/ignore-ha: "true"
+          nuage.io/ignore-probes: "true"
+          nuage.io/ignore-resources: "true"
