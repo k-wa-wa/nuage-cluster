@@ -28,7 +28,7 @@ spec:
       containers:
         - name: searxng
           image: searxng/searxng:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
