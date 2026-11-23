@@ -366,5 +366,20 @@
         base-lxc = mkBaseLxc;
         base-vm = mkBaseVm;
       });
+
+      checks.x86_64-linux.mvsctl =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        in
+        pkgs.runCommand "mvsctl-test"
+          {
+            nativeBuildInputs = [ pkgs.python3 ];
+          }
+          ''
+            cp ${./hosts/mainframe/tools/mvsctl.py} mvsctl.py
+            cp ${./hosts/mainframe/tools/test_mvsctl.py} test_mvsctl.py
+            python3 -m unittest -v test_mvsctl
+            touch $out
+          '';
     };
 }
