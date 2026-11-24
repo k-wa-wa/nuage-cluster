@@ -104,7 +104,7 @@ sops nix/hosts/lb-1/secrets.yaml
    # Argo CD 用の Age 秘密鍵を Secret として作成
    kubectl create secret generic sops-age-key \
      --namespace argocd \
-     --from-file=keys.txt=~/.config/sops/age/argocd_key.txt
+     --from-file=keys.txt=$HOME/.config/sops/age/argocd_key.txt
    ```
 
 ### ⑥ Argo CD による GitOps 同期と復号
