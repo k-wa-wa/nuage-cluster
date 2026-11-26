@@ -13,7 +13,9 @@
         "pechka.wpcapp.net"
         "pechka-workflow.wpcapp.net"
         "argocd.wpcapp.net"
-        "bwproxy.cluster.wpc"
+        "bwproxy.wpcapp.net"
+        "litellm.wpcapp.net"
+        "searxng.wpcapp.net"
       ];
     };
   };
@@ -72,6 +74,54 @@
             targets = [ "10.20.1.43:9100" ];
             labels = {
               node = "pg-cluster-3";
+            };
+          }
+          {
+            targets = [ "10.20.1.52:9100" ];
+            labels = {
+              node = "atelier";
+            };
+          }
+          {
+            targets = [ "10.20.1.61:9100" ];
+            labels = {
+              node = "swfs-cluster-1";
+            };
+          }
+          {
+            targets = [ "10.20.1.62:9100" ];
+            labels = {
+              node = "swfs-cluster-2";
+            };
+          }
+          {
+            targets = [ "10.20.1.63:9100" ];
+            labels = {
+              node = "swfs-cluster-3";
+            };
+          }
+          {
+            targets = [ "10.20.1.80:9100" ];
+            labels = {
+              node = "bluray-extractor";
+            };
+          }
+          {
+            targets = [ "10.20.1.90:9100" ];
+            labels = {
+              node = "mainframe";
+            };
+          }
+          {
+            targets = [ "10.20.1.250:9100" ];
+            labels = {
+              node = "chaos-monitor";
+            };
+          }
+          {
+            targets = [ "192.168.5.222:9100" ];
+            labels = {
+              node = "lm-server";
             };
           }
         ];
@@ -191,6 +241,54 @@
               node = "pg-cluster-3";
             };
           }
+          {
+            targets = [ "10.20.1.52" ];
+            labels = {
+              node = "atelier";
+            };
+          }
+          {
+            targets = [ "10.20.1.61" ];
+            labels = {
+              node = "swfs-cluster-1";
+            };
+          }
+          {
+            targets = [ "10.20.1.62" ];
+            labels = {
+              node = "swfs-cluster-2";
+            };
+          }
+          {
+            targets = [ "10.20.1.63" ];
+            labels = {
+              node = "swfs-cluster-3";
+            };
+          }
+          {
+            targets = [ "10.20.1.80" ];
+            labels = {
+              node = "bluray-extractor";
+            };
+          }
+          {
+            targets = [ "10.20.1.90" ];
+            labels = {
+              node = "mainframe";
+            };
+          }
+          {
+            targets = [ "10.20.1.250" ];
+            labels = {
+              node = "chaos-monitor";
+            };
+          }
+          {
+            targets = [ "192.168.5.222" ];
+            labels = {
+              node = "lm-server";
+            };
+          }
         ];
         relabel_configs = [
           {
@@ -239,6 +337,18 @@
               service = "bare-web-proxy";
             };
           }
+          {
+            targets = [ "https://litellm.wpcapp.net/" ];
+            labels = {
+              service = "litellm";
+            };
+          }
+          {
+            targets = [ "https://searxng.wpcapp.net/" ];
+            labels = {
+              service = "searxng";
+            };
+          }
         ];
         relabel_configs = [
           {
@@ -282,6 +392,27 @@
             labels = {
               service = "postgres-3";
               node = "pg-cluster-3";
+            };
+          }
+          {
+            targets = [ "10.20.1.61:9000" ];
+            labels = {
+              service = "swfs-s3-1";
+              node = "swfs-cluster-1";
+            };
+          }
+          {
+            targets = [ "10.20.1.62:9000" ];
+            labels = {
+              service = "swfs-s3-2";
+              node = "swfs-cluster-2";
+            };
+          }
+          {
+            targets = [ "10.20.1.63:9000" ];
+            labels = {
+              service = "swfs-s3-3";
+              node = "swfs-cluster-3";
             };
           }
         ];

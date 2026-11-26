@@ -35,7 +35,7 @@
         }
       },
       "gridPos": {
-        "h": 6,
+        "h": 9,
         "w": 24,
         "x": 0,
         "y": 0
@@ -85,10 +85,10 @@
         }
       },
       "gridPos": {
-        "h": 14,
+        "h": 16,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 9
       },
       "id": 6,
       "targets": [
@@ -170,7 +170,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 31
       },
       "id": 2,
       "targets": [
@@ -193,7 +193,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 43
       },
       "id": 4,
       "targets": [
@@ -216,7 +216,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 43
       },
       "id": 5,
       "targets": [
@@ -274,7 +274,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 25
       },
       "id": 8,
       "targets": [
@@ -285,6 +285,106 @@
         }
       ],
       "title": "HTTP Response Code",
+      "type": "state-timeline"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "FAIL"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "OK"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "nixos_upgrade_last_status{node!=\"\"}",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "title": "NixOS Upgrade Last Status",
+      "type": "state-timeline"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "text": "NORMAL"
+                },
+                "1": {
+                  "color": "red",
+                  "text": "ROLLED BACK"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 51
+      },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "nixos_upgrade_rollback_status{node!=\"\"}",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "title": "NixOS Auto-Rollback Status",
       "type": "state-timeline"
     }
   ],
