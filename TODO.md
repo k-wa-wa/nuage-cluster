@@ -55,8 +55,9 @@
 - [ ] **GitHub Actions によるマニフェスト / IaC 検証 CI の自動化**
   - k8s マニフェスト検証 (`.github/workflows/k8s-validate.yml`) および Nix チェック (`.github/workflows/nix-check.yaml`) は導入済み（`nix-images.yaml` と合わせて運用中）
   - Terraform (`scripts/validate-tf.sh` 相当) の検証 CI は未導入のため、PR 時に壊れた変更やフォーマット崩れを事前に防ぐ CI 化が残課題
-- [ ] **シークレット漏洩ガード**
-  - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
+- [x] **シークレット漏洩ガード (SOPS 暗号化チェック)**
+  - `.github/workflows/sops-check.yml`（`scripts/check-sops.sh`）により、`.sops.yaml` 一致ファイルおよび `nix/`・`terraform/`・`manifests/` 配下の `secrets.yaml` に対して `sops:` / `mac: ENC[` の存在とルール登録漏れを CI で検証する構成を導入済み
+  - 残課題: SOPS 管理外の平文シークレット誤コミット検知としての `gitleaks` および pre-commit フックの導入検討
 - [x] ~~**Renovate の導入**~~ (実施しない)
   - 更新対象が多層に散っているが、agent を使用すればすぐアップデートできるため、メリットが大きくないと判断し実施しない。
 - [x] **ApplicationSet 自体の GitOps 化 (App of Apps)**
