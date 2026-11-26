@@ -53,34 +53,62 @@ check_dns_udp() {
 check_readonly_path() {
   name="$1"
   path="$2"
+  fallback_entry="${3:-}"
 
   # 1. /proc/self/mountinfo から該当マウントポイントのオプションを取得し、ro が指定されているか検証
-  if [ -r /proc/self/mountinfo ]; then
-    mount_opts="$(awk -v target="$path" '$5 == target { opts = $6 } END { print opts }' /proc/self/mountinfo)"
-    if [ -z "$mount_opts" ]; then
-      echo "[FAIL] Mount point not found in /proc/self/mountinfo: ${name} (${path})"
-      FAILED=1
-      return
-    fi
-    if ! echo "$mount_opts" | grep -Eq "(^|,)ro(,|$)"; then
-      echo "[FAIL] Mount point is not mounted read-only (opts: ${mount_opts}): ${name} (${path})"
-      FAILED=1
-      return
-    fi
+  if [ ! -r /proc/self/mountinfo ]; then
+    echo "[FAIL] Cannot read /proc/self/mountinfo to verify read-only mount: ${name} (${path})"
+    FAILED=1
+    return
+  fi
+
+  mount_opts="$(awk -v target="$path" '$5 == target { opts = $6 } END { print opts }' /proc/self/mountinfo)"
+  if [ -z "$mount_opts" ]; then
+    echo "[FAIL] Mount point not found in /proc/self/mountinfo: ${name} (${path})"
+    FAILED=1
+    return
+  fi
+  if ! echo "$mount_opts" | grep -Eq "(^|,)ro(,|$)"; then
+    echo "[FAIL] Mount point is not mounted read-only (opts: ${mount_opts}): ${name} (${path})"
+    FAILED=1
+    return
   fi
 
   # 2. 実際の書き込み試行が EROFS (Read-only file system) で拒否されるか検証
   probe="${path}/.__isolation_test_probe_$$"
+  created_probe=1
   out="$(touch "$probe" 2>&1)"
   rc=$?
+
+  # /proc/sys 等の procfs では新規ファイル作成が ENOENT (No such file or directory) になるため、
+  # 明示指定された実在エントリへの書き込み試行へフォールバックして EROFS を検証する
+  if [ "$rc" -ne 0 ] && [ -n "$fallback_entry" ] && echo "$out" | grep -qi "No such file or directory"; then
+    if [ ! -e "$fallback_entry" ]; then
+      echo "[FAIL] Fallback read-only probe entry not found: ${name} (${fallback_entry})"
+      FAILED=1
+      return
+    fi
+    probe="$fallback_entry"
+    created_probe=0
+    out="$(touch "$probe" 2>&1)"
+    rc=$?
+  fi
+
+  probe_desc="${path}"
+  if [ "$created_probe" -eq 0 ]; then
+    probe_desc="${path}, probe: ${probe}"
+  fi
+
   if [ "$rc" -eq 0 ]; then
-    rm -f "$probe" >/dev/null 2>&1 || true
-    echo "[FAIL] Read-only path unexpectedly writable: ${name} (${path})"
+    if [ "$created_probe" -eq 1 ]; then
+      rm -f "$probe" >/dev/null 2>&1 || true
+    fi
+    echo "[FAIL] Read-only path unexpectedly writable: ${name} (${probe_desc})"
     FAILED=1
   elif echo "$out" | grep -qi "Read-only"; then
-    echo "[PASS] Read-only path verified (mount is ro and write rejected with EROFS): ${name} (${path})"
+    echo "[PASS] Read-only path verified (mount is ro and write rejected with EROFS): ${name} (${probe_desc})"
   else
-    echo "[FAIL] Read-only path write did not fail with EROFS (Read-only file system): ${name} (${path}) - ${out}"
+    echo "[FAIL] Read-only path write did not fail with EROFS (Read-only file system): ${name} (${probe_desc}) - ${out}"
     FAILED=1
   fi
 }
@@ -198,7 +226,7 @@ check_allowed "pechka Prod PostgreSQL (pg-cluster-3)" "10.20.1.43" "5432"
 # --- 3. コンテナ・ランタイム境界の健全性検証 ---
 
 # 3.1 Masked / Read-Only パスの検証
-check_readonly_path "Kernel Sysctl (/proc/sys)" "/proc/sys"
+check_readonly_path "Kernel Sysctl (/proc/sys)" "/proc/sys" "/proc/sys/kernel/domainname"
 check_readonly_path "Sysfs (/sys)" "/sys"
 
 # 3.2 ホスト生ブロックデバイスの非露出検証
