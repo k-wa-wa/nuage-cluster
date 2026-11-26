@@ -6,7 +6,7 @@
 - **3 層 IaC** (Terragrunt+OpenTofu → Nix Flake → Argo CD) で全構成を Git 起点に管理する
 - **Ansible を排除**し、宣言的なツールに寄せる
 - **シークレットは SOPS + Age で全て Git 管理**し、人間が守る鍵は管理者 Age 鍵 1 つに集約する
-- 将来的には **spec/cloud.md のマルチテナント環境**(Zone 単位のテナント分離)へ発展させる
+- 将来的には **docs/cloud.md のマルチテナント環境**(Zone 単位のテナント分離)へ発展させる
 
 ---
 
@@ -22,10 +22,15 @@
 | AZ を追加して VPN で繋ぐ | 実施済み |
 | Ansible のコンテナ実行・リファクタ | **Terraform + Nix により Ansible を排除**する方針とし、クローズ |
 | DB の外出し (VM 化) or Operator 使用 | **NFS / SeaweedFS (S3) / PostgreSQL のみ外出し**。NixOS LXC (Patroni+etcd HA / SeaweedFS Cluster) で構築 |
+| S3 互換ストレージの選定・移行 | MinIO から **SeaweedFS** (`nix/hosts/swfs-cluster`) へ移行 |
+| LLM 推論基盤とルーティング | Ollama から **llama.cpp (ROCm)** (`nix/hosts/lm-server`) へ移行し、**LiteLLM** (`manifests/apps/litellm`) による `lm-server` → さくら AI Platform への自動フェイルオーバーを導入 |
+| NixOS LXC の運用安全化・ログ収集 | `auto-upgrade-rollback.nix`（起動後ヘルスチェック＋自動ロールバック）および `journald-upload.nix`（VictoriaLogs 連携）を導入 |
 | 外形死活監視のアーキテクチャ | k8s / Argo CD に非依存の **chaos-monitor (NixOS LXC + Prometheus + Blackbox Exporter + Grafana)** を構築 |
-| 自律開発基盤の導入 | **atelier VM** (Orca サーバー + autopilot5) + クラスタ調査用 read-only ServiceAccount 配布スクリプトを導入 |
+| 自律開発基盤の導入と拡張 | **atelier VM** (Orca サーバー + autopilot5) + クラスタ調査用 read-only ServiceAccount 配布スクリプトに加え、日次自律タスク (`tasks.nix` / `issue-hunter`) と AI 使用量メトリクス収集 (`ai-metrics.nix`) を導入 |
 | PR プレビュー環境の動的管理 | 各アプリリポジトリの PR 用に **動的 ApplicationSet** (`*-preview-appset.yaml`) を導入 |
+| PR プレビュー環境のネットワーク隔離 | `CiliumClusterwideNetworkPolicy` (`manifests/apps/preview-network-policy.yaml`) + `preview-isolation-test` + `nuage-honeytrap` により横展開遮断と定期検証・検知を実装 |
 | Keel と Argo CD の使い分け | PR 環境等のコンテナイメージ自動更新に **Keel** を採用し、Argo CD と共存運用 |
+| メインフレーム環境の導入 | MVS 3.8j on Hercules + KICKS + `nuage-usage-ledger` (`nix/hosts/mainframe`) を導入 |
 
 ---
 
@@ -86,8 +91,11 @@
   - NFS / SeaweedFS (S3) / Postgres は NixOS / TrueNAS へ移行完了し playbook も削除済み。残っている `omada-controller.yml` を LXC (NixOS or 公式コンテナ) へ移行し、「Ansible 排除」の思想を完遂して `playbooks/` を完全撤去する
 - [ ] **nix/flake.nix の重複排除**
   - lb-1/2/3, pg-cluster-1/2/3, swfs-cluster-1/2/3 等が同一定義のコピーになっている。`map` / `genAttrs` で共通ファクトリ関数に畳む
-- [ ] **nixpkgs 24.11 のアップグレード**
-  - 24.11 は EOL のため 25.x へ上げ、sops-nix のコミット固定も release ブランチ追従に変える
+- [x] **nixpkgs 26.05 へのアップグレード**
+  - `nix/flake.nix` の `nixpkgs` (`nixos-26.05`) および `home-manager` (`release-26.05`) の更新を完了
+- [ ] **sops-nix の release ブランチ追従と stateVersion 整理**
+  - `nix/flake.nix` の `sops-nix` が特定コミット (`3433ea14fbd9e6671d0ff0dd45ed15ee4c156ffa`) 固定のままのため、release ブランチ追従へ切り替える
+  - `nix/modules/bootstrap.nix` に残る `system.stateVersion = "24.11"` の扱い（新規イメージ作成時や既存ホストとの互換性）を整理する
 - [x] **atelier のシェル環境を nix-config に寄せる**
   - nix-config の `homeModules.atelier` (core・k8s・iac) を、home-manager の NixOS モジュールとして読み込む (`nix/hosts/atelier/home.nix`)
   - 持ち込まない: git の名前・メール (atelier は bot として書く)、ai-agent の `~/.claude/CLAUDE.md` (autopilot5 が置く)、Mac 専用のもの (iterm2・vscode・launchd)
@@ -95,8 +103,10 @@
 - [ ] **Longhorn の残骸整理 or 導入判断**
   - talos.tf に `/var/lib/longhorn` の extraMount・iscsi-tools 拡張・データ用空ディスク (scsi1) が仕込み済みだが、実際は local-path-provisioner を使用中。**Longhorn を導入する**か、**残骸を消して local-path に一本化する**かを決める
 - [ ] **ドキュメントと実装の乖離修正**
-  - `docs/secrets-management.md` は Secret 名を `argocd-sops-key` と書くが、`apply-apps.sh` や AVP プラグインが使うのは `sops-age-key`。統一する
+  - `docs/secrets-management.md` は Secret 名を `argocd-sops-key`（実態は `apply-apps.sh` や AVP プラグインが使う `sops-age-key`）と書き、存在しない `manifests/bootstrap/secrets/secrets.yaml` の記載や 1 鍵前提の記述も残っているため実態に合わせて修正する
   - `docs/network_design.md` の IPAM 設計 (10.101.x 系 / SDN Overlay 10.0.1.0/24) と実装 (prvmain 10.20.1.0/24 / vmbr10 10.0.0.0/24) の差異について、ドキュメント冒頭に現状とのマッピングを追記する
+  - `docs/operations.md` 7 章の旧記載（削除済みの `scripts/apply-datastore.sh` 残存前提、構築済みの PBS が未構築扱いとなっている表記、旧 `terraform/root_sops.hcl` / `terraform/vpc/cloudflare` 表記など）を現状に合わせて更新する
+  - `README.md` のディレクトリ表（`truenas/` や `playbooks/` の説明など）を現状に合わせて見直す
 - [ ] **EVPN Controller の手動設定の扱い**
   - Terraform 管理外 (GUI 手動) が唯一の「Git に無い構成」。bpg/proxmox provider が対応するまでの間、最低限 `pvesh` コマンド or 設定値スナップショットを setup.md に残して再現可能にする
 - [ ] **setup.md の「TODO: 手順再作成」の解消**
@@ -105,22 +115,24 @@
 ## 5. セキュリティ強化
 
 - [ ] **Age マスターキーの冗長化**
-  - 「人間が守る鍵は 1 つ」の思想は美しいが、単一障害点でもある。`.sops.yaml` に **バックアップ用の第 2 受信者** (金庫保管のオフライン鍵 or age-plugin-yubikey) を追加しておくと、思想を崩さず耐障害性が上がる
+  - `.sops.yaml` には既に `*admin_key` に加えて第 2 受信者 (`*master_key`) が登録済みである
+  - 残課題: `docs/secrets-management.md` 上の「人間が守る鍵は 1 つ」前提の説明との整合を取り、バックアップ鍵のオフライン保管運用を整理する
 - [ ] **NetworkPolicy の導入**
-  - せっかく Cilium なので CiliumNetworkPolicy でアプリ間通信を絞る。Hubble (3 章) でフローを観測 → ポリシー生成、の流れが実践的
+  - プレビュー環境向けには `manifests/apps/preview-network-policy.yaml` (`CiliumClusterwideNetworkPolicy`: `preview-isolation-guardrail`) および定期検証 CronJob (`manifests/apps/preview-isolation-test`) を導入済みである
+  - 残課題: 本番・システム Namespace に対しても Hubble (3 章) でフローを観測し、CiliumNetworkPolicy でアプリ間通信を絞る
 - [ ] **Argo CD の RBAC / SSO**
   - 現状の認証構成を確認し、Cloudflare Zero Trust 側と役割を整理する。admin パスワード運用なら Dex + GitHub OAuth 等へ
 - [ ] **Talos の KubeSpan / Pod Security 標準の適用検討**
   - namespace への PSS ラベル付与を bootstrap/namespaces.yaml に足すだけでベースラインが上がる
 - [ ] **Proxmox ホストファイアウォールの Default Drop**
-  - spec/cloud.md 5.1 の要件だが、実装状況が Git から読み取れない。terraform/pve/hosts で管理下に置く
+  - docs/cloud.md 5.1 の要件だが、実装状況が Git から読み取れない。terraform/pve/hosts で管理下に置く
 
-## 6. マルチテナント構想 (spec/cloud.md) の前進
+## 6. マルチテナント構想 (docs/cloud.md) の前進
 
 - [ ] **Shared Services Zone の実体化**
   - 現状 PG/NFS/SeaweedFS (S3) は zone: private 内や旧セグメントに同居。spec 通り `zone-shared` を切って移設すると、テナント追加時に共有サービスへの経路設計が綺麗になる
 - [ ] **BGP EVPN Route Leaking (フェーズ 2) の検証**
-  - Hub & Spoke を飛ばして VRF Leaking を先に PoC する価値あり。zone-waai が既にあるので、waai ↔ shared 間で試せる
+  - Hub & Spoke を飛ばして VRF Leaking を先に PoC する価値がある。現状は `terraform/vpc/` 配下に `zone-dev` と `zone-private*` 群が存在するため、これらと共有サービスゾーン (`zone-shared`) 等の間で試せる
 - [ ] **内部 DNS 基盤 (Technitium 等) の導入**
   - 現状 lb 上の CoreDNS がゾーン 1 つ分をハードコード。テナントごとの `*.<tenant>.lab.internal` を払い出すなら、API で管理できる Technitium / PowerDNS への置き換えが効く
 - [ ] **テナント払い出しの Terraform モジュール化**
@@ -131,8 +143,8 @@
 - [ ] **Cilium BGP Control Plane で lb 層を薄くする**
   - 既にアンダーレイが BGP EVPN なので、Cilium の BGP Control Plane + LB-IPAM で Service type=LoadBalancer の VIP を直接広報できる可能性がある。成功すれば HAProxy の NodePort 中継が不要になり、lb LXC は API サーバー用に縮退できる。kube-vip → 外部 HAProxy と変遷してきた歴史の次の一手として面白い
 - [ ] **LMServer (lm-server) の自律電源制御 (サーバーレス LLM)**
-  - `flake.nix` にて `lm-server` (qwen3.6-27b + ROCm) は構築済み。
-  - 発展として、Ollama へのリクエストを Kubernetes KEDA やリバースプロキシで検知し、自動で Proxmox API 経由で server-2 を WoL 起動、一定時間のアイドル状態で自動サスペンド/シャットダウンするオンデマンド電源制御を構築する
+  - `nix/hosts/lm-server/llama-cpp.nix` にて `llama.cpp` (`qwen3.8-27b` + ROCm) が構築済みであり、`manifests/apps/litellm` による `lm-server` → さくら AI Platform への自動フェイルオーバーも導入済みである。
+  - 発展として、推論リクエストを Kubernetes KEDA やリバースプロキシ（LiteLLM 連携等）で検知し、自動で Proxmox API 経由で server-2 を WoL 起動、一定時間のアイドル状態で自動サスペンド/シャットダウンするオンデマンド電源制御を構築する（起動完了まではクラウド側へ逃がし、準備完了後にローカルへ戻す構成も検討する）
 - [ ] **Self-hosted GitHub Actions Runner (ARC) をクラスターに置く**
   - nix-images のビルドや CI (2 章) を自宅で回せる。Terragrunt の plan だけ CI で実行 → 結果を PR コメント、まで行くと「手動 push 型」の①層が半自動化される
 - [ ] **リージョン追加 + Cilium ClusterMesh**
@@ -146,8 +158,8 @@
 - [ ] **SeaweedFS (S3) を活用した自前 Nix バイナリキャッシュの構築 (②層の高速化)**
   - クラスター外の SeaweedFS (S3) を Nix のバイナリキャッシュサーバー (`nix-cache`) として構成する。ローカル環境や CI でのビルド結果を SeaweedFS (S3) にキャッシュすることで、複数ノード間での NixOS ビルド処理の重複を排除し、デプロイやイメージ生成を極限まで高速化する
 - [ ] **AI-driven 自律運用 (AI Copilot Operator) の発展**
-  - `atelier` VM (Orca サーバー + autopilot5) および調査用 read-only ServiceAccount 配布基盤は構築済み。
-  - 発展として、Slack や Matrix にローカル LLM (lm-server) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語での対話に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
+  - `atelier` VM (Orca サーバー + autopilot5) および調査用 read-only ServiceAccount 配布基盤に加え、日次自律タスク (`nix/hosts/atelier/tasks.nix` / `issue-hunter`) と AI 使用量メトリクス収集 (`nix/hosts/atelier/ai-metrics.nix`) は実装済みである。
+  - 発展として、Slack や Matrix にローカル LLM (`lm-server` / LiteLLM) バックエンドのボットを常駐させ、Kubernetes API や Prometheus へのアクセス権限（ツール呼び出し）を与える。自然言語での対話に加え、Alertmanager の発報を検知した際に LLM がログやイベントを自動解析して原因分析と復旧コマンドを自動提案する半自律型自己修復基盤を PoC する
 - [ ] **永続データの外部オブジェクトストレージへの自動暗号化レプリケーション**
   - クラスター内は揮発とする割り切りを補完するため、外部の永続データ (PostgreSQL WAL, SeaweedFS (S3), NFS) について、`restic` や `rclone` を用いて外部オブジェクトストレージ (Cloudflare R2 や Backblaze B2) へ自動で暗号化バックアップする。これにより、自宅の物理災害時にもデータ損失を避ける 3-2-1 バックアップルールを確立する
 - [ ] **Prometheus と物理空間の双方向連携 (Ambient IoT-Ops)**
