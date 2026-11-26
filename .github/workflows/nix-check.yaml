@@ -23,7 +23,7 @@ jobs:
 
       - name: Check Nix Formatting
         working-directory: nix
-        run: nix fmt -- --ci
+        run: nix fmt -- --ci .
 
       - name: Check Flake Evaluation
         run: nix flake check ./nix

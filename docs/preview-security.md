@@ -13,7 +13,7 @@
 ## 残存リスクと設計上の制限事項
 
 1. **Namespace 名制限の欠如とラベルパッチ空振りリスク**:
-   - Argo CD の `spec.destinations` は `kind: Namespace` 自身の `metadata.name` を制限できない。また、現在の Preview ApplicationSet はアプリ側の `Namespace` マニフェストへ Kustomize パッチで PSA ラベルを付与しているため、PR 側で `Namespace` 定義が削除・改名されるとパッチが空振りし、ラベル無しの `*-pr-*` Namespace が作られて PSA と `CiliumClusterwideNetworkPolicy` の捕捉対象から外れるリスクがある。
+   - Argo CD の `spec.destinations` は `kind: Namespace` 自身の `metadata.name` を制限できないため、悪意ある PR が `metadata.name: pechka` 等の本番 Namespace を指定すると Server-Side Apply の競合や PR クローズ時の prune で本番 Namespace が影響を受けるおそれがある。また、現在の Preview ApplicationSet はアプリ側の `Namespace` マニフェストへ Kustomize パッチで PSA ラベルを付与しているため、PR 側で `Namespace` 定義が削除・改名されるとパッチが空振りし、ラベル無しの `*-pr-*` Namespace が作られて PSA と `CiliumClusterwideNetworkPolicy` の捕捉対象から外れるリスクがある。
    - 恒久対策は `syncPolicy.managedNamespaceMetadata` または `ValidatingAdmissionPolicy` によるラベル強制である。それまでは `k8s/` 配下のマニフェスト差分レビューを継続する。
 2. **入口ラベル制御の TOCTOU・フェイルオープン・再付与**:
    - 第三者がコミットを push してから `auto-preview-label.yml` が `preview` ラベルを剥奪するまでの短い窓に ApplicationSet のポーリング（`requeueAfterSeconds: 180`）が重なった場合や、GitHub Actions の遅延・障害時はラベルが維持される（fail-open）。

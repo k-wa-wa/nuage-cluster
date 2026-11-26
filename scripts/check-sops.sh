@@ -108,39 +108,77 @@ def collect_targets(root: Path, regexes: list[re.Pattern[str]]) -> list[Path]:
     return targets
 
 
-def has_sops_encryption_metadata(path: Path) -> bool:
+EMPTY_YAML_VALUES = {"", "null", "~", '""', "''", "{}", "[]"}
+
+
+def inspect_sops_file(path: Path) -> list[str]:
     try:
         content = path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
-        return False
+        return ["UTF-8 として読み取れない"]
 
     if not content.strip():
-        return False
+        return ["ファイルが空である"]
 
     in_sops_block = False
     has_sops_block = False
     has_mac = False
+    plaintext_lines: list[int] = []
 
-    for raw_line in content.splitlines():
+    for lineno, raw_line in enumerate(content.splitlines(), start=1):
         stripped = raw_line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped or stripped.startswith("#") or stripped in ("---", "..."):
             continue
 
         if not raw_line[0].isspace():
-            if stripped == "---":
-                in_sops_block = False
-                continue
             if re.match(r"^sops:\s*(?:#.*)?$", raw_line):
                 in_sops_block = True
                 has_sops_block = True
-            else:
-                in_sops_block = False
+                continue
+            in_sops_block = False
+
+        if in_sops_block:
+            if re.match(r"^\s+mac:\s*['\"]?ENC\[", raw_line):
+                has_mac = True
             continue
 
-        if in_sops_block and re.match(r"^\s+mac:\s*['\"]?ENC\[", raw_line):
-            has_mac = True
+        # リスト要素で値自体が ENC[...] の場合 (例: "  - ENC[...]")
+        if re.match(r"^\s*-\s+['\"]?ENC\[", raw_line):
+            continue
 
-    return has_sops_block and has_mac
+        # sops ブロック外では、空値および親キーを除きすべての値が ENC[ で始まる必要がある
+        m_kv = re.match(
+            r'^\s*(?:-\s+)?(?:"[^"]+"|\'[^\']+\'|[^:#\s\[][^:#\[]*):\s*(.*)$',
+            raw_line,
+        )
+        if m_kv:
+            val = m_kv.group(1).strip()
+            if val.startswith("#"):
+                continue
+            if val not in EMPTY_YAML_VALUES and not re.match(r"^['\"]?ENC\[", val):
+                plaintext_lines.append(lineno)
+            continue
+
+        m_li = re.match(r"^\s*-\s*(.*)$", raw_line)
+        if m_li:
+            val = m_li.group(1).strip()
+            if val.startswith("#"):
+                continue
+            if val not in EMPTY_YAML_VALUES and not re.match(r"^['\"]?ENC\[", val):
+                plaintext_lines.append(lineno)
+            continue
+
+        plaintext_lines.append(lineno)
+
+    errors: list[str] = []
+    if not (has_sops_block and has_mac):
+        errors.append("SOPS 暗号化メタデータ (sops: / mac: ENC[) が見つからない")
+    if plaintext_lines:
+        lines_str = ", ".join(str(n) for n in plaintext_lines[:5])
+        if len(plaintext_lines) > 5:
+            lines_str += ", ..."
+        errors.append(f"sops ブロック外に未暗号化の値がある (line {lines_str})")
+    return errors
 
 
 def main() -> int:
@@ -177,8 +215,7 @@ def main() -> int:
         if not any(rx.search(rel) for rx in regexes):
             errors.append(".sops.yaml の creation_rules に一致しない")
 
-        if not has_sops_encryption_metadata(path):
-            errors.append("SOPS 暗号化メタデータ (sops: / mac: ENC[) が見つからない")
+        errors.extend(inspect_sops_file(path))
 
         if errors:
             failed = True
