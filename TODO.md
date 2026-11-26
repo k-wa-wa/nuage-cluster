@@ -49,11 +49,12 @@
 ## 2. CI / 自動化 (優先度: 高)
 
 - [x] **マニフェスト・IaC・NixOS のローカル検証スクリプト整備**
-  - `scripts/validate-manifests.sh` (`kustomize build --enable-helm` + kubeconform スキーマ検証 + kube-linter) を整備
+  - `manifests/lint.sh` (`nuage-workspace` の共通 `run.sh` 経由で `kustomize build --enable-helm` + `yamllint` + `kubeconform` + `pluto` + Conftest Rego ポリシー検証) を整備
   - `scripts/validate-tf.sh` (`tofu validate` + `terragrunt hcl format --check` + `tflint`) を整備
   - `scripts/validate-nix.sh` (`nix flake check`) を整備
 - [ ] **GitHub Actions によるマニフェスト / IaC 検証 CI の自動化**
-  - 現状 GitHub Actions は `nix-images.yaml` (LXC イメージビルド) のみ。master push = 即本番同期 (prune + selfHeal) なので、PR / push 時にローカル検証スクリプトと同等の CI を回して壊れた変更を事前に防ぐ
+  - k8s マニフェスト検証 (`.github/workflows/k8s-validate.yml`) および Nix チェック (`.github/workflows/nix-check.yaml`) は導入済み（`nix-images.yaml` と合わせて運用中）
+  - Terraform (`scripts/validate-tf.sh` 相当) の検証 CI は未導入のため、PR 時に壊れた変更やフォーマット崩れを事前に防ぐ CI 化が残課題
 - [ ] **シークレット漏洩ガード**
   - pre-commit + CI で「`secrets.yaml` が SOPS 暗号化済みか (`sops_mac` の存在チェック)」を検証。gitleaks の導入も検討
 - [x] ~~**Renovate の導入**~~ (実施しない)

@@ -9,13 +9,12 @@ description: Reference of conventions, commands, and validation techniques for c
 
 ## 構成と規約
 
-- `manifests/bootstrap/`: namespace・Argo CD 本体 (クラスタ構築時に `scripts/apply-apps.sh` で適用)
-- `manifests/common/`: Cilium 等の基盤コンポーネント
+- `manifests/bootstrap/`: Cilium・namespace・Argo CD 本体 (クラスタ構築時に `scripts/apply-apps.sh` で適用)
 - `manifests/bootstrap/argocd/root-app.yaml`: app of apps のルート Application。`manifests/apps` 直下 (非再帰) を automated sync し、配下の ApplicationSet 定義ファイル自体を GitOps 管理する。このファイル自体は自己参照による selfHeal ループを避けるため意図的に `manifests/apps/` の外に置かれており GitOps 管理対象外。クラスタ構築時 (または spec 変更時) に `scripts/apply-apps.sh` (または `kubectl apply -f manifests/bootstrap/argocd/root-app.yaml`) で手動 apply する
 - `manifests/apps/<app>/overlays/prod`: 本リポジトリ管理アプリ。作成すると ApplicationSet (`appset-prod.yaml`) が自動検出し、`<app>` namespace にデプロイする
 - `manifests/apps/multi-repo-deploy.yaml`: 外部リポジトリのアプリ一覧。対象リポジトリ側に `k8s/overlays/prod` が必要。AVP プラグイン (sops モード) 経由で同期される
 - master へ push するだけで Argo CD が自動同期する (prune + selfHeal 有効、ServerSideApply)。`manifests/apps/` 直下の ApplicationSet ファイル自体の追加・変更も root-app.yaml 経由で同様に自動反映される
-- k8s から PostgreSQL primary への宛先 IP は `manifests/apps/pg-cluster/base/service.yaml` の EndpointSlice (`primary` Service) で定義
+- k8s から PostgreSQL への宛先 IP は `manifests/apps/external-service/base/postgres.yaml` の Headless Service (`postgres`) および EndpointSlice (`postgres-slice`) で定義
 
 ## ローカル検証
 
@@ -25,8 +24,8 @@ export PATH=$HOME/.nix-profile/bin:$PATH
 # レンダリング確認
 kustomize build manifests/apps/<app>/overlays/prod
 
-# 全マニフェストの build + kube-linter 検証 (.kube-linter.yaml 準拠)
-bash scripts/validate-manifests.sh
+# 全マニフェストの検証 (nuage-workspace の run.sh 経由で kustomize / yamllint / kubeconform / pluto / Conftest Rego を実行; nix-shell shebang を有効にするため直接実行する)
+./manifests/lint.sh
 ```
 
 ## 同期状態の確認
@@ -62,7 +61,7 @@ talosctl -e 192.168.5.200:50000 -n 10.20.1.11 etcd status
 ```
 
 - Talos / Kubernetes のバージョンは `terraform/vpc/modules/k8s-cluster/talos.tf` で管理。CP → worker の順にローリング
-- Cilium のバージョンは `manifests/common/cilium/kustomization.yaml` で管理
+- Cilium のバージョンは `manifests/bootstrap/cilium/kustomization.yaml` で管理
 
 ## 注意点・既知の罠
 
