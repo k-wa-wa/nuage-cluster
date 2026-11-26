@@ -149,7 +149,7 @@ jobs:
   8. **許可テスト（CoreDNS `10.96.0.10:53` TCP および `nslookup` UDP 名前解決）**: 両方成功すれば PASS、いずれか失敗なら FAIL。
   9. **許可テスト（パブリックインターネット `1.1.1.1:443`）**: 疎通すれば PASS、遮断されれば FAIL。
   10. **許可テスト（`pechka` 本番外部リソース：SeaweedFS S3 実ノード `10.20.1.61〜63:9000` の 3 台および PostgreSQL 実ノード `10.20.1.41〜43:5432` の 3 台）**: すべて疎通すれば PASS、いずれか遮断されれば FAIL。
-  11. **コンテナ境界テスト（Masked / Read-Only パス）**: `/proc/self/mountinfo` で `/proc/sys` および `/sys` が `ro` マウントされていることを確認した上で、書き込み試行が `Read-only file system` (EROFS) で拒否されることを検証。コンテナエスケープの起点となるホストカーネルパラメータ改ざん（`sysctl` や `sysfs` 経由）を防止する設計意図。
+  11. **コンテナ境界テスト（Masked / Read-Only パス）**: `/proc/self/mountinfo` で `/proc/sys` および `/sys` が `ro` マウントされていることを確認した上で、書き込み試行が `Read-only file system` (EROFS) で拒否されることを検証する（`/proc/sys` は procfs の特性上新規ファイル作成が `ENOENT` となるため、実在エントリ `/proc/sys/kernel/domainname` への書き込み試行へフォールバックして EROFS を確認する）。コンテナエスケープの起点となるホストカーネルパラメータ改ざん（`sysctl` や `sysfs` 経由）を防止する設計意図。
   12. **コンテナ境界テスト（ホスト生ブロックデバイス非露出）**: `/dev/` 配下にホストの生ブロックデバイス（`sda*`, `vda*`, `nvme*`, `xvd*`, `dm-*` 等）が存在しないことを検証。ストレージ生パーティションの直接マウントや破壊を防止する設計意図。
   13. **コンテナ境界テスト（Linux 特権ケーパビリティ非保持）**: `/proc/self/status` の `CapEff` を読み取り、`CAP_SYS_ADMIN`（`0x00200000`）をはじめとする危険な特権ケーパビリティ（`CAP_SYS_MODULE`, `CAP_SYS_RAWIO`, `CAP_SYS_PTRACE`, `CAP_SYS_BOOT`）が付与されていないことを検証。非特権コンテナに対する containerd/Talos ランタイム既定値のドリフトを検知する設計意図（※本検証 Pod 自体は特権を要求しないため、PSA admission による特権 Pod 拒否そのものを検証するものではない点に留意）。
 - 1 つでも違反があればスクリプトは Exit 1 で終了し、Job が `Failed` 状態として記録される。
