@@ -40,7 +40,7 @@ kubectl get apps -n argocd
 open https://argocd.wpcapp.net
 ```
 
-PostgreSQL primary の宛先 (`10.20.1.28`) は `manifests/apps/pg-cluster/base/service.yaml` 内の EndpointSlice で定義しており、Argo CD が同期する (Argo CD の `resource.exclusions` から EndpointSlice を除外対象外にすることで管理可能にしている)。
+PostgreSQL の宛先 (`10.20.1.41-43`) は `manifests/apps/external-service/base/postgres.yaml` 内の Headless Service (`postgres`) および EndpointSlice (`postgres-slice`) で定義しており、Argo CD が同期する (Argo CD の `resource.exclusions` から EndpointSlice を除外対象外にすることで管理可能にしている)。
 
 ### 2.2 NixOS ホストの変更 (lb-1/2/3, egress-gateway など)
 
