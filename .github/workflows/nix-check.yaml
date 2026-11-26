@@ -1,9 +1,13 @@
+# nix/ 配下の Flake 評価とフォーマット崩れを PR 時点で防ぐためのチェック。
+# 未フォーマットの .nix が混入すると後続の変更で無関係な差分が発生し、
+# 評価エラーを見逃すと各ホストの system.autoUpgrade が失敗するため CI で自動検証する。
 name: Nix Check
 
 on:
   pull_request:
     paths:
       - "nix/**"
+      - ".github/workflows/nix-check.yaml"
 
 jobs:
   flake-check:
@@ -16,6 +20,10 @@ jobs:
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Check Nix Formatting
+        working-directory: nix
+        run: nix fmt -- --ci
 
       - name: Check Flake Evaluation
         run: nix flake check ./nix

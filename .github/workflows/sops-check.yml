@@ -1,0 +1,21 @@
+# SOPS 管理対象ファイルが未暗号化のままコミット・マージされる事故と、
+# 新規 secrets.yaml に対する .sops.yaml の creation_rules 登録漏れを防ぐためのチェック。
+# 暗号化メタデータ (sops: / mac: ENC[) とパスルールの一致のみを読み取り検査し、復号は行わない。
+name: SOPS Encryption Check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  sops-check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check SOPS encrypted files
+        run: ./scripts/check-sops.sh

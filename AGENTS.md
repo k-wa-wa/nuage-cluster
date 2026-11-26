@@ -80,8 +80,8 @@ ssh <host> 'sudo systemctl start nixos-upgrade; journalctl -u nixos-upgrade -n 2
   `terragrunt --working-dir terraform/pve/hosts plan`
 
 - **Nixファイルのフォーマット**:
-  `nix/` 配下のファイル（`*.nix` 等）を変更した際は、必ず以下のコマンドを実行してフォーマットを適用すること。
-  `nix run nixpkgs#nixfmt-tree -- ./nix`
+  `nix/` 配下のファイル（`*.nix` 等）を変更した際は、以下のコマンドでフォーマットを適用する（PR 時に CI で `nix fmt -- --ci` が自動検証される）。
+  `cd nix && nix fmt`
 
 - **言い切り調の使用**:
   コメントアウトやドキュメントを記述する際は、です・ます調（敬体）を避け、である・する調（常体）の言い切りを使用すること。
