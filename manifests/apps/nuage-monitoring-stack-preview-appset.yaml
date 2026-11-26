@@ -42,6 +42,7 @@ spec:
           images:
             - 'ghcr.io/k-wa-wa/nuage-monitoring-stack-monitoring-pwa-backend:pr-{{number}}'
             - 'ghcr.io/k-wa-wa/nuage-monitoring-stack-monitoring-pwa-frontend:pr-{{number}}'
+            - 'ghcr.io/k-wa-wa/nuage-monitoring-stack-monitoring-pwa-echo-bot:pr-{{number}}'
           patches:
             - target:
                 kind: Namespace
