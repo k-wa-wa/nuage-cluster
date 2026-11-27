@@ -4,6 +4,7 @@
   imports = [
     (modulesPath + "/virtualisation/proxmox-lxc.nix")
     ../../modules/bootstrap.nix
+    ../../modules/lxc-psi-metrics.nix
   ];
 
   # NixOS 側で networking.hostName を管理・評価できるようにする

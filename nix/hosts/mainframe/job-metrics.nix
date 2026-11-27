@@ -7,10 +7,12 @@ let
   textfileDir = "/var/lib/prometheus/node-exporter";
 in
 {
-  systemd.tmpfiles.rules = [
-    "d /var/lib/prometheus 0755 root root - -"
-    "d ${textfileDir} 0755 hercules mainframe - -"
-  ];
+  # 共通モジュール (nix/modules/node-exporter.nix) が /var/lib/prometheus/node-exporter の
+  # tmpfiles ルールを管理するため、ここでは所有者のみを上書きして重複行を防ぐ。
+  services.prometheus.exporters.node.textfile = {
+    owner = "hercules";
+    group = "mainframe";
+  };
 
   # mvslog.txt はコンソールのメッセージのたびに書き換わるため、更新を契機 (systemd.paths) にすると
   # 数秒おきに起動して起動回数の上限 (start-limit-hit) に達し、autoUpgrade の switch が失敗する。

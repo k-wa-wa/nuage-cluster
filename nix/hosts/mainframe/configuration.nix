@@ -17,12 +17,6 @@
     nameservers = [ "8.8.8.8" ];
   };
 
-  services.prometheus.exporters.node = {
-    extraFlags = [
-      "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
-    ];
-  };
-
   system.autoUpgrade.healthCheck.requiredUnits = [
     "hercules.service"
   ];
