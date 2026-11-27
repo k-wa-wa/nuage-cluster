@@ -16,10 +16,6 @@
     "net.ipv4.ip_nonlocal_bind" = 1;
   };
 
-  services.prometheus.exporters.node = {
-    extraFlags = [ "--collector.textfile.directory=/var/lib/prometheus/node-exporter" ];
-  };
-
   system.autoUpgrade.healthCheck.requiredUnits = [
     "haproxy.service"
     "coredns.service"

@@ -24,12 +24,6 @@
     "net.ipv6.conf.default.disable_ipv6" = 1;
   };
 
-  services.prometheus.exporters.node = {
-    extraFlags = [
-      "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
-    ];
-  };
-
   system.autoUpgrade.healthCheck.requiredUnits = [
     "swfs-master.service"
     "swfs-volume.service"

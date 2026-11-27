@@ -31,12 +31,6 @@
     "r /var/lib/prometheus/node-exporter/keepalived_VI_PG_REPLICA.prom - - - - -"
   ];
 
-  services.prometheus.exporters.node = {
-    extraFlags = [
-      "--collector.textfile.directory=/var/lib/prometheus/node-exporter"
-    ];
-  };
-
   system.autoUpgrade.healthCheck.requiredUnits = [
     "patroni.service"
     "etcd.service"
