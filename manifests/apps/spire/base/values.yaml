@@ -1,0 +1,105 @@
+global:
+  spire:
+    clusterName: nuage
+    trustDomain: nuage
+    namespaces:
+      create: false
+      server:
+        name: spire
+        create: false
+      system:
+        name: spire
+        create: false
+  # kustomize build --enable-helm (helm template) 経由のため、Helm フック Job は無効化する
+  installAndUpgradeHooks:
+    enabled: false
+  deleteHooks:
+    enabled: false
+
+spire-server:
+  enabled: true
+  fullnameOverride: spire-server
+  # Deployment + Recreate により CA 鍵をメモリ保持したまま単一インスタンスでの作り直しを保証する
+  kind: deployment
+  replicaCount: 1
+  updateStrategy:
+    type: Recreate
+  persistence:
+    type: emptyDir
+  dataStore:
+    sql:
+      databaseType: sqlite3
+      inMemory: true
+  keyManager:
+    disk:
+      enabled: false
+    memory:
+      enabled: true
+  caSubject:
+    country: JP
+    organization: Nuage
+    commonName: nuage
+  defaultJwtSvidTTL: 5m
+  controllerManager:
+    enabled: true
+    className: nuage
+    watchClassless: false
+    validatingWebhookConfiguration:
+      enabled: true
+      failurePolicy: Ignore
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          enabled: false
+        test-keys:
+          enabled: false
+  unsupportedBuiltInPlugins:
+    nodeAttestor:
+      sshpop:
+        plugin_data:
+          cert_authorities_path: /etc/spire/ssh/ssh-ca.pub
+          agent_path_template: "/{{ .PluginName }}/{{ .Hostname }}"
+  extraVolumes:
+    - name: ssh-ca
+      configMap:
+        name: spire-ssh-ca
+  extraVolumeMounts:
+    - name: ssh-ca
+      mountPath: /etc/spire/ssh
+      readOnly: true
+
+spire-agent:
+  enabled: true
+  server:
+    address: spire-server.spire.svc.cluster.local
+  nodeAttestor:
+    k8sPSAT:
+      enabled: true
+  workloadAttestors:
+    k8s:
+      enabled: true
+      verification:
+        # Talos (terraform/vpc/modules/k8s-cluster/talos.tf) では kubelet 証明書自動署名を有効化しておらず
+        # kubelet (127.0.0.1:10250) が自己署名証明書を返すため skip を指定する。
+        # DaemonSet の hostNetwork により同一ノードの loopback (127.0.0.1:10250) へのみ接続する前提とする。
+        type: skip
+  rebootstrapMode: always
+  rebootstrapDelay: 10s
+
+spiffe-csi-driver:
+  enabled: true
+
+spiffe-oidc-discovery-provider:
+  enabled: true
+  fullnameOverride: spiffe-oidc-discovery-provider
+  bundleSource: CSI
+  tls:
+    spire:
+      enabled: false
+    externalSecret:
+      enabled: false
+    certManager:
+      enabled: false
+  config:
+    additionalDomains:
+      - spiffe-oidc-discovery-provider.spire.svc

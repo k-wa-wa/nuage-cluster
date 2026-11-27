@@ -9,6 +9,7 @@
 #   CoreDNS (53/UDP, 53/TCP) による名前解決、パブリックインターネット通信、
 #   pechka プレビューが必要とする本番外部リソース (SeaweedFS S3 実ノード 10.20.1.61〜63:9000,
 #   PostgreSQL 実ノード 10.20.1.41〜43:5432)、
+#   SPIRE OIDC Discovery Provider (spire Namespace の JWKS HTTP:8080)、
 #   および侵入検知ハニーポット (nuage-honeytrap) への誘導通信のみを許可する。
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
@@ -77,7 +78,16 @@ spec:
         - ports:
             - port: "5432"
               protocol: TCP
-    # 5. 侵入検知ハニーポット (nuage-honeytrap) への限定許可 (トラップへの誘導)
+    # 5. SPIRE OIDC Discovery Provider (JWKS 取得用 HTTP targetPort 8080) への限定許可
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: spire
+            app.kubernetes.io/name: spiffe-oidc-discovery-provider
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    # 6. 侵入検知ハニーポット (nuage-honeytrap) への限定許可 (トラップへの誘導)
     - toEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: nuage-honeytrap

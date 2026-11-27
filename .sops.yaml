@@ -41,6 +41,13 @@ creation_rules:
           - *admin_key
           - *master_key
 
+  # SPIRE sshpop 用 SSH CA 秘密鍵 (人間が生成・管理する)。ホスト自身や Argo CD には開かせない。
+  - path_regex: terraform/pve/hosts-secrets/ssh-ca\.yaml$
+    key_groups:
+      - age:
+          - *admin_key
+          - *master_key
+
   # ログイン用の SSH 鍵 (scripts/gen-login-key.sh が書く)。人間だけが開ける。
   - path_regex: \.ssh/login-keys\.yaml$
     key_groups:

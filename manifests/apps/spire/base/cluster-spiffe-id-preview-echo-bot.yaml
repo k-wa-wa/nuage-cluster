@@ -1,0 +1,21 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: preview-echo-bot
+  annotations:
+    # CRD と controller-manager より後に適用するため wave 1 とし、CRD 未導入時の dry-run 失敗を防ぐ
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  className: nuage
+  spiffeIDTemplate: "spiffe://nuage/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+  namespaceSelector:
+    matchLabels:
+      pod-security.kubernetes.io/enforce: baseline
+  podSelector:
+    matchLabels:
+      app: monitoring-pwa-echo-bot
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:{{ .PodSpec.ServiceAccountName }}"
+  jwtTtl: "5m"

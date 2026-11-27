@@ -1,0 +1,15 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: atelier-monitoring-bot
+  annotations:
+    # CRD と controller-manager より後に適用するため wave 1 とし、CRD 未導入時の dry-run 失敗を防ぐ
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  className: nuage
+  spiffeID: "spiffe://nuage/host/atelier/bot"
+  parentID: "spiffe://nuage/spire/agent/sshpop/atelier"
+  selectors:
+    - "unix:user:monitoring-bot-token"
+  jwtSVIDTTL: "5m"
