@@ -79,6 +79,9 @@ spire-agent:
     k8s:
       enabled: true
       verification:
+        # Talos (terraform/vpc/modules/k8s-cluster/talos.tf) では kubelet 証明書自動署名を有効化しておらず
+        # kubelet (127.0.0.1:10250) が自己署名証明書を返すため skip を指定する。
+        # DaemonSet の hostNetwork により同一ノードの loopback (127.0.0.1:10250) へのみ接続する前提とする。
         type: skip
   rebootstrapMode: always
   rebootstrapDelay: 10s

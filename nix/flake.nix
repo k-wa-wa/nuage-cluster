@@ -365,7 +365,84 @@
       packages = forAllSystems (system: {
         base-lxc = mkBaseLxc;
         base-vm = mkBaseVm;
+        spiffe-helper = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/spiffe-helper { };
       });
+
+      checks.x86_64-linux =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+          lib = nixpkgs.lib;
+          atelierDefault = self.nixosConfigurations.atelier;
+          atelierPreview = atelierDefault.extendModules {
+            modules = [
+              {
+                nuage.atelier.spire.previewPrNumber = 42;
+              }
+            ];
+          };
+          atelierTestDefault = atelierDefault.extendModules {
+            modules = [
+              {
+                services.nuage.spiffeHelpers.monitoring-bot-token.outputDir = lib.mkForce "/tmp/spiffe-helper-test";
+              }
+            ];
+          };
+          atelierTestPreview = atelierTestDefault.extendModules {
+            modules = [
+              {
+                nuage.atelier.spire.previewPrNumber = 42;
+              }
+            ];
+          };
+          execAgent = atelierDefault.config.systemd.services.spire-agent.serviceConfig.ExecStart;
+          execPreview =
+            atelierPreview.config.systemd.services.spiffe-helper-monitoring-bot-token.serviceConfig.ExecStart;
+          prepDefault =
+            atelierTestDefault.config.systemd.services.spiffe-helper-monitoring-bot-token.serviceConfig.ExecStartPre;
+          prepPreview =
+            atelierTestPreview.config.systemd.services.spiffe-helper-monitoring-bot-token.serviceConfig.ExecStartPre;
+        in
+        {
+          spiffe-helper-pkg = self.packages.x86_64-linux.spiffe-helper;
+          atelier-spire-regression = pkgs.runCommand "atelier-spire-regression" { } ''
+            set -euo pipefail
+
+            # 1. spire-agent.conf に unix と systemd の両 WorkloadAttestor が含まれること
+            agent_conf=$(printf '%s\n' "${execAgent}" | awk '{print $NF}')
+            grep -q 'WorkloadAttestor "unix"' "$agent_conf"
+            grep -q 'WorkloadAttestor "systemd"' "$agent_conf"
+            grep -q 'NodeAttestor "sshpop"' "$agent_conf"
+
+            # 2. spiffe-helper が v0.12.4 を参照し、preview 有効時でも本番と preview の両ファイルが定義されること
+            case "${execPreview}" in
+              *spiffe-helper-0.12.4/bin/spiffe-helper*) ;;
+              *) echo "unexpected spiffe-helper binary: ${execPreview}" >&2; exit 1 ;;
+            esac
+            helper_conf=$(printf '%s\n' "${execPreview}" | awk '{print $NF}')
+            grep -q 'jwt_audience = "monitoring-pwa"' "$helper_conf"
+            grep -q 'jwt_svid_file_name = "monitoring-pwa.jwt"' "$helper_conf"
+            grep -q 'jwt_audience = "monitoring-pwa.nuage-monitoring-stack-pr-42"' "$helper_conf"
+            grep -q 'jwt_svid_file_name = "monitoring-pwa-preview.jwt"' "$helper_conf"
+
+            # 3. ExecStartPre が有効な本番 JWT を保持し、不要になった preview JWT や無関係なファイルのみ削除すること
+            mkdir -p /tmp/spiffe-helper-test
+            printf 'PROD_JWT' > /tmp/spiffe-helper-test/monitoring-pwa.jwt
+            printf 'PREV_JWT' > /tmp/spiffe-helper-test/monitoring-pwa-preview.jwt
+            printf 'STALE_JWT' > /tmp/spiffe-helper-test/stale.jwt
+
+            ${prepPreview}
+            [ "$(cat /tmp/spiffe-helper-test/monitoring-pwa.jwt)" = "PROD_JWT" ]
+            [ "$(cat /tmp/spiffe-helper-test/monitoring-pwa-preview.jwt)" = "PREV_JWT" ]
+            [ ! -e /tmp/spiffe-helper-test/stale.jwt ]
+
+            ${prepDefault}
+            [ "$(cat /tmp/spiffe-helper-test/monitoring-pwa.jwt)" = "PROD_JWT" ]
+            [ ! -e /tmp/spiffe-helper-test/monitoring-pwa-preview.jwt ]
+
+            mkdir -p "$out"
+            touch "$out/passed"
+          '';
+        };
 
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };

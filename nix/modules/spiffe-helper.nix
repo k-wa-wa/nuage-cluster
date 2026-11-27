@@ -11,6 +11,7 @@
 
 let
   cfg = config.services.nuage.spiffeHelpers;
+  defaultSpiffeHelperPkg = pkgs.callPackage ../pkgs/spiffe-helper { };
   escapeHclString = s: ''"${lib.escape [ "\\" "\"" ] s}"'';
 
   renderJwtSvid =
@@ -49,6 +50,13 @@ let
           type = lib.types.bool;
           default = true;
           description = "この spiffe-helper インスタンスを有効化する";
+        };
+
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = defaultSpiffeHelperPkg;
+          defaultText = lib.literalExpression "pkgs.callPackage ../pkgs/spiffe-helper { }";
+          description = "使用する spiffe-helper パッケージ (v0.12.4 以上)";
         };
 
         user = lib.mkOption {
@@ -171,6 +179,25 @@ in
       name: inst:
       let
         conf = mkHelperConfig name inst;
+        expectedFileNames = map (j: j.fileName) inst.jwtSvids;
+        cleanupStaleScript = pkgs.writeShellScript "spiffe-helper-${name}-prep" ''
+          set -euo pipefail
+          dir=${lib.escapeShellArg inst.outputDir}
+          [ -d "$dir" ] || exit 0
+          for f in "$dir"/*.jwt; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            keep=false
+            case "$base" in
+              ${lib.concatMapStringsSep "\n              " (
+                fn: "${lib.escapeShellArg fn}) keep=true ;;"
+              ) expectedFileNames}
+            esac
+            if [ "$keep" = "false" ]; then
+              rm -f "$f"
+            fi
+          done
+        '';
       in
       lib.nameValuePair "spiffe-helper-${name}" {
         description = "SPIFFE Helper (${name})";
@@ -191,10 +218,8 @@ in
           SupplementaryGroups = inst.extraGroups;
           # 0640 出力時にグループ読み取りビットが削られないよう UMask は 0027 とする
           UMask = "0027";
-          ExecStartPre = "${pkgs.writeShellScript "spiffe-helper-${name}-prep" ''
-            rm -f ${lib.escapeShellArg inst.outputDir}/*.jwt
-          ''}";
-          ExecStart = "${lib.getExe pkgs.spiffe-helper} -config ${conf}";
+          ExecStartPre = cleanupStaleScript;
+          ExecStart = "${lib.getExe inst.package} -config ${conf}";
           Restart = "always";
           RestartSec = "5s";
           NoNewPrivileges = true;

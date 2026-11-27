@@ -1,4 +1,4 @@
-# SPIRE Agent (sshpop + unix workload attestor) を常駐させる NixOS モジュール。
+# SPIRE Agent (sshpop + unix / systemd workload attestor) を常駐させる NixOS モジュール。
 #
 # - サーバー側がメモリ CA + 作り捨てデータストア前提のため、data_dir は /run/spire/agent (揮発領域) に置き、
 #   再起動時は ExecStartPre で掃除して insecure_bootstrap = true で再アテストする。
@@ -43,12 +43,16 @@ let
       WorkloadAttestor "unix" {
         plugin_data {}
       }
+
+      WorkloadAttestor "systemd" {
+        plugin_data {}
+      }
     }
   '';
 in
 {
   options.services.nuage.spireAgent = {
-    enable = lib.mkEnableOption "SPIRE Agent (sshpop + unix)";
+    enable = lib.mkEnableOption "SPIRE Agent (sshpop + unix + systemd)";
 
     package = lib.mkPackageOption pkgs "spire-agent" { };
 
@@ -113,9 +117,10 @@ in
     ];
 
     systemd.services.spire-agent = {
-      description = "SPIRE Agent (sshpop + unix)";
+      description = "SPIRE Agent (sshpop + unix + systemd)";
       wantedBy = [ "multi-user.target" ];
       after = [
+        "dbus.socket"
         "network-online.target"
         "systemd-tmpfiles-setup.service"
       ];

@@ -60,7 +60,8 @@ in
     };
 
     # nuage-autopilot5 の bot を動かす nixos ユーザーだけに JWT ファイルの読み取りを許す。
-    # nixos には spire-agent グループを付けないため、Workload API ソケットへの直接接続は防がれる。
+    # nixos には spire-agent グループを付けず通常権限での Workload API 直接接続を防ぐ
+    # (なお atelier では nixos が wheel / パスワードなし sudo を持つため、特権昇格を伴わない範囲の分離である)。
     users.users.nixos.extraGroups = [ "monitoring-bot-token" ];
   };
 }

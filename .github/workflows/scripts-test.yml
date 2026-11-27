@@ -1,0 +1,20 @@
+name: Scripts Test
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - ".sops.yaml"
+      - ".github/workflows/scripts-test.yml"
+
+jobs:
+  test-scripts:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run gen-host-keys.sh regression tests
+        run: bash scripts/test-gen-host-keys.sh
