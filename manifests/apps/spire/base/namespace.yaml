@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire
+  labels:
+    # spire-agent (hostPath) と spiffe-csi-driver (特権コンテナ / CSI ソケット) を動かすため privileged とする
+    pod-security.kubernetes.io/enforce: privileged

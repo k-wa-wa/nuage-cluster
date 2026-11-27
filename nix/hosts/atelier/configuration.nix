@@ -19,6 +19,7 @@
     ./devtools.nix
     ./home.nix
     ./orca.nix
+    ./spire.nix
     ./tasks.nix
   ];
 
