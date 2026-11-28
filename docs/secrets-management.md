@@ -102,14 +102,14 @@ sops nix/hosts/lb-1/secrets.yaml
 1. Argo CD が暗号化されたマニフェストを復号できるように、Argo CD 用の Age 秘密鍵をクラスター内に Kubernetes `Secret` として事前に手動登録しておく。
    ```bash
    # Argo CD 用の Age 秘密鍵を Secret として作成
-   kubectl create secret generic argocd-sops-key \
+   kubectl create secret generic sops-age-key \
      --namespace argocd \
-     --from-file=key.txt=~/.config/sops/age/argocd-keys.txt
+     --from-file=keys.txt=$HOME/.config/sops/age/argocd_key.txt
    ```
 
 ### ⑥ Argo CD による GitOps 同期と復号
 1. 開発者が暗号化された `manifests/.../secrets.yaml` を Git にコミットする。
-2. Argo CD が同期（Sync）する際、**Argo CD Vault Plugin (AVP)** 等が事前登録された `argocd-sops-key` を使ってメモリ上でシークレットを復号し、クラスター上に平文の `Secret` としてデプロイする。
+2. Argo CD が同期（Sync）する際、**Argo CD Vault Plugin (AVP)** 等が事前登録された `sops-age-key` を使ってメモリ上でシークレットを復号し、クラスター上に平文の `Secret` としてデプロイする。
 
 ---
 
